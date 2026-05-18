@@ -36,6 +36,7 @@ jobs:
           APPFOLIO_CLIENT_SECRET: ${{ secrets.APPFOLIO_CLIENT_SECRET }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           LATE_GRACE_DAYS: ${{ vars.LATE_GRACE_DAYS || '5' }}
+          PM_EMAIL: ${{ secrets.PM_EMAIL }}
         run: python sync.py
 
       - name: Commit updated state

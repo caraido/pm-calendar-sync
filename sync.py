@@ -43,6 +43,7 @@ GOOGLE_SCOPES   = ["https://www.googleapis.com/auth/calendar"]
 
 LATE_GRACE_DAYS  = int(os.environ.get("LATE_GRACE_DAYS", 5))
 RENT_DUE_DAY     = int(os.environ.get("RENT_DUE_DAY", 1))        # day of month rent is due
+PM_EMAIL         = os.environ.get("PM_EMAIL", "")                 # your openkey PM Google account
 STATE_FILE       = Path("state.json")
 CALENDAR_PREFIX  = "OKPM"                                         # → "OKPM · Ryan Palmer Portfolio"
 AF_API_DELAY_SEC = 2.0   # pause between AppFolio API calls to avoid 429
@@ -235,29 +236,37 @@ class GoogleCalendarManager:
             "timeZone": "America/Chicago",
         }).execute()
         log.info(f"Created calendar: {summary}")
+        # Immediately share with PM account so they can see it
+        if PM_EMAIL:
+            self._share(cal["id"], PM_EMAIL, role="owner", notify=False)
         self._calendar_cache[owner_name] = cal["id"]
         return cal["id"]
 
-    def share_with_owner(self, calendar_id: str, owner_email: str):
-        """Grant read-only access to the owner. Idempotent — safe to call every run."""
-        if not owner_email:
+    def _share(self, calendar_id: str, email: str, role: str = "reader", notify: bool = True):
+        """Internal: grant a role to an email. Idempotent."""
+        if not email:
             return
         try:
             acl = self.service.acl().list(calendarId=calendar_id).execute()
             for rule in acl.get("items", []):
-                if rule.get("scope", {}).get("value") == owner_email:
-                    return  # already shared
+                if rule.get("scope", {}).get("value") == email:
+                    return  # already has access
             self.service.acl().insert(
                 calendarId=calendar_id,
-                body={
-                    "scope": {"type": "user", "value": owner_email},
-                    "role": "reader",
-                },
-                sendNotifications=True,
+                body={"scope": {"type": "user", "value": email}, "role": role},
+                sendNotifications=notify,
             ).execute()
-            log.info(f"Shared calendar with {owner_email}")
+            log.info(f"Shared calendar ({role}) with {email}")
         except HttpError as e:
-            log.warning(f"Could not share calendar with {owner_email}: {e}")
+            log.warning(f"Could not share calendar with {email}: {e}")
+
+    def share_with_owner(self, calendar_id: str, owner_email: str):
+        """Grant read-only access to the property owner. Idempotent."""
+        self._share(calendar_id, owner_email, role="reader", notify=True)
+
+    def ensure_pm_access(self, calendar_id: str):
+        """Grant the PM account owner-level access. Idempotent, no notification."""
+        self._share(calendar_id, PM_EMAIL, role="owner", notify=False)
 
     # ── Event building ───────────────────────────────────────────────────────
 
@@ -493,6 +502,7 @@ class SyncOrchestrator:
             )
 
             calendar_id = self.gcal.get_or_create_calendar(owner_name)
+            self.gcal.ensure_pm_access(calendar_id)   # PM always has owner access
             if owner_email:
                 self.gcal.share_with_owner(calendar_id, owner_email)
 
