@@ -1,0 +1,42 @@
+name: AppFolio → Calendar Sync
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # every 30 min normally
+    - cron: '*/15 1-5 * * *' # every 15 min on days 1-5 of every month (rent week)
+  workflow_dispatch:           # manual trigger button in GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run sync
+        env:
+          APPFOLIO_DB_NAME: ${{ secrets.APPFOLIO_DB_NAME }}
+          APPFOLIO_CLIENT_ID: ${{ secrets.APPFOLIO_CLIENT_ID }}
+          APPFOLIO_CLIENT_SECRET: ${{ secrets.APPFOLIO_CLIENT_SECRET }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          LATE_GRACE_DAYS: ${{ vars.LATE_GRACE_DAYS || '5' }}
+        run: python sync.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "okpm-sync-bot"
+          git config user.email "bot@okpm.local"
+          git add state.json
+          git diff --cached --quiet || git commit -m "chore: update sync state [skip ci]"
+          git push
