@@ -2,13 +2,18 @@ name: AppFolio → Calendar Sync
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # every 30 min normally
-    - cron: '*/15 1-5 * * *' # every 15 min on days 1-5 of every month (rent week)
-  workflow_dispatch:           # manual trigger button in GitHub UI
+    - cron: '*/30 * * * *'    # every 30 min normally
+    - cron: '*/15 1-5 * * *'  # every 15 min on days 1-5 of month (rent week)
+  workflow_dispatch:            # manual trigger button in GitHub UI
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # suppress Node.js 20 deprecation warning
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # required to commit state.json back to repo
 
     steps:
       - name: Checkout repo
