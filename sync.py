@@ -513,6 +513,27 @@ class SyncOrchestrator:
         self.state.save()
         log.info("=== Sync complete ===")
 
+    def _month_range(self, from_date: date, to_date: date) -> list[date]:
+        """Return list of 1st-of-month dates from from_date's month to to_date's month."""
+        months = []
+        cur = from_date.replace(day=RENT_DUE_DAY)
+        # If due day already passed this month, start from this month still
+        end = to_date.replace(day=RENT_DUE_DAY)
+        while cur <= end:
+            months.append(cur)
+            # Advance one month
+            month = cur.month + 1
+            year  = cur.year + (1 if month > 12 else 0)
+            month = month if month <= 12 else 1
+            try:
+                cur = cur.replace(year=year, month=month, day=RENT_DUE_DAY)
+            except ValueError:
+                # due day doesn't exist in this month (e.g. 31st in Feb) — use last day
+                import calendar as cal_mod
+                last = cal_mod.monthrange(year, month)[1]
+                cur = cur.replace(year=year, month=month, day=last)
+        return months
+
     def _sync_unit(
         self, row: dict, calendar_id: str,
         due_date: date, today: date, this_month: str
@@ -522,47 +543,78 @@ class SyncOrchestrator:
         past_due     = float(row.get("past_due", 0) or 0)
         status       = classify_status(rent, past_due)
 
+        # Parse lease end date
+        lease_to_str = row.get("lease_to") or ""
+        try:
+            lease_end = date.fromisoformat(lease_to_str)
+        except ValueError:
+            lease_end = due_date  # fallback: current month only
+
         # Normalized unit dict passed to event builders
         unit = {
-            "occupancy_id":      occupancy_id,
-            "property_name":     row.get("property_name", ""),
-            "address":           format_address(row),
-            "unit_label":        unit_label(row),
-            "tenant":            row.get("tenant", ""),
+            "occupancy_id":       occupancy_id,
+            "property_name":      row.get("property_name", ""),
+            "address":            format_address(row),
+            "unit_label":         unit_label(row),
+            "tenant":             row.get("tenant", ""),
             "additional_tenants": row.get("additional_tenants", ""),
-            "rent":              rent,
-            "past_due":          past_due,
-            "lease_from":        row.get("lease_from", ""),
-            "lease_to":          row.get("lease_to", ""),
+            "rent":               rent,
+            "past_due":           past_due,
+            "lease_from":         row.get("lease_from", ""),
+            "lease_to":           lease_to_str,
         }
 
-        # Skip Calendar API if nothing changed since last run
+        # ── A. Current month: update with real payment status ────────────────
         prior = self.state.get(occupancy_id, this_month)
-        if prior and prior["status"] == status and prior["past_due"] == past_due:
-            log.info(f"  No change for occupancy {occupancy_id} — skipping")
-            # Still handle late event — day count changes even if status is the same
+        if not (prior and prior["status"] == status and prior["past_due"] == past_due):
+            rent_body     = self.gcal._build_rent_event(unit, status, due_date)
+            rent_event_id = self.gcal.upsert_event(calendar_id, rent_body)
+
+            late_event_id = self._handle_late_event(
+                unit, calendar_id, due_date, today, status,
+                existing_late_id=prior.get("late_event_id") if prior else None,
+            )
+            self.state.set(occupancy_id, this_month, {
+                "status":        status,
+                "past_due":      past_due,
+                "rent_event_id": rent_event_id,
+                "late_event_id": late_event_id,
+            })
+            log.info(f"  Updated current month for occupancy {occupancy_id} → {status}")
+        else:
+            log.info(f"  No change for occupancy {occupancy_id} current month — skipping")
             self._handle_late_event(
                 unit, calendar_id, due_date, today, status,
                 existing_late_id=prior.get("late_event_id"),
             )
-            return
 
-        # Upsert the rent event
-        rent_body    = self.gcal._build_rent_event(unit, status, due_date)
-        rent_event_id = self.gcal.upsert_event(calendar_id, rent_body)
-
-        # Upsert or delete the late event
-        late_event_id = self._handle_late_event(
-            unit, calendar_id, due_date, today, status,
-            existing_late_id=prior.get("late_event_id") if prior else None,
+        # ── B. Future months: create placeholder events if not yet in state ──
+        # Unit dict for future events — always shows as Unpaid, $0 past due
+        future_unit = {**unit, "past_due": 0.0}
+        future_months = self._month_range(
+            due_date + timedelta(days=32),  # start from next month
+            lease_end
         )
+        created = 0
+        for future_due in future_months:
+            fmonth = future_due.strftime("%Y-%m")
+            if self.state.get(occupancy_id, fmonth):
+                continue  # already created — never overwrite future/past events
+            future_body   = self.gcal._build_rent_event(future_unit, STATUS_UNPAID, future_due)
+            future_event_id = self.gcal.upsert_event(calendar_id, future_body)
+            self.state.set(occupancy_id, fmonth, {
+                "status":        STATUS_UNPAID,
+                "past_due":      0.0,
+                "rent_event_id": future_event_id,
+                "late_event_id": None,
+            })
+            created += 1
 
-        self.state.set(occupancy_id, this_month, {
-            "status":        status,
-            "past_due":      past_due,
-            "rent_event_id": rent_event_id,
-            "late_event_id": late_event_id,
-        })
+        if created:
+            log.info(
+                f"  Created {created} future month events for occupancy {occupancy_id} "
+                f"through {lease_end}"
+            )
 
     def _handle_late_event(
         self, unit: dict, calendar_id: str,
