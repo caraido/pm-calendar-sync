@@ -156,6 +156,28 @@ class AppFolioClient:
         """
         return self._post_report("owner_directory")
 
+    def get_tenant_directory(self) -> list[dict]:
+        """
+        Returns all tenants. Key fields used:
+          occupancy_id, phone_numbers (format: "Phone: (xxx) xxx-xxxx"), emails,
+          primary_tenant ("Yes"/"No") — filter to primary only for phone lookup.
+        """
+        return self._post_report("tenant_directory")
+
+    def get_tenant_ledger_month(self, from_date: str, to_date: str) -> list[dict]:
+        """
+        Returns ALL ledger rows for the date range across all tenants.
+        Note: occupancy_id filtering is ignored by AppFolio — always returns all.
+        We match payments to units via the payer name field in Python.
+
+        Credit rows (credit != null) = actual payments.
+        Debit rows  (debit  != null) = charges (rent, fees, etc.)
+        """
+        return self._post_report(
+            "tenant_ledger",
+            {"from_date": from_date, "to_date": to_date}
+        )
+
 
 # ---------------------------------------------------------------------------
 # Data helpers
@@ -173,6 +195,87 @@ def build_owner_property_map(owners: list[dict]) -> dict[int, dict]:
             pid_str = pid_str.strip()
             if pid_str.isdigit():
                 mapping[int(pid_str)] = owner
+    return mapping
+
+
+def normalize_tenant_name(name: str) -> str:
+    """
+    Normalize AppFolio tenant name to 'First Last' for matching against payer field.
+    rent_roll/tenant_directory format: 'Last, First Middle'
+    ledger payer format: 'First Last'
+    """
+    name = (name or "").strip()
+    if "," in name:
+        parts = name.split(",", 1)
+        return f"{parts[1].strip()} {parts[0].strip()}"
+    return name
+
+
+def build_payment_map(ledger_rows: list[dict]) -> dict[str, list[dict]]:
+    """
+    Returns {normalized_payer_name: [payment_records]} from credit rows only.
+    Handles multiple payments per tenant and NSF reversals.
+
+    Payment record: {date, amount, description, is_nsf}
+    """
+    payments: dict[str, list] = {}
+    for row in ledger_rows:
+        credit_raw = row.get("credit")
+        if not credit_raw:
+            continue
+        try:
+            amount = float(credit_raw)
+        except (ValueError, TypeError):
+            continue
+        if amount == 0:
+            continue
+
+        payer = normalize_tenant_name(row.get("payer") or "Unknown")
+        desc  = (row.get("description") or "").strip()
+        is_nsf = "nsf" in desc.lower() or "reversed" in desc.lower()
+
+        payments.setdefault(payer, []).append({
+            "date":        row.get("date", ""),
+            "amount":      amount,
+            "description": _shorten_payment_desc(desc),
+            "is_nsf":      is_nsf,
+        })
+    return payments
+
+
+def _shorten_payment_desc(desc: str) -> str:
+    """
+    Shorten verbose AppFolio payment descriptions to fit calendar event.
+    e.g. 'ACH Payment (Reference #CE35-5160)' → 'ACH (#CE35-5160)'
+         'Credit Card Payment (Reference #6D28)' → 'Credit Card (#6D28)'
+         'Payment (Reference #Zelle) May rent...' → 'Zelle - May rent...'
+    """
+    import re
+    # ACH Payment (Reference #XXXX) → ACH (#XXXX)
+    desc = re.sub(r'ACH Payment \(Reference (#[\w-]+)\)', r'ACH ()', desc)
+    # Credit Card Payment (Reference #XXXX) → Credit Card (#XXXX)
+    desc = re.sub(r'Credit Card Payment \(Reference (#[\w-]+)\)', r'Credit Card ()', desc)
+    # Payment (Reference #Zelle) ... → Zelle ...
+    desc = re.sub(r'Payment \(Reference #(\w+)\)\s*', r' - ', desc)
+    # Trim
+    return desc[:80].strip(" -")
+
+
+def build_tenant_phone_map(tenants: list[dict]) -> dict[int, str]:
+    """
+    Returns {occupancy_id: phone_number_string} for primary tenants only.
+    Strips the "Phone: " prefix AppFolio includes in the field.
+    """
+    mapping: dict[int, str] = {}
+    for t in tenants:
+        if t.get("primary_tenant") != "Yes":
+            continue
+        oid = t.get("occupancy_id")
+        raw = (t.get("phone_numbers") or "").strip()
+        # Strip label prefix e.g. "Phone: (773) 822-5358" → "(773) 822-5358"
+        phone = raw.replace("Phone:", "").replace("Mobile:", "").replace("Fax:", "").strip()
+        if oid and phone:
+            mapping[int(oid)] = phone
     return mapping
 
 
@@ -300,18 +403,43 @@ class GoogleCalendarManager:
         if unit.get('additional_tenants'):
             tenants += f", {unit['additional_tenants']}"
 
-        description = "\n".join([
+        # Build payment lines from individual records
+        payment_lines = []
+        payments = unit.get("payments", [])
+        if payments:
+            for p in sorted(payments, key=lambda x: x["date"]):
+                nsf_tag = " ⚠️ NSF" if p["is_nsf"] else ""
+                # Format date as "May 03"
+                try:
+                    pdate = date.fromisoformat(p["date"]).strftime("%b %d")
+                except ValueError:
+                    pdate = p["date"]
+                payment_lines.append(
+                    f"  {pdate}  ${p['amount']:,.2f}  {p['description']}{nsf_tag}"
+                )
+        else:
+            payment_lines.append("  No payments recorded yet")
+
+        desc_lines = [
             f"Tenant(s):    {tenants}",
             (f"{unit['unit_label']}  |  " if unit['unit_label'] else "") +
             f"{unit['address']}",
+            f"Phone:        {unit['phone']}",
             "─" * 40,
             f"Monthly Rent: ${unit['rent']:,.2f}",
-            f"Past Due:     ${balance:,.2f}",
+            "Payments:",
+        ]
+        desc_lines.extend(payment_lines)
+        desc_lines += [
+            "─" * 40,
+            f"Total Paid:   ${unit['amount_paid']:,.2f}",
+            f"Balance:      ${balance:,.2f}",
             f"Status:       {status}",
             "─" * 40,
             f"Late After:   {late_threshold.strftime('%b %d, %Y')}",
             f"Lease:        {unit['lease_from']} → {unit['lease_to']}",
-        ])
+        ]
+        description = "\n".join(desc_lines)
 
         return {
             "summary": title,
@@ -482,9 +610,22 @@ class SyncOrchestrator:
         owners = self.af.get_owner_directory()
         log.info(f"  {len(owners)} owners")
 
-        # ── 2. Build property_id → owner lookup ─────────────────────────────
-        prop_to_owner = build_owner_property_map(owners)
+        log.info("Fetching tenant_directory...")
+        tenants = self.af.get_tenant_directory()
+        log.info(f"  {len(tenants)} tenant rows")
+
+        log.info("Fetching tenant_ledger (current month)...")
+        first_of_month = today.replace(day=1).isoformat()
+        ledger_rows = self.af.get_tenant_ledger_month(first_of_month, today.isoformat())
+        log.info(f"  {len(ledger_rows)} ledger rows")
+
+        # ── 2. Build lookup tables ───────────────────────────────────────────
+        prop_to_owner  = build_owner_property_map(owners)
+        tenant_phones  = build_tenant_phone_map(tenants)
+        payment_map    = build_payment_map(ledger_rows)
         log.info(f"  {len(prop_to_owner)} property→owner mappings")
+        log.info(f"  {len(tenant_phones)} tenant phone numbers")
+        log.info(f"  {len(payment_map)} tenants with payment records this month")
 
         # ── 3. Filter to active/current leases only ─────────────────────────
         active = [r for r in rent_roll if r.get("status") == "Current"]
@@ -523,7 +664,8 @@ class SyncOrchestrator:
                 self.gcal.share_with_owner(calendar_id, owner_email)
 
             for row, _ in rows_and_owners:
-                self._sync_unit(row, calendar_id, due_date, today, this_month)
+                self._sync_unit(row, calendar_id, due_date, today, this_month,
+                                tenant_phones, payment_map)
 
         # ── 6. Persist state ─────────────────────────────────────────────────
         self.state.save()
@@ -552,12 +694,19 @@ class SyncOrchestrator:
 
     def _sync_unit(
         self, row: dict, calendar_id: str,
-        due_date: date, today: date, this_month: str
+        due_date: date, today: date, this_month: str,
+        tenant_phones: dict,
+        payment_map: dict,
     ):
         occupancy_id = str(row["occupancy_id"])
         rent         = float(row.get("rent", 0) or 0)
         past_due     = float(row.get("past_due", 0) or 0)
         status       = classify_status(rent, past_due)
+
+        # Look up individual payment records by matching tenant name to payer
+        tenant_normalized = normalize_tenant_name(row.get("tenant", ""))
+        payments_this_month = payment_map.get(tenant_normalized, [])
+        amount_paid = sum(p["amount"] for p in payments_this_month if not p["is_nsf"])
 
         # Parse lease end date
         lease_to_str = row.get("lease_to") or ""
@@ -576,6 +725,9 @@ class SyncOrchestrator:
             "additional_tenants": row.get("additional_tenants", ""),
             "rent":               rent,
             "past_due":           past_due,
+            "amount_paid":        amount_paid,
+            "payments":           payments_this_month,  # individual payment records
+            "phone":              tenant_phones.get(int(occupancy_id), "N/A"),
             "lease_from":         row.get("lease_from", ""),
             "lease_to":           lease_to_str,
         }
@@ -606,7 +758,7 @@ class SyncOrchestrator:
 
         # ── B. Future months: create placeholder events if not yet in state ──
         # Unit dict for future events — always shows as Unpaid, $0 past due
-        future_unit = {**unit, "past_due": 0.0}
+        future_unit = {**unit, "past_due": 0.0, "amount_paid": 0.0, "payments": []}
         future_months = self._month_range(
             due_date + timedelta(days=32),  # start from next month
             lease_end
