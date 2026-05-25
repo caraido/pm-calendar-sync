@@ -17,14 +17,17 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+# Accept either a file path or raw JSON string
 _sa_raw  = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
 PM_EMAIL = os.environ["PM_EMAIL"]   # your openkey Google account email
+
 if _sa_raw.strip().endswith(".json") or ("\\" in _sa_raw or "/" in _sa_raw):
     # Looks like a file path — read it
     with open(_sa_raw.strip()) as f:
         SA_INFO = json.load(f)
 else:
     SA_INFO = json.loads(_sa_raw)
+
 creds = service_account.Credentials.from_service_account_info(
     SA_INFO,
     scopes=["https://www.googleapis.com/auth/calendar"]
@@ -54,7 +57,9 @@ for cal in okpm:
         for r in acl.get("items", [])
     )
     if already:
+        subscribe = f"https://calendar.google.com/calendar/r?cid={cal_id.replace('@', '%40')}"
         print(f"✅  Already shared: {summary}")
+        print(f"    Subscribe: {subscribe}\n")
         continue
 
     try:
@@ -62,11 +67,11 @@ for cal in okpm:
             calendarId=cal_id,
             body={
                 "scope": {"type": "user", "value": PM_EMAIL},
-                "role": "owner",   # PM gets full control, owners get reader
+                "role": "reader",
             },
-            sendNotifications=False,  # no email spam to yourself
+            sendNotifications=False,
         ).execute()
-        print(f"✅  Granted owner access: {summary}")
+        print(f"✅  Granted reader access: {summary}")
         print(f"    Calendar ID: {cal_id}")
 
         subscribe = f"https://calendar.google.com/calendar/r?cid={cal_id.replace('@', '%40')}"

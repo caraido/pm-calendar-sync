@@ -265,8 +265,8 @@ class GoogleCalendarManager:
         self._share(calendar_id, owner_email, role="reader", notify=True)
 
     def ensure_pm_access(self, calendar_id: str):
-        """Grant the PM account owner-level access. Idempotent, no notification."""
-        self._share(calendar_id, PM_EMAIL, role="owner", notify=False)
+        """Grant the PM account read access to all calendars. Idempotent, no notification."""
+        self._share(calendar_id, PM_EMAIL, role="reader", notify=False)
 
     # ── Event building ───────────────────────────────────────────────────────
 
