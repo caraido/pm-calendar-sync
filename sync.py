@@ -95,6 +95,16 @@ def color_for_status(status: str) -> str:
     }.get(status, COLOR_UNPAID)
 
 
+def emoji_for_status(status: str) -> str:
+    """Return emoji only — text label is redundant alongside color coding."""
+    return {
+        STATUS_PAID:    "✅",
+        STATUS_PARTIAL: "🟡",
+        STATUS_UNPAID:  "🔴",
+        STATUS_LATE:    "⚠️",
+    }.get(status, "🔴")
+
+
 # ---------------------------------------------------------------------------
 # AppFolio client  (v2 Reports API — verified field names)
 # ---------------------------------------------------------------------------
@@ -177,9 +187,11 @@ def format_address(row: dict) -> str:
 
 
 def unit_label(row: dict) -> str:
-    """Return 'Unit X' or empty string for single-family."""
-    u = row.get("unit")
-    return f"Unit {u}" if u else ""
+    """Return unit string, or empty for single-family.
+    AppFolio already includes 'Unit' in the field value, so don't prepend it.
+    """
+    u = (row.get("unit") or "").strip()
+    return u  # e.g. "Unit 2", "2F", or "" for single-family
 
 
 def owner_display_name(owner: dict) -> str:
@@ -274,11 +286,14 @@ class GoogleCalendarManager:
         late_threshold = due_date + timedelta(days=LATE_GRACE_DAYS)
         balance = unit["past_due"]
 
-        # Title: status · unit label · property name · rent amount
+        # Title: emoji · tenant · unit · property · rent
+        # (text label removed — emoji + color already convey status)
+        emoji     = emoji_for_status(status)
         unit_part = f"{unit['unit_label']} · " if unit['unit_label'] else ""
+        tenant_short = unit['tenant'].split(",")[0].strip()  # primary tenant only
         title = (
-            f"{status} · {unit_part}"
-            f"{unit['property_name']} · ${unit['rent']:,.0f}"
+            f"{emoji} · {tenant_short} · "
+            f"{unit_part}{unit['property_name']} · ${unit['rent']:,.0f}"
         )
 
         tenants = unit['tenant']
@@ -287,7 +302,7 @@ class GoogleCalendarManager:
 
         description = "\n".join([
             f"Tenant(s):    {tenants}",
-            (f"Unit:         {unit['unit_label']}  |  " if unit['unit_label'] else "") +
+            (f"{unit['unit_label']}  |  " if unit['unit_label'] else "") +
             f"{unit['address']}",
             "─" * 40,
             f"Monthly Rent: ${unit['rent']:,.2f}",
@@ -316,10 +331,11 @@ class GoogleCalendarManager:
 
     def _build_late_event(self, unit: dict, days_late: int) -> dict:
         today_str = date.today().isoformat()
-        unit_part = f"{unit['unit_label']} · " if unit['unit_label'] else ""
+        unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
+        tenant_short = unit['tenant'].split(",")[0].strip()
         title = (
-            f"⚠️ Late Day {days_late} · {unit_part}"
-            f"{unit['property_name']} · ${unit['past_due']:,.0f} owed"
+            f"⚠️ · {tenant_short} · {unit_part}"
+            f"{unit['property_name']} · ${unit['past_due']:,.0f} owed (Day {days_late})"
         )
 
         tenants = unit['tenant']
