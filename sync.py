@@ -41,9 +41,14 @@ APPFOLIO_CLIENT_SECRET = os.environ["APPFOLIO_CLIENT_SECRET"]
 GOOGLE_SA_JSON  = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]      # full JSON string
 GOOGLE_SCOPES   = ["https://www.googleapis.com/auth/calendar"]
 
-LATE_GRACE_DAYS  = int(os.environ.get("LATE_GRACE_DAYS", 5))
-RENT_DUE_DAY     = int(os.environ.get("RENT_DUE_DAY", 1))        # day of month rent is due
-PM_EMAIL         = os.environ.get("PM_EMAIL", "")                 # your openkey PM Google account
+LATE_GRACE_DAYS      = int(os.environ.get("LATE_GRACE_DAYS", 5))
+RENT_DUE_DAY         = int(os.environ.get("RENT_DUE_DAY", 1))
+PM_EMAIL             = os.environ.get("PM_EMAIL", "")
+# Months ahead to create future events when lease_to is null (month-to-month tenants)
+DEFAULT_LEASE_MONTHS = int(os.environ.get("DEFAULT_LEASE_MONTHS", 12))
+# Set to "true" to force-update all current-month events regardless of delta
+# Use once to fix formatting, then remove/set back to false
+FORCE_REFRESH        = os.environ.get("FORCE_REFRESH", "").lower() == "true"
 STATE_FILE       = Path("state.json")
 CALENDAR_PREFIX  = "OKPM"                                         # → "OKPM · Ryan Palmer Portfolio"
 AF_API_DELAY_SEC = 2.0   # pause between AppFolio API calls to avoid 429
@@ -795,7 +800,15 @@ class SyncOrchestrator:
         try:
             lease_end = date.fromisoformat(lease_to_str)
         except ValueError:
-            lease_end = due_date  # fallback: current month only
+            # null lease_to = month-to-month — show DEFAULT_LEASE_MONTHS ahead
+            m = due_date.month + DEFAULT_LEASE_MONTHS
+            y = due_date.year + (m - 1) // 12
+            m = ((m - 1) % 12) + 1
+            lease_end = date(y, m, 1)
+            log.debug(
+                f"  Occupancy {occupancy_id} has no lease end — "
+                f"defaulting to {lease_end} ({DEFAULT_LEASE_MONTHS} months ahead)"
+            )
 
         # Normalized unit dict passed to event builders
         unit = {
@@ -818,8 +831,10 @@ class SyncOrchestrator:
         prior         = self.state.get(occupancy_id, this_month)
         n_payments_now = len(unit.get("payments", []))
         n_payments_prior = len(prior.get("payment_event_ids", [])) if prior else 0
-        status_changed   = not (prior and prior["status"] == status
-                                and prior["past_due"] == past_due)
+        status_changed   = (
+            FORCE_REFRESH or
+            not (prior and prior["status"] == status and prior["past_due"] == past_due)
+        )
         new_payments     = n_payments_now > n_payments_prior
 
         if status_changed:

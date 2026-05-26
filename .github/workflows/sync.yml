@@ -37,6 +37,8 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           LATE_GRACE_DAYS: ${{ vars.LATE_GRACE_DAYS || '5' }}
           PM_EMAIL: ${{ secrets.PM_EMAIL }}
+          FORCE_REFRESH: ${{ vars.FORCE_REFRESH || 'false' }}
+          DEFAULT_LEASE_MONTHS: ${{ vars.DEFAULT_LEASE_MONTHS || '12' }}
         run: python sync.py
 
       - name: Commit updated state
