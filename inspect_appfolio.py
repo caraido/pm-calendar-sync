@@ -1,15 +1,17 @@
 """
-inspect_appfolio_round3.py
-──────────────────────────
-Probe for:
-  - Tenant phone numbers (#4)
-  - Per-occupancy payment history for current month (#5)
+inspect_latasha.py
+──────────────────
+Check Latasha Hawkins' current past_due in rent_roll, and look for
+any tenants with negative past_due (credit balance / prepayment).
 
-Usage (Windows):
+This tells us whether AppFolio represents advance payments as
+negative past_due or just shows $0.
+
+Usage:
     set APPFOLIO_DB_NAME=openkey
     set APPFOLIO_CLIENT_ID=xxx
     set APPFOLIO_CLIENT_SECRET=xxx
-    python inspect_appfolio_round3.py
+    python inspect_latasha.py
 """
 
 import os, json, requests
@@ -21,88 +23,55 @@ CSC = os.environ["APPFOLIO_CLIENT_SECRET"]
 BASE    = f"https://{CID}:{CSC}@{DB}.appfolio.com/api/v2/reports"
 HEADERS = {"Content-Type": "application/json", "Accept": "application/json"}
 
-today       = date.today()
-month_start = today.replace(day=1).isoformat()
-month_end   = today.isoformat()
+r = requests.post(f"{BASE}/rent_roll.json", headers=HEADERS, json={}, timeout=30)
+rows = r.json().get("results", [])
 
-# occupancy_id=101 from first rent_roll row — used to test per-occupancy filters
-TEST_OCCUPANCY_ID = 101
+print(f"Total rent_roll rows: {len(rows)}\n")
 
-def probe(report, payload, label=None):
-    url = f"{BASE}/{report}.json"
-    r   = requests.post(url, headers=HEADERS, json=payload, timeout=15)
-    tag = label or report
-    print(f"\n{'='*60}")
-    print(f"POST {tag}  →  HTTP {r.status_code}")
-    print(f"Payload: {json.dumps(payload)}")
-    print('='*60)
-    if r.status_code == 200:
-        body    = r.json()
-        results = body.get("results", body)
-        if isinstance(results, list) and results:
-            print(f"✅  {len(results)} rows  |  Keys: {list(results[0].keys())}")
-            # Print first 3 rows to see data shape
-            for i, row in enumerate(results[:3]):
-                print(f"\n  Row {i+1}:", json.dumps(row, indent=4, default=str))
-        else:
-            print("✅  200 OK — empty or unexpected shape")
-            print(json.dumps(body, indent=4, default=str)[:600])
-    elif r.status_code == 400:
-        print(f"❌  {r.text[:200]}")
-    elif r.status_code == 404:
-        print("❌  Not found")
-    elif r.status_code == 429:
-        print("⏳  Rate limited — wait and retry")
-    else:
-        print(f"⚠️  {r.status_code}: {r.text[:200]}")
-
-
-print("\n" + "#"*60)
-print("PART 1 — Tenant phone numbers")
-print("#"*60)
-
-PHONE_REPORTS = [
-    ("tenant_directory",  {}),
-    ("tenant_contact",    {}),
-    ("tenant_list",       {}),
-    ("tenant_info",       {}),
-    ("tenants",           {}),
-    ("tenant_detail",     {}),
+# ── 1. Find Latasha specifically ─────────────────────────────────────────────
+print("="*60)
+print("LATASHA HAWKINS — rent_roll row")
+print("="*60)
+latasha_rows = [
+    row for row in rows
+    if "latasha" in (row.get("tenant") or "").lower()
+    or "hawkins" in (row.get("tenant") or "").lower()
 ]
-for name, payload in PHONE_REPORTS:
-    probe(name, payload)
+if latasha_rows:
+    for row in latasha_rows:
+        print(json.dumps({
+            "tenant":      row.get("tenant"),
+            "unit":        row.get("unit"),
+            "property":    row.get("property_name"),
+            "rent":        row.get("rent"),
+            "past_due":    row.get("past_due"),
+            "status":      row.get("status"),
+            "occupancy_id": row.get("occupancy_id"),
+        }, indent=4))
+else:
+    print("Not found — check name spelling")
 
+# ── 2. Check ALL past_due values: any negative? ───────────────────────────────
+print("\n" + "="*60)
+print("ALL TENANTS — past_due summary")
+print("="*60)
 
-print("\n" + "#"*60)
-print("PART 2 — tenant_ledger filtered by occupancy_id (payment history)")
-print("#"*60)
+zero     = [r for r in rows if float(r.get("past_due") or 0) == 0]
+positive = [r for r in rows if float(r.get("past_due") or 0) > 0]
+negative = [r for r in rows if float(r.get("past_due") or 0) < 0]
 
-# Try every plausible filter key for occupancy
-LEDGER_ATTEMPTS = [
-    {"occupancy_id": TEST_OCCUPANCY_ID,
-     "from_date": month_start, "to_date": month_end},
-    {"occupancy_ids": [TEST_OCCUPANCY_ID],
-     "from_date": month_start, "to_date": month_end},
-    {"id": TEST_OCCUPANCY_ID,
-     "from_date": month_start, "to_date": month_end},
-    {"tenant_id": TEST_OCCUPANCY_ID,
-     "from_date": month_start, "to_date": month_end},
-    # Try without date range — maybe it requires no dates
-    {"occupancy_id": TEST_OCCUPANCY_ID},
-    # Try full year to make sure there's data
-    {"occupancy_id": TEST_OCCUPANCY_ID,
-     "from_date": "2026-01-01", "to_date": month_end},
-]
-for payload in LEDGER_ATTEMPTS:
-    probe("tenant_ledger", payload,
-          label=f"tenant_ledger {list(payload.keys())}")
+print(f"past_due == 0    (fully paid / current):  {len(zero)}")
+print(f"past_due >  0    (owes money):             {len(positive)}")
+print(f"past_due <  0    (credit balance / prepaid): {len(negative)}")
 
-
-print("\n" + "#"*60)
-print("PART 3 — Unfiltered tenant_ledger (see if occupancy info is in rows)")
-print("#"*60)
-# Pull unfiltered for current month — check if any row has occupancy_id
-probe("tenant_ledger", {"from_date": month_start, "to_date": month_end},
-      label="tenant_ledger unfiltered this month")
-
-print("\n\nDone. Paste output here.")
+if negative:
+    print("\nTenants with NEGATIVE past_due (have a credit balance):")
+    for row in negative:
+        print(f"  {row.get('tenant'):30}  past_due={row.get('past_due'):>10}  "
+              f"rent={row.get('rent'):>8}  unit={row.get('unit')}  "
+              f"property={row.get('property_name')}")
+else:
+    print("\n→ No negative past_due values found.")
+    print("  AppFolio likely floors past_due at $0 even when tenant has a credit.")
+    print("  This means we CANNOT distinguish 'paid in full' from 'paid in advance'")
+    print("  using past_due alone.")

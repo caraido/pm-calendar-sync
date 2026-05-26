@@ -69,21 +69,25 @@ COLOR_LATE    = "6"   # tangerine orange
 # ---------------------------------------------------------------------------
 # Payment status helpers
 # ---------------------------------------------------------------------------
-STATUS_PAID    = "✅ Paid"
-STATUS_PARTIAL = "🟡 Partial"
-STATUS_UNPAID  = "🔴 Unpaid"
-STATUS_LATE    = "⚠️ Late"
+STATUS_PAID     = "✅ Paid"
+STATUS_PREPAID  = "✅ Prepaid"   # paid current month + credit toward next
+STATUS_PARTIAL  = "🟡 Partial"
+STATUS_UNPAID   = "🔴 Unpaid"
+STATUS_LATE     = "⚠️ Late"
 
 
 def classify_status(rent: float, past_due: float) -> str:
     """
-    Classify payment status using rent_roll fields directly.
+    Classify payment status using rent_roll.past_due directly.
 
-    past_due = 0          → fully paid (or rent not yet charged)
+    past_due < 0          → overpaid — credit balance toward next month
+    past_due = 0          → fully paid and current
     0 < past_due < rent   → partial payment received
     past_due >= rent      → no payment received this month
     """
-    if past_due <= 0:
+    if past_due < 0:
+        return STATUS_PREPAID
+    elif past_due == 0:
         return STATUS_PAID
     elif past_due < rent:
         return STATUS_PARTIAL
@@ -94,6 +98,7 @@ def classify_status(rent: float, past_due: float) -> str:
 def color_for_status(status: str) -> str:
     return {
         STATUS_PAID:    COLOR_PAID,
+        STATUS_PREPAID: COLOR_PAID,    # same green — tenant is ahead
         STATUS_PARTIAL: COLOR_PARTIAL,
         STATUS_UNPAID:  COLOR_UNPAID,
         STATUS_LATE:    COLOR_LATE,
@@ -104,6 +109,7 @@ def emoji_for_status(status: str) -> str:
     """Return emoji only — text label is redundant alongside color coding."""
     return {
         STATUS_PAID:    "✅",
+        STATUS_PREPAID: "💚",          # distinct from ✅ to flag the credit
         STATUS_PARTIAL: "🟡",
         STATUS_UNPAID:  "🔴",
         STATUS_LATE:    "⚠️",
@@ -239,13 +245,59 @@ def build_payment_map(ledger_rows: list[dict]) -> dict[str, list[dict]]:
         desc  = (row.get("description") or "").strip()
         is_nsf = "nsf" in desc.lower() or "reversed" in desc.lower()
 
+        raw_date    = row.get("date", "")
+        intended    = detect_intended_month(desc, raw_date)  # (year, month) or None
         payments.setdefault(payer, []).append({
-            "date":        row.get("date", ""),
-            "amount":      amount,
-            "description": _shorten_payment_desc(desc),
-            "is_nsf":      is_nsf,
+            "date":            raw_date,
+            "amount":          amount,
+            "description":     _shorten_payment_desc(desc),
+            "is_nsf":          is_nsf,
+            "intended_month":  intended,  # None = same as calendar month
         })
     return payments
+
+
+# Month names for intent detection
+_MONTH_NAMES = {
+    "january": 1, "february": 2, "march": 3,    "april": 4,
+    "may": 5,     "june": 6,     "july": 7,      "august": 8,
+    "september": 9, "october": 10, "november": 11, "december": 12,
+}
+
+def detect_intended_month(desc: str, payment_date: str) -> tuple[int, int] | None:
+    """
+    Parse month name from description to detect if a payment is intended for
+    a different month than its calendar date (e.g. "April rent" paid on May 6).
+
+    Returns (intended_year, intended_month) if a mismatch is found, else None.
+    Only matches when description contains "[MonthName] rent".
+    """
+    import re
+    desc_lower = desc.lower()
+    pattern = r"\b(" + "|".join(_MONTH_NAMES.keys()) + r")\s+rent\b"
+    match = re.search(pattern, desc_lower)
+    if not match:
+        return None  # no month annotation — assume current month
+
+    intended_month_num = _MONTH_NAMES[match.group(1)]
+    try:
+        pay = date.fromisoformat(payment_date)
+    except ValueError:
+        return None
+
+    if intended_month_num == pay.month:
+        return None  # matches calendar month — no mismatch
+
+    # Infer intended year (e.g. "April rent" paid in May 2026 → April 2026)
+    intended_year = pay.year
+    if intended_month_num > pay.month + 1:
+        # Described month is far ahead — likely prior year (rare edge case)
+        intended_year = pay.year - 1
+    elif intended_month_num < pay.month - 1:
+        # Described month is well behind — could be paying very late
+        pass  # same year is correct
+
+    return (intended_year, intended_month_num)
 
 
 def _shorten_payment_desc(desc: str) -> str:
@@ -392,7 +444,7 @@ class GoogleCalendarManager:
 
     def _build_rent_event(self, unit: dict, status: str, due_date: date) -> dict:
         late_threshold = due_date + timedelta(days=LATE_GRACE_DAYS)
-        balance = unit["past_due"]
+        balance = unit["past_due"]  # total outstanding (live snapshot, spans months)
 
         # Title: emoji · tenant · unit · property · rent
         # (text label removed — emoji + color already convey status)
@@ -425,24 +477,36 @@ class GoogleCalendarManager:
         else:
             payment_lines.append("  No payments recorded yet")
 
+        # Format balance line — handle credit (negative past_due) clearly
+        if balance < 0:
+            balance_line = (
+                f"Current Balance: $0.00  "
+                f"(+ ${abs(balance):,.2f} credit toward next month)"
+            )
+        else:
+            balance_line = f"Current Balance: ${balance:,.2f}"
+
         desc_lines = [
-            f"Tenant(s):    {tenants}",
+            f"Tenant(s):       {tenants}",
             (f"{unit['unit_label']}  |  " if unit['unit_label'] else "") +
             f"{unit['address']}",
-            f"Phone:        {unit['phone']}",
+            f"Phone:           {unit['phone']}",
             "─" * 40,
-            f"Monthly Rent: ${unit['rent']:,.2f}",
-            "Payments:",
+            f"Monthly Rent:    ${unit['rent']:,.2f}",
+            f"Received this month: ${unit['amount_paid']:,.2f}",
+            balance_line,
+            f"Status:          {status}",
+            "─" * 40,
+            "Payments received this month:",
         ]
         desc_lines.extend(payment_lines)
         desc_lines += [
             "─" * 40,
-            f"Total Paid:   ${unit['amount_paid']:,.2f}",
-            f"Balance:      ${balance:,.2f}",
-            f"Status:       {status}",
+            f"Late After:      {late_threshold.strftime('%b %d, %Y')}",
+            f"Lease:           {unit['lease_from']} → {unit['lease_to']}",
             "─" * 40,
-            f"Late After:   {late_threshold.strftime('%b %d, %Y')}",
-            f"Lease:        {unit['lease_from']} → {unit['lease_to']}",
+            "Note: Current Balance is the tenant's total amount owed and may",
+            "include unpaid charges carried over from previous months.",
         ]
         description = "\n".join(desc_lines)
 
@@ -465,12 +529,16 @@ class GoogleCalendarManager:
     def _build_payment_event(
         self, unit: dict, payment: dict,
         payment_num: int, total_payments: int,
-        running_total: float, emoji: str,
+        month_received_total: float,
     ) -> dict:
         """
         One calendar event per individual payment, placed on the payment date.
-        emoji reflects whether this payment completed rent (✅), is partial (🟡),
-        or was reversed/NSF (🔴).
+        This is a pure transaction RECORD — it does not attempt to attribute the
+        payment to a specific month's rent (rent is one continuous ledger, so a
+        payment may settle a prior month's balance). Status/balance lives on the
+        rent-due event, which uses past_due as the source of truth.
+
+        Color: 🟢 green for received, 🔴 red for NSF/reversed.
         """
         pay_date = payment["date"]
         try:
@@ -480,7 +548,19 @@ class GoogleCalendarManager:
 
         tenant_display = normalize_tenant_name(unit["tenant"])
         unit_part      = f"{unit['unit_label']} · " if unit["unit_label"] else ""
-        nsf_tag        = " NSF" if payment["is_nsf"] else ""
+
+        if payment["is_nsf"]:
+            emoji   = "🔴"
+            color   = COLOR_UNPAID
+            nsf_tag = " NSF"
+        elif payment.get("intended_month"):
+            emoji   = "💰"
+            color   = COLOR_PARTIAL   # yellow — money received but for a prior month
+            nsf_tag = " (late)"
+        else:
+            emoji   = "💰"
+            color   = COLOR_PAID
+            nsf_tag = ""
 
         title = (
             f"{emoji} · {tenant_display} · "
@@ -488,28 +568,43 @@ class GoogleCalendarManager:
             f"${payment['amount']:,.0f}{nsf_tag}"
         )
 
-        nsf_note = "  ⚠️ REVERSED / NSF" if payment["is_nsf"] else ""
-        desc_lines = [
-            f"Payment {payment_num} of {total_payments}",
-            f"Date:          {pay_date_display}",
-            f"Method:        {payment['description']}{nsf_note}",
-            f"Amount:        ${payment['amount']:,.2f}",
-            "─" * 40,
-            f"Running Total: ${running_total:,.2f} / ${unit['rent']:,.2f}",
-            f"Remaining:     ${max(0.0, unit['rent'] - running_total):,.2f}",
-            "─" * 40,
-            f"Tenant:        {tenant_display}",
-            (f"{unit['unit_label']}  |  " if unit["unit_label"] else "") + unit["address"],
-            f"Phone:         {unit['phone']}",
-        ]
+        # Month label for context (e.g. "May")
+        try:
+            month_label = date.fromisoformat(pay_date).strftime("%B")
+        except ValueError:
+            month_label = "this month"
 
-        # Map emoji back to a status for color
-        if emoji == "✅":
-            color = COLOR_PAID
-        elif emoji == "🔴":
-            color = COLOR_UNPAID
+        nsf_note = "  ⚠️ REVERSED / NSF — funds did not clear" if payment["is_nsf"] else ""
+
+        # Detect if this payment is for a different month than its calendar date
+        intended = payment.get("intended_month")  # (year, month) or None
+        if intended:
+            intended_label = date(intended[0], intended[1], 1).strftime("%B %Y")
+            intent_flag = f"⚠️  Applies to {intended_label} charges (paid late)"
         else:
-            color = COLOR_PARTIAL
+            intent_flag = None
+
+        desc_lines = [
+            f"Payment received: {pay_date_display}",
+            f"Method:           {payment['description']}{nsf_note}",
+            f"Amount:           ${payment['amount']:,.2f}",
+        ]
+        if intent_flag:
+            desc_lines.append(intent_flag)
+        desc_lines += [
+            f"(Payment {payment_num} of {total_payments} received in {month_label})",
+            "─" * 40,
+            f"Total received in {month_label}: ${month_received_total:,.2f}",
+            f"Monthly rent:     ${unit['rent']:,.2f}",
+            "─" * 40,
+            f"Tenant:           {tenant_display}",
+            (f"{unit['unit_label']}  |  " if unit["unit_label"] else "") + unit["address"],
+            f"Phone:            {unit['phone']}",
+            "─" * 40,
+            "Note: payments apply to the tenant's overall balance and may",
+            "settle charges carried from a previous month. See the rent-due",
+            "event for current account status.",
+        ]
 
         return {
             "summary":     title,
@@ -871,7 +966,11 @@ class SyncOrchestrator:
 
         # ── B. Future months: create placeholder events if not yet in state ──
         # Unit dict for future events — always shows as Unpaid, $0 past due
-        future_unit = {**unit, "past_due": 0.0, "amount_paid": 0.0, "payments": []}
+        # Future placeholders show $0 balance — will be updated when that
+        # month becomes current. If tenant has a credit now, note it.
+        credit_note = abs(unit['past_due']) if unit['past_due'] < 0 else 0.0
+        future_unit = {**unit, "past_due": 0.0, "amount_paid": 0.0,
+                       "payments": [], "credit_carried": credit_note}
         future_months = self._month_range(
             due_date + timedelta(days=32),  # start from next month
             lease_end
@@ -916,27 +1015,16 @@ class SyncOrchestrator:
         # Sort by date then amount for stable ordering
         sorted_payments = sorted(payments, key=lambda p: (p["date"], p["amount"]))
         total = len(sorted_payments)
-        rent  = unit["rent"]
 
-        # Compute running totals and emojis
-        running = 0.0
+        # Total money received this calendar month (excludes NSF reversals)
+        month_received = sum(p["amount"] for p in sorted_payments if not p["is_nsf"])
+
         event_ids = []
         prior_ids = prior.get("payment_event_ids", []) if prior else []
 
         for i, payment in enumerate(sorted_payments):
-            if not payment["is_nsf"]:
-                running += payment["amount"]
-
-            # Emoji: NSF=🔴, completes rent=✅, partial=🟡
-            if payment["is_nsf"]:
-                emoji = "🔴"
-            elif running >= rent:
-                emoji = "✅"
-            else:
-                emoji = "🟡"
-
             event_body = self.gcal._build_payment_event(
-                unit, payment, i + 1, total, running, emoji
+                unit, payment, i + 1, total, month_received
             )
 
             # Reuse known event ID if we have it, otherwise search
