@@ -69,11 +69,11 @@ COLOR_LATE    = "6"   # tangerine orange
 # ---------------------------------------------------------------------------
 # Payment status helpers
 # ---------------------------------------------------------------------------
-STATUS_PAID     = "✅ Paid"
-STATUS_PREPAID  = "✅ Prepaid"   # paid current month + credit toward next
-STATUS_PARTIAL  = "🟡 Partial"
-STATUS_UNPAID   = "🔴 Unpaid"
-STATUS_LATE     = "⚠️ Late"
+STATUS_PAID    = "✅ Paid"
+STATUS_PREPAID = "💚 Prepaid"
+STATUS_PARTIAL = "🟡 Partial"
+STATUS_UNPAID  = "🔴 Unpaid"
+STATUS_LATE    = "⚠️ Late"
 
 
 def classify_status(rent: float, past_due: float) -> str:
@@ -98,7 +98,7 @@ def classify_status(rent: float, past_due: float) -> str:
 def color_for_status(status: str) -> str:
     return {
         STATUS_PAID:    COLOR_PAID,
-        STATUS_PREPAID: COLOR_PAID,    # same green — tenant is ahead
+        STATUS_PREPAID: COLOR_PAID,
         STATUS_PARTIAL: COLOR_PARTIAL,
         STATUS_UNPAID:  COLOR_UNPAID,
         STATUS_LATE:    COLOR_LATE,
@@ -109,7 +109,7 @@ def emoji_for_status(status: str) -> str:
     """Return emoji only — text label is redundant alongside color coding."""
     return {
         STATUS_PAID:    "✅",
-        STATUS_PREPAID: "💚",          # distinct from ✅ to flag the credit
+        STATUS_PREPAID: "💚",
         STATUS_PARTIAL: "🟡",
         STATUS_UNPAID:  "🔴",
         STATUS_LATE:    "⚠️",
@@ -554,11 +554,11 @@ class GoogleCalendarManager:
             color   = COLOR_UNPAID
             nsf_tag = " NSF"
         elif payment.get("intended_month"):
-            emoji   = "💰"
-            color   = COLOR_PARTIAL   # yellow — money received but for a prior month
+            emoji   = "🟡"
+            color   = COLOR_PARTIAL   # yellow — received but for a prior month
             nsf_tag = " (late)"
         else:
-            emoji   = "💰"
+            emoji   = "✅"
             color   = COLOR_PAID
             nsf_tag = ""
 
