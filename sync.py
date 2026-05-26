@@ -976,15 +976,45 @@ class SyncOrchestrator:
             lease_end
         )
         created = 0
-        for future_due in future_months:
-            fmonth = future_due.strftime("%Y-%m")
-            if self.state.get(occupancy_id, fmonth):
-                continue  # already created — never overwrite future/past events
-            future_body   = self.gcal._build_rent_event(future_unit, STATUS_UNPAID, future_due)
+        has_credit = unit["past_due"] < 0
+
+        for i, future_due in enumerate(future_months):
+            fmonth       = future_due.strftime("%Y-%m")
+            prior_future = self.state.get(occupancy_id, fmonth)
+
+            # The next month (i=0) must be force-updated if tenant has a credit
+            # balance — the placeholder may have been created as 🔴 Unpaid but
+            # now reflects a projected partial/paid status.
+            is_next_month   = (i == 0)
+            force_update    = is_next_month and has_credit
+
+            if prior_future and not force_update:
+                continue  # frozen placeholder — never overwrite
+
+            if is_next_month and has_credit:
+                # Project next month: rent charge posts, credit is applied
+                projected_due   = unit["rent"] + unit["past_due"]  # past_due is negative
+                projected_paid  = abs(unit["past_due"])             # credit = prepaid amount
+                future_status   = classify_status(unit["rent"], projected_due)
+                this_unit = {
+                    **future_unit,
+                    "past_due":   max(0.0, projected_due),
+                    "amount_paid": projected_paid,
+                }
+                log.info(
+                    f"  Projecting next month for occupancy {occupancy_id}: "
+                    f"credit=${abs(unit['past_due']):,.2f} → "
+                    f"projected balance=${max(0, projected_due):,.2f} → {future_status}"
+                )
+            else:
+                future_status = STATUS_UNPAID
+                this_unit     = future_unit
+
+            future_body     = self.gcal._build_rent_event(this_unit, future_status, future_due)
             future_event_id = self.gcal.upsert_event(calendar_id, future_body)
             self.state.set(occupancy_id, fmonth, {
-                "status":        STATUS_UNPAID,
-                "past_due":      0.0,
+                "status":        future_status,
+                "past_due":      this_unit["past_due"],
                 "rent_event_id": future_event_id,
                 "late_event_id": None,
             })
@@ -992,7 +1022,7 @@ class SyncOrchestrator:
 
         if created:
             log.info(
-                f"  Created {created} future month events for occupancy {occupancy_id} "
+                f"  Synced {created} future month events for occupancy {occupancy_id} "
                 f"through {lease_end}"
             )
 
