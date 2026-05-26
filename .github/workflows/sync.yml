@@ -45,4 +45,5 @@ jobs:
           git config user.email "bot@okpm.local"
           git add state.json
           git diff --cached --quiet || git commit -m "chore: update sync state [skip ci]"
+          git pull --rebase origin main
           git push

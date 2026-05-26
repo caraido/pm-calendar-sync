@@ -457,6 +457,72 @@ class GoogleCalendarManager:
             },
         }
 
+    def _build_payment_event(
+        self, unit: dict, payment: dict,
+        payment_num: int, total_payments: int,
+        running_total: float, emoji: str,
+    ) -> dict:
+        """
+        One calendar event per individual payment, placed on the payment date.
+        emoji reflects whether this payment completed rent (✅), is partial (🟡),
+        or was reversed/NSF (🔴).
+        """
+        pay_date = payment["date"]
+        try:
+            pay_date_display = date.fromisoformat(pay_date).strftime("%b %d, %Y")
+        except ValueError:
+            pay_date_display = pay_date
+
+        tenant_display = normalize_tenant_name(unit["tenant"])
+        unit_part      = f"{unit['unit_label']} · " if unit["unit_label"] else ""
+        nsf_tag        = " NSF" if payment["is_nsf"] else ""
+
+        title = (
+            f"{emoji} · {tenant_display} · "
+            f"{unit_part}{unit['property_name']} · "
+            f"${payment['amount']:,.0f}{nsf_tag}"
+        )
+
+        nsf_note = "  ⚠️ REVERSED / NSF" if payment["is_nsf"] else ""
+        desc_lines = [
+            f"Payment {payment_num} of {total_payments}",
+            f"Date:          {pay_date_display}",
+            f"Method:        {payment['description']}{nsf_note}",
+            f"Amount:        ${payment['amount']:,.2f}",
+            "─" * 40,
+            f"Running Total: ${running_total:,.2f} / ${unit['rent']:,.2f}",
+            f"Remaining:     ${max(0.0, unit['rent'] - running_total):,.2f}",
+            "─" * 40,
+            f"Tenant:        {tenant_display}",
+            (f"{unit['unit_label']}  |  " if unit["unit_label"] else "") + unit["address"],
+            f"Phone:         {unit['phone']}",
+        ]
+
+        # Map emoji back to a status for color
+        if emoji == "✅":
+            color = COLOR_PAID
+        elif emoji == "🔴":
+            color = COLOR_UNPAID
+        else:
+            color = COLOR_PARTIAL
+
+        return {
+            "summary":     title,
+            "location":    unit["address"],
+            "description": "\n".join(desc_lines),
+            "start":       {"date": pay_date},
+            "end":         {"date": pay_date},
+            "colorId":     color,
+            "extendedProperties": {
+                "private": {
+                    "okpm_occupancy_id":  str(unit["occupancy_id"]),
+                    "okpm_month":         pay_date[:7],
+                    "okpm_event_type":    "payment",
+                    "okpm_payment_idx":   str(payment_num - 1),
+                }
+            },
+        }
+
     def _build_late_event(self, unit: dict, days_late: int) -> dict:
         today_str = date.today().isoformat()
         unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
@@ -507,6 +573,22 @@ class GoogleCalendarManager:
                 f"okpm_occupancy_id={occupancy_id}",
                 f"okpm_month={month}",
                 f"okpm_event_type={event_type}",
+            ],
+        ).execute()
+        items = result.get("items", [])
+        return items[0]["id"] if items else None
+
+    def _find_payment_event(
+        self, calendar_id: str, occupancy_id: str,
+        month: str, payment_idx: int
+    ) -> Optional[str]:
+        result = self.service.events().list(
+            calendarId=calendar_id,
+            privateExtendedProperty=[
+                f"okpm_occupancy_id={occupancy_id}",
+                f"okpm_month={month}",
+                f"okpm_event_type=payment",
+                f"okpm_payment_idx={payment_idx}",
             ],
         ).execute()
         items = result.get("items", [])
@@ -732,29 +814,45 @@ class SyncOrchestrator:
             "lease_to":           lease_to_str,
         }
 
-        # ── A. Current month: update with real payment status ────────────────
-        prior = self.state.get(occupancy_id, this_month)
-        if not (prior and prior["status"] == status and prior["past_due"] == past_due):
+        # ── A. Current month: update rent event + payment events ─────────────
+        prior         = self.state.get(occupancy_id, this_month)
+        n_payments_now = len(unit.get("payments", []))
+        n_payments_prior = len(prior.get("payment_event_ids", [])) if prior else 0
+        status_changed   = not (prior and prior["status"] == status
+                                and prior["past_due"] == past_due)
+        new_payments     = n_payments_now > n_payments_prior
+
+        if status_changed:
             rent_body     = self.gcal._build_rent_event(unit, status, due_date)
             rent_event_id = self.gcal.upsert_event(calendar_id, rent_body)
-
             late_event_id = self._handle_late_event(
                 unit, calendar_id, due_date, today, status,
                 existing_late_id=prior.get("late_event_id") if prior else None,
             )
-            self.state.set(occupancy_id, this_month, {
-                "status":        status,
-                "past_due":      past_due,
-                "rent_event_id": rent_event_id,
-                "late_event_id": late_event_id,
-            })
             log.info(f"  Updated current month for occupancy {occupancy_id} → {status}")
         else:
-            log.info(f"  No change for occupancy {occupancy_id} current month — skipping")
-            self._handle_late_event(
+            rent_event_id = prior["rent_event_id"] if prior else None
+            late_event_id = self._handle_late_event(
                 unit, calendar_id, due_date, today, status,
-                existing_late_id=prior.get("late_event_id"),
+                existing_late_id=prior.get("late_event_id") if prior else None,
             )
+            log.info(f"  No change for occupancy {occupancy_id} current month — skipping rent event")
+
+        # Sync individual payment events (always run — day count and new payments)
+        if status_changed or new_payments:
+            payment_event_ids = self._sync_payment_events(
+                unit, calendar_id, this_month, prior
+            )
+        else:
+            payment_event_ids = prior.get("payment_event_ids", []) if prior else []
+
+        self.state.set(occupancy_id, this_month, {
+            "status":            status,
+            "past_due":          past_due,
+            "rent_event_id":     rent_event_id,
+            "late_event_id":     late_event_id,
+            "payment_event_ids": payment_event_ids,
+        })
 
         # ── B. Future months: create placeholder events if not yet in state ──
         # Unit dict for future events — always shows as Unpaid, $0 past due
@@ -783,6 +881,78 @@ class SyncOrchestrator:
                 f"  Created {created} future month events for occupancy {occupancy_id} "
                 f"through {lease_end}"
             )
+
+    def _sync_payment_events(
+        self, unit: dict, calendar_id: str,
+        this_month: str, prior: Optional[dict],
+    ) -> list[str]:
+        """
+        Create or update one calendar event per individual payment this month.
+        Events are placed on the actual payment date (not the rent due date).
+        Running totals and emoji update as payments accumulate.
+
+        Returns list of Google Calendar event IDs (one per payment).
+        Only called for the current month — past months are never touched.
+        """
+        payments = unit.get("payments", [])
+        if not payments:
+            return []
+
+        # Sort by date then amount for stable ordering
+        sorted_payments = sorted(payments, key=lambda p: (p["date"], p["amount"]))
+        total = len(sorted_payments)
+        rent  = unit["rent"]
+
+        # Compute running totals and emojis
+        running = 0.0
+        event_ids = []
+        prior_ids = prior.get("payment_event_ids", []) if prior else []
+
+        for i, payment in enumerate(sorted_payments):
+            if not payment["is_nsf"]:
+                running += payment["amount"]
+
+            # Emoji: NSF=🔴, completes rent=✅, partial=🟡
+            if payment["is_nsf"]:
+                emoji = "🔴"
+            elif running >= rent:
+                emoji = "✅"
+            else:
+                emoji = "🟡"
+
+            event_body = self.gcal._build_payment_event(
+                unit, payment, i + 1, total, running, emoji
+            )
+
+            # Reuse known event ID if we have it, otherwise search
+            existing_id = prior_ids[i] if i < len(prior_ids) else None
+            if not existing_id:
+                existing_id = self.gcal._find_payment_event(
+                    calendar_id, str(unit["occupancy_id"]), this_month, i
+                )
+
+            if existing_id:
+                self.gcal.service.events().update(
+                    calendarId=calendar_id,
+                    eventId=existing_id,
+                    body=event_body,
+                ).execute()
+                event_ids.append(existing_id)
+                log.info(
+                    f"  Updated payment event {i+1}/{total} for "
+                    f"occupancy {unit['occupancy_id']}"
+                )
+            else:
+                created = self.gcal.service.events().insert(
+                    calendarId=calendar_id, body=event_body
+                ).execute()
+                event_ids.append(created["id"])
+                log.info(
+                    f"  Created payment event {i+1}/{total} for "
+                    f"occupancy {unit['occupancy_id']} on {payment['date']}"
+                )
+
+        return event_ids
 
     def _handle_late_event(
         self, unit: dict, calendar_id: str,
