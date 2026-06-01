@@ -18,12 +18,19 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-GOOGLE_SA_JSON = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
-STATE_FILE     = Path("state.json")
+STATE_FILE      = Path("state.json")
 CALENDAR_PREFIX = "OKPM"
 
+# Accept either a file path or raw JSON string
+_sa_raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
+if _sa_raw.strip().endswith(".json") or ("\\" in _sa_raw or "/" in _sa_raw):
+    with open(_sa_raw.strip()) as f:
+        SA_INFO = json.load(f)
+else:
+    SA_INFO = json.loads(_sa_raw)
+
 creds = service_account.Credentials.from_service_account_info(
-    json.loads(GOOGLE_SA_JSON),
+    SA_INFO,
     scopes=["https://www.googleapis.com/auth/calendar"],
 )
 service = build("calendar", "v3", credentials=creds)

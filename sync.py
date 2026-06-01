@@ -120,13 +120,13 @@ def _gcal_execute(request, retries: int = GCAL_RETRY_ATTEMPTS,
                   base_delay: int = GCAL_RETRY_BASE_DELAY):
     """
     Execute a Google Calendar API request with exponential backoff on
-    429 (rate limit) / 500 / 503 (server errors).
+    403 (per-user rate limit) / 429 (rate limit) / 500 / 503 (server errors).
     """
     for attempt in range(retries):
         try:
             return request.execute()
         except HttpError as e:
-            if e.resp.status in (429, 500, 503) and attempt < retries - 1:
+            if e.resp.status in (403, 429, 500, 503) and attempt < retries - 1:
                 delay = base_delay * (2 ** attempt)
                 log.warning(
                     f"  Google API {e.resp.status} — "
@@ -903,9 +903,17 @@ class GoogleCalendarManager:
         self, calendar_id: str, event_id: Optional[str], body: dict,
     ) -> str:
         if event_id:
-            _gcal_execute(self.service.events().update(
-                calendarId=calendar_id, eventId=event_id, body=body))
-            return event_id
+            try:
+                _gcal_execute(self.service.events().update(
+                    calendarId=calendar_id, eventId=event_id, body=body))
+                return event_id
+            except HttpError as e:
+                if e.resp.status in (404, 410):
+                    log.warning(
+                        f"  Event {event_id} gone (HTTP {e.resp.status}) "
+                        f"— creating replacement")
+                else:
+                    raise
         created = _gcal_execute(self.service.events().insert(
             calendarId=calendar_id, body=body))
         return created["id"]
@@ -1050,10 +1058,14 @@ class SyncOrchestrator:
             if owner_email:
                 self.gcal.share_with_owner(calendar_id, owner_email)
             for row, _ in rows_and_owners:
-                self._sync_unit(
-                    row, calendar_id, due_date, today, this_month,
-                    tenant_info, payment_map,
-                )
+                try:
+                    self._sync_unit(
+                        row, calendar_id, due_date, today, this_month,
+                        tenant_info, payment_map,
+                    )
+                except Exception as exc:
+                    oid = row.get("occupancy_id", "?")
+                    log.error(f"  FAILED unit {oid}: {exc}", exc_info=True)
 
         self.state.save()
         log.info("=== Sync complete ===")
@@ -1290,6 +1302,34 @@ class SyncOrchestrator:
         # ── B. Future months ──────────────────────────────────────────────────
         future_unit = {**unit, "past_due": 0.0, "amount_paid": 0.0, "payments": []}
         has_credit  = past_due < 0
+
+        # During FORCE_REFRESH: purge ALL events for this unit that belong
+        # to FUTURE months (anything with okpm_month > this_month).  This
+        # guarantees a clean slate — no orphaned / corrupted / wrong-date /
+        # wrong-type events survive.  Current-month events (status, payment,
+        # late) are kept because they were just written above.
+        if FORCE_REFRESH:
+            all_unit_evs, _pt = [], None
+            while True:
+                _resp = _gcal_execute(self.gcal.service.events().list(
+                    calendarId=calendar_id,
+                    privateExtendedProperty=[f"okpm_occupancy_id={oid}"],
+                    showDeleted=False, maxResults=250, pageToken=_pt,
+                ))
+                all_unit_evs.extend(_resp.get("items", []))
+                _pt = _resp.get("nextPageToken")
+                if not _pt:
+                    break
+            purged = 0
+            for ev in all_unit_evs:
+                ev_month = (ev.get("extendedProperties", {})
+                            .get("private", {}).get("okpm_month", ""))
+                if ev_month > this_month:
+                    self.gcal.delete_event(calendar_id, ev["id"])
+                    purged += 1
+            if purged:
+                log.info(f"  {oid}: purged {purged} future-month event(s) before rebuild")
+
         # Reload commitments (may have new additions from the late-event detection)
         commitments = self.state.get_commitments(oid)
 
