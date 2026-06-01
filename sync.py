@@ -112,6 +112,29 @@ COLOR_UNPAID     = "11"  # tomato red
 COLOR_LATE       = "11"  # tomato red
 COLOR_COMMITMENT = "6"   # tangerine — distinct colour for commitment events
 
+GCAL_RETRY_ATTEMPTS = 3
+GCAL_RETRY_BASE_DELAY = 5   # seconds — doubled on each retry
+
+
+def _gcal_execute(request, retries: int = GCAL_RETRY_ATTEMPTS,
+                  base_delay: int = GCAL_RETRY_BASE_DELAY):
+    """
+    Execute a Google Calendar API request with exponential backoff on
+    429 (rate limit) / 500 / 503 (server errors).
+    """
+    for attempt in range(retries):
+        try:
+            return request.execute()
+        except HttpError as e:
+            if e.resp.status in (429, 500, 503) and attempt < retries - 1:
+                delay = base_delay * (2 ** attempt)
+                log.warning(
+                    f"  Google API {e.resp.status} — "
+                    f"retry {attempt + 1}/{retries} in {delay}s")
+                time.sleep(delay)
+            else:
+                raise
+
 # ---------------------------------------------------------------------------
 # Status system
 # ---------------------------------------------------------------------------
@@ -366,8 +389,8 @@ class GoogleCalendarManager:
     def get_event(self, calendar_id: str, event_id: str) -> Optional[dict]:
         """Fetch a single event by ID. Returns None if deleted / not found."""
         try:
-            return self.service.events().get(
-                calendarId=calendar_id, eventId=event_id).execute()
+            return _gcal_execute(self.service.events().get(
+                calendarId=calendar_id, eventId=event_id))
         except HttpError as e:
             if e.resp.status in (404, 410):
                 return None
@@ -390,7 +413,7 @@ class GoogleCalendarManager:
         """
         items, page_token = [], None
         while True:
-            resp = self.service.events().list(
+            resp = _gcal_execute(self.service.events().list(
                 calendarId=calendar_id,
                 privateExtendedProperty=[
                     f"okpm_occupancy_id={occupancy_id}",
@@ -399,7 +422,7 @@ class GoogleCalendarManager:
                 showDeleted=False,
                 maxResults=100,
                 pageToken=page_token,
-            ).execute()
+            ))
             items.extend(resp.get("items", []))
             page_token = resp.get("nextPageToken")
             if not page_token:
@@ -432,8 +455,8 @@ class GoogleCalendarManager:
         body["start"]["date"] = anchor_date
         body["end"]["date"]   = anchor_date
         try:
-            self.service.events().update(
-                calendarId=calendar_id, eventId=event_id, body=body).execute()
+            _gcal_execute(self.service.events().update(
+                calendarId=calendar_id, eventId=event_id, body=body))
             log.info(
                 f"  Converted event {event_id} → commitment on {anchor_date} "
                 f"(source: {source_type}, outstanding: ${outstanding:,.2f})")
@@ -471,8 +494,8 @@ class GoogleCalendarManager:
         new_body["end"]["date"]   = live_date
 
         try:
-            self.service.events().update(
-                calendarId=calendar_id, eventId=event_id, body=new_body).execute()
+            _gcal_execute(self.service.events().update(
+                calendarId=calendar_id, eventId=event_id, body=new_body))
         except HttpError as e:
             log.error(f"  Failed to update commitment {event_id}: {e}")
         return live_date
@@ -495,8 +518,8 @@ class GoogleCalendarManager:
         ev["start"] = {"date": canonical_date}
         ev["end"]   = {"date": canonical_date}
         try:
-            self.service.events().update(
-                calendarId=calendar_id, eventId=event_id, body=ev).execute()
+            _gcal_execute(self.service.events().update(
+                calendarId=calendar_id, eventId=event_id, body=ev))
         except HttpError as e:
             log.error(f"  Failed to revert event {event_id}: {e}")
 
@@ -835,19 +858,20 @@ class GoogleCalendarManager:
             }},
         }
 
-    # ── Event find / upsert / delete  (unchanged) ────────────────────────────
+    # ── Event find / upsert / delete ─────────────────────────────────────────
+    # All Google API calls below use _gcal_execute() for retry on rate limits.
 
     def _find_event(
         self, calendar_id: str, occupancy_id: str, month: str, event_type: str,
     ) -> Optional[str]:
-        result = self.service.events().list(
+        result = _gcal_execute(self.service.events().list(
             calendarId=calendar_id,
             privateExtendedProperty=[
                 f"okpm_occupancy_id={occupancy_id}",
                 f"okpm_month={month}",
                 f"okpm_event_type={event_type}",
             ],
-        ).execute()
+        ))
         items = result.get("items", [])
         return items[0]["id"] if items else None
 
@@ -863,7 +887,7 @@ class GoogleCalendarManager:
     def _find_payment_event(
         self, calendar_id: str, occupancy_id: str, month: str, idx: int,
     ) -> Optional[str]:
-        result = self.service.events().list(
+        result = _gcal_execute(self.service.events().list(
             calendarId=calendar_id,
             privateExtendedProperty=[
                 f"okpm_occupancy_id={occupancy_id}",
@@ -871,7 +895,7 @@ class GoogleCalendarManager:
                 f"okpm_event_type=payment",
                 f"okpm_payment_idx={idx}",
             ],
-        ).execute()
+        ))
         items = result.get("items", [])
         return items[0]["id"] if items else None
 
@@ -879,11 +903,11 @@ class GoogleCalendarManager:
         self, calendar_id: str, event_id: Optional[str], body: dict,
     ) -> str:
         if event_id:
-            self.service.events().update(
-                calendarId=calendar_id, eventId=event_id, body=body).execute()
+            _gcal_execute(self.service.events().update(
+                calendarId=calendar_id, eventId=event_id, body=body))
             return event_id
-        created = self.service.events().insert(
-            calendarId=calendar_id, body=body).execute()
+        created = _gcal_execute(self.service.events().insert(
+            calendarId=calendar_id, body=body))
         return created["id"]
 
     def upsert_event(self, calendar_id: str, event_body: dict) -> str:
@@ -898,8 +922,8 @@ class GoogleCalendarManager:
 
     def delete_event(self, calendar_id: str, event_id: str):
         try:
-            self.service.events().delete(
-                calendarId=calendar_id, eventId=event_id).execute()
+            _gcal_execute(self.service.events().delete(
+                calendarId=calendar_id, eventId=event_id))
             log.info(f"Deleted event {event_id}")
         except HttpError as e:
             if e.resp.status != 410:
@@ -1205,10 +1229,12 @@ class SyncOrchestrator:
             )
 
         # ── Detect moved late event → register commitment ─────────────────────
+        # Skip during FORCE_REFRESH: no PM drags to detect, and the extra API
+        # reads would overload the run alongside all the writes.
         prior_late_id        = prior.get("late_event_id") if prior else None
         new_commitment_added = False
 
-        if prior_late_id and not has_late_commitment:
+        if prior_late_id and not has_late_commitment and not FORCE_REFRESH:
             live_date = self.gcal.get_event_start_date(calendar_id, prior_late_id)
             if live_date and live_date > today.isoformat():
                 # PM dragged the late/preview event to the future → commitment!
@@ -1243,10 +1269,13 @@ class SyncOrchestrator:
         )
 
         # ── Process all commitments for this unit ─────────────────────────────
-        self._process_commitments(
-            oid, calendar_id, unit, today,
-            has_known_or_new=bool(self.state.get_commitments(oid)),
-        )
+        # Skip during FORCE_REFRESH — commitment processing involves extra API
+        # reads (listing all commitment events) that should only run on normal polls.
+        if not FORCE_REFRESH:
+            self._process_commitments(
+                oid, calendar_id, unit, today,
+                has_known_or_new=bool(self.state.get_commitments(oid)),
+            )
 
         # ── Persist current-month state ───────────────────────────────────────
         self.state.set(oid, this_month, {
@@ -1286,7 +1315,9 @@ class SyncOrchestrator:
                 continue
 
             # ── Scan first COMMITMENT_LOOKAHEAD_MONTHS for moved kickstarts ──
-            if prior_f and i < COMMITMENT_LOOKAHEAD_MONTHS:
+            # Skip during FORCE_REFRESH to avoid extra API reads that cause
+            # rate-limit issues.  Commitment detection runs on normal polls only.
+            if prior_f and i < COMMITMENT_LOOKAHEAD_MONTHS and not FORCE_REFRESH:
                 placeholder_id = prior_f.get("rent_event_id")
                 if placeholder_id and not prior_f.get("is_commitment"):
                     live_date = self.gcal.get_event_start_date(
@@ -1315,13 +1346,22 @@ class SyncOrchestrator:
                             f"to {live_date} → commitment registered")
                         continue
 
-            # ── Normal frozen-placeholder logic (unchanged from v1) ───────────
-            if prior_f and not (is_next and has_credit):
+            # ── Normal frozen-placeholder logic ─────────────────────────────────
+            # During FORCE_REFRESH we rewrite ALL placeholders (nuke & rebuild),
+            # which fixes stale/wrong status from prior runs.  During normal
+            # polls, frozen placeholders are skipped as before.
+            if not FORCE_REFRESH and prior_f and not (is_next and has_credit):
                 continue
 
             if is_next and has_credit:
                 projected  = rent + past_due         # past_due is negative
-                fut_status = classify_status(rent, projected)
+                # On kickstart placeholders, show green (✅ Paid) even if the
+                # credit exceeds one month's rent.  Pink 🩷 Prepaid is reserved
+                # for current-month logging events only.
+                if projected <= 0:
+                    fut_status = STATUS_PAID
+                else:
+                    fut_status = classify_status(rent, projected)
                 this_fu    = {
                     **future_unit,
                     "past_due":    max(0.0, projected),
@@ -1524,8 +1564,8 @@ class SyncOrchestrator:
                         ),
                     )
                     try:
-                        created = self.gcal.service.events().insert(
-                            calendarId=calendar_id, body=new_body).execute()
+                        created = _gcal_execute(self.gcal.service.events().insert(
+                            calendarId=calendar_id, body=new_body))
                         c = {**c, "event_id": created["id"]}
                         ev_body = new_body
                         live_by_id[c["event_id"]] = new_body
