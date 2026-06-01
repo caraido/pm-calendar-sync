@@ -1134,6 +1134,22 @@ class SyncOrchestrator:
             lease_end = date(y, m, 1)
 
         sorted_payments = sorted(unit["payments"], key=lambda p: (p["date"], -p["amount"]))
+
+        # ── Filter payments to current month ───────────────────────────────
+        # The AppFolio tenant_ledger API may return transactions outside the
+        # requested date range (similar to how it ignores occupancy_id
+        # filters).  Payments from previous months would place the status
+        # event on a past date, making it vanish from the current month's
+        # calendar view.  Keep only payments whose date falls in this_month
+        # or later.
+        sorted_payments = [
+            p for p in sorted_payments
+            if p["date"][:7] >= this_month
+        ]
+        # Update amount_paid to reflect filtered payments only
+        unit["amount_paid"] = sum(
+            p["amount"] for p in sorted_payments if not p["is_nsf"])
+
         balances        = compute_running_balances(sorted_payments, past_due)
         prior           = self.state.get(oid, this_month)
 
@@ -1149,6 +1165,8 @@ class SyncOrchestrator:
         # ── Status event date ─────────────────────────────────────────────────
         if sorted_payments:
             status_event_date = date.fromisoformat(sorted_payments[0]["date"])
+            # Safety clamp: never place the event before this month's due date
+            status_event_date = max(status_event_date, due_date)
             first_pay         = sorted_payments[0]
             event_status      = classify_status(rent, balances[0])
         else:
