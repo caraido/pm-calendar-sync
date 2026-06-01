@@ -67,6 +67,7 @@ import os, re, json, time, logging, requests
 from datetime import date, timedelta, datetime
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -92,6 +93,7 @@ PM_EMAIL                    = os.environ.get("PM_EMAIL", "")
 DEFAULT_LEASE_MONTHS        = int(os.environ.get("DEFAULT_LEASE_MONTHS", 12))
 FORCE_REFRESH               = os.environ.get("FORCE_REFRESH", "").lower() == "true"
 COMMITMENT_LOOKAHEAD_MONTHS = int(os.environ.get("COMMITMENT_LOOKAHEAD_MONTHS", 3))
+TIMEZONE                    = os.environ.get("TIMEZONE", "America/Chicago")
 
 STATE_FILE       = Path("state.json")
 CALENDAR_PREFIX  = "OKPM"
@@ -824,10 +826,10 @@ class GoogleCalendarManager:
             }},
         }
 
-    def _build_late_event(self, unit: dict, days_late: int) -> dict:
+    def _build_late_event(self, unit: dict, days_late: int, today: date) -> dict:
         unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
         tenant_short = unit['tenant'].split(",")[0].strip()
-        today_str    = date.today().isoformat()
+        today_str    = today.isoformat()
         title = (
             f"🔴 · {tenant_short} · {unit_part}"
             f"{unit['property_name']} · ${unit['past_due']:,.0f} owed (Day {days_late})"
@@ -1020,9 +1022,10 @@ class SyncOrchestrator:
 
     def run(self):
         log.info("=== OKPM sync starting ===")
-        today      = date.today()
+        today      = datetime.now(ZoneInfo(TIMEZONE)).date()
         this_month = today.strftime("%Y-%m")
         due_date   = date(today.year, today.month, RENT_DUE_DAY)
+        log.info(f"  Timezone: {TIMEZONE}, local date: {today}")
 
         log.info("Fetching rent_roll...")
         rent_roll = self.af.get_rent_roll()
@@ -1501,7 +1504,7 @@ class SyncOrchestrator:
         if days_late > 0:
             return self.gcal.upsert_event(
                 calendar_id,
-                self.gcal._build_late_event(unit, days_late),
+                self.gcal._build_late_event(unit, days_late, today),
             )
         return existing_late_id
 
