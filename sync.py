@@ -1302,12 +1302,12 @@ class SyncOrchestrator:
         )
 
         # ── Process all commitments for this unit ─────────────────────────────
-        # Skip during FORCE_REFRESH — commitment processing involves extra API
-        # reads (listing all commitment events) that should only run on normal polls.
-        if not FORCE_REFRESH:
+        # Always runs — including during FORCE_REFRESH — so commitment events
+        # are preserved and recreated even after a nuke-and-rebuild.
+        if self.state.get_commitments(oid):
             self._process_commitments(
                 oid, calendar_id, unit, today,
-                has_known_or_new=bool(self.state.get_commitments(oid)),
+                has_known_or_new=True,
             )
 
         # ── Persist current-month state ───────────────────────────────────────
@@ -1343,9 +1343,11 @@ class SyncOrchestrator:
                     break
             purged = 0
             for ev in all_unit_evs:
-                ev_month = (ev.get("extendedProperties", {})
-                            .get("private", {}).get("okpm_month", ""))
-                if ev_month > this_month:
+                props = ev.get("extendedProperties", {}).get("private", {})
+                ev_month = props.get("okpm_month", "")
+                ev_type  = props.get("okpm_event_type", "")
+                # Preserve commitment events — they represent PM work
+                if ev_month > this_month and ev_type != "commitment":
                     self.gcal.delete_event(calendar_id, ev["id"])
                     purged += 1
             if purged:
