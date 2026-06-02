@@ -1386,28 +1386,35 @@ class SyncOrchestrator:
                     live_date = self.gcal.get_event_start_date(
                         calendar_id, placeholder_id)
                     expected  = fdue.isoformat()
-                    if (live_date
-                            and live_date > today.isoformat()
-                            and live_date != expected):
-                        # PM moved this kickstart → commitment!
-                        self.gcal.convert_to_commitment(
-                            calendar_id, placeholder_id, unit,
-                            live_date, "kickstart", max(0.0, past_due),
-                        )
-                        self.state.add_commitment(oid, {
-                            "event_id":           placeholder_id,
-                            "anchor_date":        live_date,
-                            "source_type":        "kickstart",
-                            "origin_month":       fmonth,
-                            "covers_rent_month":  fmonth,
-                        })
-                        self.state.set(oid, fmonth, {
-                            **prior_f, "is_commitment": True,
-                        })
-                        log.info(
-                            f"  {oid}: kickstart for {fmonth} moved "
-                            f"to {live_date} → commitment registered")
-                        continue
+                    if live_date and live_date != expected:
+                        if live_date > today.isoformat():
+                            # PM moved this kickstart → commitment!
+                            self.gcal.convert_to_commitment(
+                                calendar_id, placeholder_id, unit,
+                                live_date, "kickstart", max(0.0, past_due),
+                            )
+                            self.state.add_commitment(oid, {
+                                "event_id":           placeholder_id,
+                                "anchor_date":        live_date,
+                                "source_type":        "kickstart",
+                                "origin_month":       fmonth,
+                                "covers_rent_month":  fmonth,
+                            })
+                            self.state.set(oid, fmonth, {
+                                **prior_f, "is_commitment": True,
+                            })
+                            log.info(
+                                f"  {oid}: kickstart for {fmonth} moved "
+                                f"to {live_date} → commitment registered")
+                            continue
+                        else:
+                            log.warning(
+                                f"  {oid}: kickstart for {fmonth} moved to "
+                                f"{live_date} (past/today) — ignoring, not a future commitment")
+                    elif live_date is None:
+                        log.warning(
+                            f"  {oid}: kickstart {placeholder_id} for {fmonth} — "
+                            f"event not found in Google (deleted?)")
 
             # ── Normal frozen-placeholder logic ─────────────────────────────────
             # During FORCE_REFRESH we rewrite ALL placeholders (nuke & rebuild),
