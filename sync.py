@@ -235,11 +235,12 @@ def _shorten_desc(desc: str) -> str:
 
 
 def build_owner_property_map(owners: list[dict]) -> dict:
-    m = {}
+    """Maps property_id → list of owners (supports co-ownership)."""
+    m: dict[int, list[dict]] = {}
     for o in owners:
         for pid in (o.get("properties_owned_i_ds") or "").split(","):
             if pid.strip().isdigit():
-                m[int(pid.strip())] = o
+                m.setdefault(int(pid.strip()), []).append(o)
     return m
 
 
@@ -994,7 +995,10 @@ class StateManager:
         return f"{oid}_{month}"
 
     def get(self, oid: str, month: str) -> Optional[dict]:
-        return self.data.get(self._key(oid, month))
+        val = self.data.get(self._key(oid, month))
+        if val is None and "@" in oid:
+            val = self.data.get(self._key(oid.split("@")[0], month))
+        return val
 
     def set(self, oid: str, month: str, entry: dict):
         entry["last_updated"] = datetime.utcnow().isoformat()
@@ -1006,7 +1010,10 @@ class StateManager:
     # ── Commitment helpers ────────────────────────────────────────────────────
 
     def get_commitments(self, oid: str) -> list[dict]:
-        return list(self.data["_commitments"].get(oid, []))
+        val = self.data["_commitments"].get(oid, [])
+        if not val and "@" in oid:
+            val = self.data["_commitments"].get(oid.split("@")[0], [])
+        return list(val)
 
     def set_commitments(self, oid: str, commitments: list[dict]):
         self.data["_commitments"][oid] = commitments
@@ -1054,13 +1061,36 @@ class SyncOrchestrator:
         active        = [r for r in rent_roll if r.get("status") == "Current"]
         log.info(f"  {len(active)} active leases, {len(payment_map)} with payments this month")
 
+        # ── Diagnostic: detect non-Current leases that might be missing ───
+        non_current = [r for r in rent_roll if r.get("status") != "Current"]
+        if non_current:
+            status_counts = {}
+            for r in non_current:
+                s = r.get("status", "?")
+                status_counts[s] = status_counts.get(s, 0) + 1
+            log.info(f"  Skipped {len(non_current)} non-Current leases: {status_counts}")
+
         owner_rows: dict = {}
         for row in active:
-            owner = prop_to_owner.get(row.get("property_id"))
-            if owner:
-                owner_rows.setdefault(owner["owner_id"], []).append((row, owner))
+            pid = row.get("property_id")
+            owners_list = prop_to_owner.get(pid)
+            if not owners_list:
+                # Try string↔int coercion in case of type mismatch
+                alt_pid = int(pid) if isinstance(pid, str) and pid.isdigit() else str(pid)
+                owners_list = prop_to_owner.get(alt_pid)
+                if owners_list:
+                    log.warning(
+                        f"  property_id type mismatch for {row.get('property_name','?')}: "
+                        f"rent_roll has {type(pid).__name__}({pid!r}), "
+                        f"owner_map expects {type(alt_pid).__name__}")
+            if owners_list:
+                for own in owners_list:
+                    owner_rows.setdefault(own["owner_id"], []).append((row, own))
             else:
-                log.warning(f"No owner for property_id={row.get('property_id')} — skipping")
+                log.warning(
+                    f"  UNMAPPED: property_id={pid!r} "
+                    f"({row.get('property_name','?')}, "
+                    f"tenant={row.get('tenant_name','?')}) — no owner found, skipping")
 
         for owner_id, rows_and_owners in owner_rows.items():
             owner       = rows_and_owners[0][1]
@@ -1075,7 +1105,7 @@ class SyncOrchestrator:
                 try:
                     self._sync_unit(
                         row, calendar_id, due_date, today, this_month,
-                        tenant_info, payment_map,
+                        tenant_info, payment_map, owner_id=owner_id,
                     )
                 except Exception as exc:
                     oid = row.get("occupancy_id", "?")
@@ -1132,9 +1162,11 @@ class SyncOrchestrator:
     def _sync_unit(
         self, row: dict, calendar_id: str, due_date: date,
         today: date, this_month: str, tenant_info: dict, payment_map: dict,
+        owner_id: str = "",
     ):
         unit     = self._make_unit(row, tenant_info, payment_map)
-        oid      = unit["occupancy_id"]
+        oid      = unit["occupancy_id"]   # bare — for Google Calendar
+        soid     = f"{oid}@{owner_id}" if owner_id else oid  # for state keys
         rent     = unit["rent"]
         past_due = unit["past_due"]
         status   = classify_status(rent, past_due)
@@ -1165,10 +1197,10 @@ class SyncOrchestrator:
             p["amount"] for p in sorted_payments if not p["is_nsf"])
 
         balances        = compute_running_balances(sorted_payments, past_due)
-        prior           = self.state.get(oid, this_month)
+        prior           = self.state.get(soid, this_month)
 
         # ── Load commitment state ─────────────────────────────────────────────
-        commitments = self.state.get_commitments(oid)
+        commitments = self.state.get_commitments(soid)
         has_late_commitment = any(c.get("source_type") == "late" for c in commitments)
         # Months covered by any commitment (for kickstart suppression)
         commitment_months = {
@@ -1252,7 +1284,7 @@ class SyncOrchestrator:
                     source_status=status)
                 created = _gcal_execute(self.gcal.service.events().insert(
                     calendarId=calendar_id, body=new_body))
-                self.state.add_commitment(oid, {
+                self.state.add_commitment(soid, {
                     "event_id":          created["id"],
                     "anchor_date":       _drag_live,
                     "source_type":       "status",
@@ -1327,7 +1359,7 @@ class SyncOrchestrator:
                     live_date, "late", outstanding,
                     source_status=status,
                 )
-                self.state.add_commitment(oid, {
+                self.state.add_commitment(soid, {
                     "event_id":           prior_late_id,
                     "anchor_date":        live_date,
                     "source_type":        "late",
@@ -1351,14 +1383,14 @@ class SyncOrchestrator:
         # ── Process all commitments for this unit ─────────────────────────────
         # Always runs — including during FORCE_REFRESH — so commitment events
         # are preserved and recreated even after a nuke-and-rebuild.
-        if self.state.get_commitments(oid):
+        if self.state.get_commitments(soid):
             self._process_commitments(
                 oid, calendar_id, unit, today,
                 has_known_or_new=True,
             )
 
         # ── Persist current-month state ───────────────────────────────────────
-        self.state.set(oid, this_month, {
+        self.state.set(soid, this_month, {
             "status":            status,
             "past_due":          past_due,
             "status_event_id":   status_event_id,
@@ -1401,13 +1433,13 @@ class SyncOrchestrator:
                 log.info(f"  {oid}: purged {purged} future-month event(s) before rebuild")
 
         # Reload commitments (may have new additions from the late-event detection)
-        commitments = self.state.get_commitments(oid)
+        commitments = self.state.get_commitments(soid)
 
         for i, fdue in enumerate(
             self._month_range(due_date + timedelta(days=32), lease_end)
         ):
             fmonth  = fdue.strftime("%Y-%m")
-            prior_f = self.state.get(oid, fmonth)
+            prior_f = self.state.get(soid, fmonth)
             is_next = (i == 0)
 
             # ── Check if a commitment already covers this month ───────────────
@@ -1441,14 +1473,14 @@ class SyncOrchestrator:
                                 live_date, "kickstart", max(0.0, past_due),
                                 source_status=STATUS_UNPAID,
                             )
-                            self.state.add_commitment(oid, {
+                            self.state.add_commitment(soid, {
                                 "event_id":           placeholder_id,
                                 "anchor_date":        live_date,
                                 "source_type":        "kickstart",
                                 "origin_month":       fmonth,
                                 "covers_rent_month":  fmonth,
                             })
-                            self.state.set(oid, fmonth, {
+                            self.state.set(soid, fmonth, {
                                 **prior_f, "is_commitment": True,
                             })
                             log.info(
@@ -1494,7 +1526,7 @@ class SyncOrchestrator:
 
             body = self.gcal._build_future_placeholder(this_fu, fut_status, fdue)
             eid  = self.gcal.upsert_event(calendar_id, body)
-            self.state.set(oid, fmonth, {
+            self.state.set(soid, fmonth, {
                 "status":        fut_status,
                 "past_due":      this_fu["past_due"],
                 "rent_event_id": eid,
@@ -1604,7 +1636,7 @@ class SyncOrchestrator:
                         source_status=status)
                     created = _gcal_execute(self.gcal.service.events().insert(
                         calendarId=calendar_id, body=new_body))
-                    self.state.add_commitment(oid, {
+                    self.state.add_commitment(soid, {
                         "event_id":          created["id"],
                         "anchor_date":       live,
                         "source_type":       "status",
@@ -1638,7 +1670,7 @@ class SyncOrchestrator:
                         created = _gcal_execute(
                             self.gcal.service.events().insert(
                                 calendarId=calendar_id, body=new_body))
-                        self.state.add_commitment(oid, {
+                        self.state.add_commitment(soid, {
                             "event_id":          created["id"],
                             "anchor_date":       live,
                             "source_type":       "payment",
@@ -1683,7 +1715,7 @@ class SyncOrchestrator:
             calendar_id, oid, "commitment")
         live_by_id  = {ev["id"]: ev for ev in live_events}
 
-        commitments = self.state.get_commitments(oid)
+        commitments = self.state.get_commitments(soid)
 
         # Discover split copies that PM created (copy-paste in Google Calendar)
         known_ids = {c["event_id"] for c in commitments}
@@ -1704,11 +1736,11 @@ class SyncOrchestrator:
                         else (anchor[:7] if src == "kickstart" else None)
                     ),
                 }
-                self.state.add_commitment(oid, new_c)
+                self.state.add_commitment(soid, new_c)
                 log.info(f"  {oid}: discovered new split commitment on {anchor}")
 
         # Reload after potential additions
-        commitments = self.state.get_commitments(oid)
+        commitments = self.state.get_commitments(soid)
         if not commitments:
             return
 
@@ -1782,9 +1814,9 @@ class SyncOrchestrator:
                         f" — reverting to placeholder")
                     self.gcal.delete_event(calendar_id, event_id)
                     # Clear is_commitment flag; normal loop will recreate placeholder
-                    prior_f = self.state.get(oid, c.get("origin_month", ""))
+                    prior_f = self.state.get(soid, c.get("origin_month", ""))
                     if prior_f:
-                        self.state.set(oid, c.get("origin_month", ""), {
+                        self.state.set(soid, c.get("origin_month", ""), {
                             **prior_f,
                             "rent_event_id": None,
                             "is_commitment": False,
@@ -1825,7 +1857,7 @@ class SyncOrchestrator:
 
             surviving.append(updated_c)
 
-        self.state.set_commitments(oid, surviving)
+        self.state.set_commitments(soid, surviving)
 
 
 # ---------------------------------------------------------------------------
