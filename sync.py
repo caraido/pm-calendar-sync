@@ -441,11 +441,12 @@ class GoogleCalendarManager:
         anchor_date: str,
         source_type: str,
         outstanding: float,
+        source_status: str = "",
     ) -> str:
         """
         Convert an existing movable event (kickstart or late) into a commitment
-        event in-place.  Changes okpm_event_type to 'commitment', applies the
-        tangerine colour, and adds the PM template above the divider.
+        event in-place.  Changes okpm_event_type to 'commitment', keeps the
+        original colour/emoji, and adds the PM template above the divider.
         Returns event_id (unchanged).
         """
         pm_template = (
@@ -453,7 +454,8 @@ class GoogleCalendarManager:
             "NOTES:    [optional context]"
         )
         body = self._build_commitment_event(
-            unit, anchor_date, source_type, outstanding, pm_notes=pm_template)
+            unit, anchor_date, source_type, outstanding,
+            pm_notes=pm_template, source_status=source_status)
         body["start"]["date"] = anchor_date
         body["end"]["date"]   = anchor_date
         try:
@@ -475,6 +477,7 @@ class GoogleCalendarManager:
         anchor_date: str,
         source_type: str,
         outstanding: float,
+        source_status: str = "",
     ) -> str:
         """
         Update a commitment event while preserving PM notes above COMMITMENT_DIVIDER.
@@ -488,7 +491,8 @@ class GoogleCalendarManager:
             else desc
         )
         new_body = self._build_commitment_event(
-            unit, anchor_date, source_type, outstanding, pm_notes=pm_notes)
+            unit, anchor_date, source_type, outstanding,
+            pm_notes=pm_notes, source_status=source_status)
 
         # Honour the live date: PM may have re-dragged the event
         live_date = existing_body.get("start", {}).get("date", anchor_date)
@@ -534,9 +538,12 @@ class GoogleCalendarManager:
         source_type: str,
         outstanding: float,
         pm_notes: str = "",
+        source_status: str = "",
     ) -> dict:
         """
         Commitment (promise-to-pay) event.
+        Keeps the original color/emoji of the source event so the PM sees
+        a familiar visual at the promised date.
 
         Description layout:
           <PM-editable section — everything above COMMITMENT_DIVIDER>
@@ -551,12 +558,16 @@ class GoogleCalendarManager:
             display_date = anchor_date
 
         clamp_outstanding = max(0.0, outstanding)
-        status     = classify_status(unit["rent"], outstanding)
+        # Use the source event's status for colour/emoji; fall back to computed
+        if not source_status:
+            source_status = classify_status(unit["rent"], outstanding)
+        emoji      = emoji_for_status(source_status)
+        color      = color_for_status(source_status)
         unit_part  = f"{unit['unit_label']} · " if unit["unit_label"] else ""
         first_name = normalize_tenant_name(unit["tenant"]).split()[0]
 
         title = (
-            f"🤝 · {first_name} · {unit_part}{unit['property_name']} · "
+            f"{emoji} · {first_name} · {unit_part}{unit['property_name']} · "
             f"${clamp_outstanding:,.0f} owed · Promise {display_date}"
         )
 
@@ -573,10 +584,10 @@ class GoogleCalendarManager:
             "─" * 44,
             f"Monthly Rent: ${unit['rent']:,.2f}",
             f"Outstanding:  ${clamp_outstanding:,.2f}",
-            f"Status:       {status}",
+            f"Status:       {source_status}",
             "─" * 44,
             f"Committed:    {display_date}",
-            f"Source:       {'Kickstart (future rent placeholder)' if source_type == 'kickstart' else 'Preview/late (arrears tracker)'}",
+            f"Source:       {dict(kickstart='Kickstart (future rent)', late='Preview/late (arrears)', status='Status event (dragged)', payment='Payment event (dragged)').get(source_type, source_type)}",
             f"Late Fee:     {unit.get('late_fee_desc', 'N/A')}",
             f"Lease:        {unit['lease_from']} → {unit['lease_to']}",
             f"Last Synced:  {date.today().strftime('%b %d, %Y')}",
@@ -590,7 +601,7 @@ class GoogleCalendarManager:
             "description": description,
             "start":       {"date": anchor_date},
             "end":         {"date": anchor_date},
-            "colorId":     COLOR_COMMITMENT,
+            "colorId":     color,
             "extendedProperties": {"private": {
                 "okpm_occupancy_id":  str(unit["occupancy_id"]),
                 "okpm_month":         anchor_date[:7],
@@ -1220,6 +1231,40 @@ class SyncOrchestrator:
             if prior else bool(sorted_payments)
         )
 
+        # ── Detect dragged status event → commitment ──────────────────────
+        # If PM drags any current-month event (status/unpaid/partial) to a
+        # future date, create a commitment at the target date.  The normal
+        # processing below will snap the status event back to its canonical
+        # position, so the PM sees both: the original status AND a tangerine
+        # commitment at the promised date.
+        if (prior and prior.get("status_event_id")
+                and not FORCE_REFRESH
+                and not suppress_kickstart
+                and this_month not in commitment_months):
+            _drag_live  = self.gcal.get_event_start_date(
+                calendar_id, prior["status_event_id"])
+            _drag_canon = prior.get("status_event_date", due_date.isoformat())
+            if (_drag_live
+                    and _drag_live != _drag_canon
+                    and _drag_live > today.isoformat()):
+                new_body = self.gcal._build_commitment_event(
+                    unit, _drag_live, "status", max(0.0, past_due),
+                    source_status=status)
+                created = _gcal_execute(self.gcal.service.events().insert(
+                    calendarId=calendar_id, body=new_body))
+                self.state.add_commitment(oid, {
+                    "event_id":          created["id"],
+                    "anchor_date":       _drag_live,
+                    "source_type":       "status",
+                    "origin_month":      this_month,
+                    "covers_rent_month": this_month,
+                })
+                commitment_months.add(this_month)
+                has_late_commitment = True
+                log.info(
+                    f"  {oid}: status event dragged to {_drag_live} "
+                    f"→ commitment registered")
+
         # ── Build / update status event ───────────────────────────────────────
         if suppress_kickstart:
             # Commitment anchors this month; no status event on the 1st
@@ -1259,6 +1304,7 @@ class SyncOrchestrator:
             self._verify_locked_events(
                 oid, calendar_id, prior,
                 status_event_id, status_event_date, sorted_payments,
+                unit, today, this_month, past_due, status, commitment_months,
             )
 
         # ── Detect moved late event → register commitment ─────────────────────
@@ -1279,6 +1325,7 @@ class SyncOrchestrator:
                 self.gcal.convert_to_commitment(
                     calendar_id, prior_late_id, unit,
                     live_date, "late", outstanding,
+                    source_status=status,
                 )
                 self.state.add_commitment(oid, {
                     "event_id":           prior_late_id,
@@ -1392,6 +1439,7 @@ class SyncOrchestrator:
                             self.gcal.convert_to_commitment(
                                 calendar_id, placeholder_id, unit,
                                 live_date, "kickstart", max(0.0, past_due),
+                                source_status=STATUS_UNPAID,
                             )
                             self.state.add_commitment(oid, {
                                 "event_id":           placeholder_id,
@@ -1527,26 +1575,83 @@ class SyncOrchestrator:
         status_event_id: Optional[str],
         canonical_status_date: date,
         sorted_payments: list[dict],
+        unit: dict,
+        today: date,
+        this_month: str,
+        past_due: float,
+        status: str,
+        commitment_months: set,
     ):
         """
         Read the live date of each locked event (status + payment logs) from
-        Google and revert to canonical if PM accidentally moved it.
-        Called only when we did NOT just write the event this run.
+        Google.  If dragged to a future date and no commitment already covers
+        this month, create a commitment at the target date and then snap the
+        event back.  Otherwise just revert.
         """
         if not prior or not status_event_id:
             return
 
-        # Only verify events that are real status events (not placeholders / commitments)
+        # ── Status event ──────────────────────────────────────────────────
         if prior.get("status_event_id"):
-            self.gcal.revert_event_to_date(
-                calendar_id, status_event_id, canonical_status_date.isoformat())
+            live = self.gcal.get_event_start_date(calendar_id, status_event_id)
+            canon = canonical_status_date.isoformat()
+            if live and live != canon:
+                if (live > today.isoformat()
+                        and this_month not in commitment_months):
+                    # Drag to future → commitment
+                    new_body = self.gcal._build_commitment_event(
+                        unit, live, "status", max(0.0, past_due),
+                        source_status=status)
+                    created = _gcal_execute(self.gcal.service.events().insert(
+                        calendarId=calendar_id, body=new_body))
+                    self.state.add_commitment(oid, {
+                        "event_id":          created["id"],
+                        "anchor_date":       live,
+                        "source_type":       "status",
+                        "origin_month":      this_month,
+                        "covers_rent_month": this_month,
+                    })
+                    commitment_months.add(this_month)
+                    log.info(
+                        f"  {oid}: status event dragged to {live} "
+                        f"→ commitment registered")
+                else:
+                    log.warning(
+                        f"  REVERT locked event {status_event_id}: "
+                        f"{live} → {canon}")
+                # Always snap status event back to canonical position
+                self.gcal.revert_event_to_date(
+                    calendar_id, status_event_id, canon)
 
-        # Verify additional payment events
-        additional_payments = sorted_payments[1:]   # [0] absorbed into status event
+        # ── Payment events ────────────────────────────────────────────────
+        additional_payments = sorted_payments[1:]   # [0] absorbed into status
         for i, event_id in enumerate(prior.get("payment_event_ids", [])):
             if i < len(additional_payments):
-                self.gcal.revert_event_to_date(
-                    calendar_id, event_id, additional_payments[i]["date"])
+                pay_canon = additional_payments[i]["date"]
+                live = self.gcal.get_event_start_date(calendar_id, event_id)
+                if live and live != pay_canon:
+                    if (live > today.isoformat()
+                            and this_month not in commitment_months):
+                        new_body = self.gcal._build_commitment_event(
+                            unit, live, "payment", max(0.0, past_due),
+                            source_status=status)
+                        created = _gcal_execute(
+                            self.gcal.service.events().insert(
+                                calendarId=calendar_id, body=new_body))
+                        self.state.add_commitment(oid, {
+                            "event_id":          created["id"],
+                            "anchor_date":       live,
+                            "source_type":       "payment",
+                            "origin_month":      this_month,
+                            "covers_rent_month": this_month,
+                        })
+                        commitment_months.add(this_month)
+                        log.info(
+                            f"  {oid}: payment event dragged to {live} "
+                            f"→ commitment registered")
+                    # Snap payment event back
+                    self.gcal.revert_event_to_date(
+                        calendar_id, event_id, pay_canon)
 
     # ── Commitment lifecycle ──────────────────────────────────────────────────
 
