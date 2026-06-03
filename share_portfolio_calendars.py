@@ -57,15 +57,19 @@ SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 def load_service_account() -> dict:
     raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-    if raw:
-        return json.loads(raw)
-    if len(sys.argv) > 1:
-        with open(sys.argv[1], "r", encoding="utf-8") as f:
+    if not raw:
+        if len(sys.argv) > 1:
+            with open(sys.argv[1], "r", encoding="utf-8") as f:
+                return json.load(f)
+        sys.exit(
+            "No credentials. Set GOOGLE_SERVICE_ACCOUNT_JSON, or pass the path to "
+            "the service-account JSON file as the first argument."
+        )
+    raw = raw.strip()
+    if raw.endswith(".json") or ("\\" in raw or "/" in raw):
+        with open(raw) as f:
             return json.load(f)
-    sys.exit(
-        "No credentials. Set GOOGLE_SERVICE_ACCOUNT_JSON, or pass the path to "
-        "the service-account JSON file as the first argument."
-    )
+    return json.loads(raw)
 
 
 def list_portfolio_calendars(svc) -> list[tuple[str, str]]:
