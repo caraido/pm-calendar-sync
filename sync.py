@@ -363,9 +363,9 @@ class GoogleCalendarManager:
             "timeZone": "America/Chicago",
         }).execute()
         log.info(f"Created calendar: {summary}")
-        # PM gets writer on new calendars so they can drag movable events
+        # PM gets owner so the calendar appears under 'My calendars'
         if PM_EMAIL:
-            self._share(cal["id"], PM_EMAIL, role="writer", notify=False)
+            self._share(cal["id"], PM_EMAIL, role="owner", notify=False)
         self._cal_cache[owner_name] = cal["id"]
         return cal["id"]
 
@@ -401,8 +401,10 @@ class GoogleCalendarManager:
         self._share(calendar_id, email, role="reader", notify=True)
 
     def ensure_pm_access(self, calendar_id: str):
-        """PM needs WRITER so they can drag movable events to create commitments."""
-        self._share(calendar_id, PM_EMAIL, role="writer", notify=False)
+        """PM gets OWNER so the calendar appears under 'My calendars' in Google
+        Calendar (reader/writer land in 'Other calendars'). Owner is a superset
+        of writer, so the PM can still drag events, manage commitments, etc."""
+        self._share(calendar_id, PM_EMAIL, role="owner", notify=False)
 
     # ── Low-level event retrieval ─────────────────────────────────────────────
 

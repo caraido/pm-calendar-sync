@@ -43,7 +43,7 @@ while True:
     if not page_token:
         break
 
-okpm = [c for c in calendars if c.get("summary", "").startswith("OKPM")]
+okpm = [c for c in calendars if c.get("summary", "").endswith("Portfolio")]
 print(f"Found {len(okpm)} OKPM calendar(s)\n")
 
 for cal in okpm:
