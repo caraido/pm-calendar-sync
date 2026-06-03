@@ -1010,10 +1010,7 @@ class StateManager:
     # ── Commitment helpers ────────────────────────────────────────────────────
 
     def get_commitments(self, oid: str) -> list[dict]:
-        val = self.data["_commitments"].get(oid, [])
-        if not val and "@" in oid:
-            val = self.data["_commitments"].get(oid.split("@")[0], [])
-        return list(val)
+        return list(self.data["_commitments"].get(oid, []))
 
     def set_commitments(self, oid: str, commitments: list[dict]):
         self.data["_commitments"][oid] = commitments
@@ -1289,6 +1286,7 @@ class SyncOrchestrator:
                     "anchor_date":       _drag_live,
                     "source_type":       "status",
                     "origin_month":      this_month,
+                    "calendar_id":       calendar_id,
                     "covers_rent_month": this_month,
                 })
                 commitment_months.add(this_month)
@@ -1364,6 +1362,7 @@ class SyncOrchestrator:
                     "anchor_date":        live_date,
                     "source_type":        "late",
                     "origin_month":       this_month,
+                    "calendar_id":       calendar_id,
                     "covers_rent_month":  covers_rent_month,
                 })
                 prior_late_id        = None   # no longer a plain late event
@@ -1478,7 +1477,8 @@ class SyncOrchestrator:
                                 "anchor_date":        live_date,
                                 "source_type":        "kickstart",
                                 "origin_month":       fmonth,
-                                "covers_rent_month":  fmonth,
+                                "calendar_id":       calendar_id,
+                    "covers_rent_month":  fmonth,
                             })
                             self.state.set(soid, fmonth, {
                                 **prior_f, "is_commitment": True,
@@ -1495,6 +1495,9 @@ class SyncOrchestrator:
                         log.warning(
                             f"  {oid}: kickstart {placeholder_id} for {fmonth} — "
                             f"event not found in Google (deleted?)")
+                        # Clear stale ID so the frozen-placeholder check below
+                        # doesn't block recreation of a fresh placeholder.
+                        prior_f = {**prior_f, "rent_event_id": None}
 
             # ── Normal frozen-placeholder logic ─────────────────────────────────
             # During FORCE_REFRESH we rewrite ALL placeholders (nuke & rebuild),
@@ -1642,7 +1645,8 @@ class SyncOrchestrator:
                             "anchor_date":       live,
                             "source_type":       "status",
                             "origin_month":      this_month,
-                            "covers_rent_month": this_month,
+                            "calendar_id":       calendar_id,
+                    "covers_rent_month": this_month,
                         })
                         commitment_months.add(this_month)
                         log.info(
@@ -1684,7 +1688,8 @@ class SyncOrchestrator:
                             "anchor_date":       live,
                             "source_type":       "payment",
                             "origin_month":      this_month,
-                            "covers_rent_month": this_month,
+                            "calendar_id":       calendar_id,
+                    "covers_rent_month": this_month,
                         })
                         commitment_months.add(this_month)
                         log.info(
@@ -1759,6 +1764,15 @@ class SyncOrchestrator:
         surviving   = []
 
         for c in commitments:
+            # Skip commitments that belong to a different calendar.
+            # calendar_id is stored in the entry when the commitment is created;
+            # entries without it (old format) are treated as belonging to any
+            # calendar (backward compat — will be fixed on first update).
+            c_cal = c.get("calendar_id")
+            if c_cal and c_cal != calendar_id:
+                surviving.append(c)  # keep it; belongs to another owner's calendar
+                continue
+
             event_id          = c["event_id"]
             anchor_date       = c["anchor_date"]
             source_type       = c.get("source_type", "late")
@@ -1782,7 +1796,8 @@ class SyncOrchestrator:
                     try:
                         created = _gcal_execute(self.gcal.service.events().insert(
                             calendarId=calendar_id, body=new_body))
-                        c = {**c, "event_id": created["id"]}
+                        c = {**c, "event_id": created["id"],
+                             "calendar_id": calendar_id}
                         ev_body = new_body
                         live_by_id[c["event_id"]] = new_body
                         log.info(
@@ -1849,6 +1864,9 @@ class SyncOrchestrator:
                 outstanding = past_due
 
             # ── Update event (preserves PM notes, picks up re-drags) ──────────
+            # Refresh event_id — it may have changed if the event was just
+            # recreated above (old variable holds the deleted event's ID).
+            event_id = c["event_id"]
             new_live_anchor = self.gcal.update_commitment_event(
                 calendar_id, event_id, ev_body,
                 unit, anchor_date, source_type, outstanding,
