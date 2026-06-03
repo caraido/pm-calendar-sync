@@ -1498,6 +1498,18 @@ class SyncOrchestrator:
                         # Clear stale ID so the frozen-placeholder check below
                         # doesn't block recreation of a fresh placeholder.
                         prior_f = {**prior_f, "rent_event_id": None}
+                        # Persist the clear under BOTH the owner-scoped key and
+                        # the bare-oid key.  Otherwise the stale bare-oid entry
+                        # keeps shadowing via StateManager.get()'s fallback and
+                        # the warning repeats on every run.
+                        self.state.set(soid, fmonth, prior_f)
+                        bare_oid = soid.split("@")[0]
+                        if bare_oid != soid:
+                            bare_prior = self.state.data.get(
+                                self.state._key(bare_oid, fmonth))
+                            if bare_prior:
+                                self.state.set(bare_oid, fmonth, {
+                                    **bare_prior, "rent_event_id": None})
 
             # ── Normal frozen-placeholder logic ─────────────────────────────────
             # During FORCE_REFRESH we rewrite ALL placeholders (nuke & rebuild),
