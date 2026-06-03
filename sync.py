@@ -1219,6 +1219,17 @@ class SyncOrchestrator:
         balances        = compute_running_balances(sorted_payments, past_due)
         prior           = self.state.get(soid, this_month)
 
+        # Distrust state written for a DIFFERENT calendar.  Earlier runs (before
+        # co-ownership state-scoping was fixed) could persist a soid entry whose
+        # event IDs actually live on another co-owner's calendar — e.g. Cloutier
+        # inheriting Palmer's status_event_id for a shared unit.  If the stored
+        # calendar_id doesn't match this calendar (or is absent, i.e. an entry
+        # written before tagging existed), drop it so the event is re-resolved
+        # against THIS calendar via _find_status_event, which de-dupes by event
+        # properties and therefore never creates duplicates.
+        if prior and prior.get("calendar_id") != calendar_id:
+            prior = None
+
         # ── Load commitment state ─────────────────────────────────────────────
         commitments = self.state.get_commitments(soid)
         has_late_commitment = any(c.get("source_type") == "late" for c in commitments)
@@ -1415,6 +1426,7 @@ class SyncOrchestrator:
         self.state.set(soid, this_month, {
             "status":            status,
             "past_due":          past_due,
+            "calendar_id":       calendar_id,
             "status_event_id":   status_event_id,
             "status_event_date": status_event_date.isoformat(),
             "late_event_id":     late_event_id,
@@ -1462,6 +1474,11 @@ class SyncOrchestrator:
         ):
             fmonth  = fdue.strftime("%Y-%m")
             prior_f = self.state.get(soid, fmonth)
+            # Same cross-calendar distrust as current-month state (see above):
+            # drop placeholders whose stored calendar_id doesn't match, so each
+            # calendar rebuilds its own future placeholders via upsert_event.
+            if prior_f and prior_f.get("calendar_id") != calendar_id:
+                prior_f = None
             is_next = (i == 0)
 
             # ── Check if a commitment already covers this month ───────────────
@@ -1567,6 +1584,7 @@ class SyncOrchestrator:
             self.state.set(soid, fmonth, {
                 "status":        fut_status,
                 "past_due":      this_fu["past_due"],
+                "calendar_id":   calendar_id,
                 "rent_event_id": eid,
                 "late_event_id": None,
             })
