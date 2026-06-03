@@ -329,19 +329,36 @@ class GoogleCalendarManager:
     def get_or_create_calendar(self, owner_name: str) -> str:
         if owner_name in self._cal_cache:
             return self._cal_cache[owner_name]
-        summary = f"{CALENDAR_PREFIX} · {owner_name} Portfolio"
+        summary = f"{owner_name} Portfolio"                      # new: no prefix
+        legacy  = f"{CALENDAR_PREFIX} · {owner_name} Portfolio"  # pre-rename name
         page_token = None
+        found_id = found_summary = None
         while True:
             resp = self.service.calendarList().list(pageToken=page_token).execute()
             for cal in resp.get("items", []):
-                if cal["summary"] == summary:
-                    self._cal_cache[owner_name] = cal["id"]
-                    return cal["id"]
+                if cal["summary"] in (summary, legacy):
+                    found_id, found_summary = cal["id"], cal["summary"]
+                    break
+            if found_id:
+                break
             page_token = resp.get("nextPageToken")
-            if not page_token: break
+            if not page_token:
+                break
+        if found_id:
+            # Migrate a legacy "OKPM · …" calendar by renaming it in place so we
+            # keep its events, ACLs, and ID (no orphaned duplicate calendar).
+            if found_summary != summary:
+                try:
+                    self.service.calendars().patch(
+                        calendarId=found_id, body={"summary": summary}).execute()
+                    log.info(f"Renamed calendar: {found_summary!r} → {summary!r}")
+                except HttpError as e:
+                    log.warning(f"Could not rename calendar {found_id}: {e}")
+            self._cal_cache[owner_name] = found_id
+            return found_id
         cal = self.service.calendars().insert(body={
             "summary": summary,
-            "description": (f"Managed by OKPM. Rent tracking for {owner_name}'s portfolio. "
+            "description": (f"Rent tracking for {owner_name}'s portfolio. "
                             f"Do not edit — auto-synced from AppFolio."),
             "timeZone": "America/Chicago",
         }).execute()
@@ -995,10 +1012,16 @@ class StateManager:
         return f"{oid}_{month}"
 
     def get(self, oid: str, month: str) -> Optional[dict]:
-        val = self.data.get(self._key(oid, month))
-        if val is None and "@" in oid:
-            val = self.data.get(self._key(oid.split("@")[0], month))
-        return val
+        # NOTE: no bare-oid fallback. A unit co-owned by several owners is
+        # processed once per owner with a distinct owner-scoped key
+        # (f"{oid}@{owner_id}"). Falling back to the bare-oid entry would make
+        # the 2nd+ owner inherit the 1st owner's sync state and skip creating
+        # events on their calendar. Each calendar's events are still found and
+        # de-duplicated via _find_status_event/_find_event (which search by the
+        # event's extendedProperties on that specific calendar), so dropping the
+        # fallback never creates duplicates — it only lets each calendar build
+        # its own events independently.
+        return self.data.get(self._key(oid, month))
 
     def set(self, oid: str, month: str, entry: dict):
         entry["last_updated"] = datetime.utcnow().isoformat()
