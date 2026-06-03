@@ -1500,7 +1500,7 @@ class SyncOrchestrator:
             # During FORCE_REFRESH we rewrite ALL placeholders (nuke & rebuild),
             # which fixes stale/wrong status from prior runs.  During normal
             # polls, frozen placeholders are skipped as before.
-            if not FORCE_REFRESH and prior_f and not (is_next and has_credit):
+            if not FORCE_REFRESH and prior_f and prior_f.get("rent_event_id") and not (is_next and has_credit):
                 continue
 
             if is_next and has_credit:
@@ -1623,37 +1623,46 @@ class SyncOrchestrator:
         if not prior or not status_event_id:
             return
 
+        soid = oid  # oid is already owner-scoped when passed from _sync_unit
         # ── Status event ──────────────────────────────────────────────────
         if prior.get("status_event_id"):
             live = self.gcal.get_event_start_date(calendar_id, status_event_id)
             canon = canonical_status_date.isoformat()
             if live and live != canon:
-                if (live > today.isoformat()
-                        and this_month not in commitment_months):
-                    # Drag to future → commitment
-                    new_body = self.gcal._build_commitment_event(
-                        unit, live, "status", max(0.0, past_due),
-                        source_status=status)
-                    created = _gcal_execute(self.gcal.service.events().insert(
-                        calendarId=calendar_id, body=new_body))
-                    self.state.add_commitment(soid, {
-                        "event_id":          created["id"],
-                        "anchor_date":       live,
-                        "source_type":       "status",
-                        "origin_month":      this_month,
-                        "covers_rent_month": this_month,
-                    })
-                    commitment_months.add(this_month)
-                    log.info(
-                        f"  {oid}: status event dragged to {live} "
-                        f"→ commitment registered")
+                if live > today.isoformat():
+                    if this_month not in commitment_months:
+                        # PM dragged status event to future → register commitment
+                        new_body = self.gcal._build_commitment_event(
+                            unit, live, "status", max(0.0, past_due),
+                            source_status=status)
+                        created = _gcal_execute(self.gcal.service.events().insert(
+                            calendarId=calendar_id, body=new_body))
+                        self.state.add_commitment(soid, {
+                            "event_id":          created["id"],
+                            "anchor_date":       live,
+                            "source_type":       "status",
+                            "origin_month":      this_month,
+                            "covers_rent_month": this_month,
+                        })
+                        commitment_months.add(this_month)
+                        log.info(
+                            f"  {oid}: status event dragged to {live} "
+                            f"→ commitment registered")
+                    # Snap back silently (commitment already covers this drag)
+                    ev = self.gcal.get_event(calendar_id, status_event_id)
+                    if ev:
+                        ev["start"] = {"date": canon}
+                        ev["end"]   = {"date": canon}
+                        try:
+                            _gcal_execute(self.gcal.service.events().update(
+                                calendarId=calendar_id,
+                                eventId=status_event_id, body=ev))
+                        except HttpError as e:
+                            log.error(f"  Failed to snap back {status_event_id}: {e}")
                 else:
-                    log.warning(
-                        f"  REVERT locked event {status_event_id}: "
-                        f"{live} → {canon}")
-                # Always snap status event back to canonical position
-                self.gcal.revert_event_to_date(
-                    calendar_id, status_event_id, canon)
+                    # Dragged to past — warn and use standard revert
+                    self.gcal.revert_event_to_date(
+                        calendar_id, status_event_id, canon)
 
         # ── Payment events ────────────────────────────────────────────────
         additional_payments = sorted_payments[1:]   # [0] absorbed into status
@@ -1710,7 +1719,7 @@ class SyncOrchestrator:
         if not has_known_or_new:
             return
 
-        # Fetch all live commitment events for this occupancy in one call
+        soid = oid  # oid may already be owner-scoped (e.g. "96@owner42")
         live_events = self.gcal.find_all_events_by_type(
             calendar_id, oid, "commitment")
         live_by_id  = {ev["id"]: ev for ev in live_events}
