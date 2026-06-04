@@ -3,32 +3,32 @@ OKPM AppFolio → Google Calendar Sync  v2
 ==========================================
 Polls AppFolio Plus Reports API (v2) and maintains per-owner Google Calendars.
 
-─── Unchanged from v1 ───────────────────────────────────────────────────────
-Model (current month):
-  STATUS EVENT  : one per month. Starts on the 1st, migrates to first payment
-                  date (absorbing that payment). Subsequent payments get their
-                  own events; status event stays put.
+─── Current-month model ─────────────────────────────────────────────────────
+  STATUS EVENT  : one per month. Starts on the 1st (the "what's due" preview),
+                  then migrates to the first payment date (absorbing that
+                  payment). Subsequent payments get their own events; the status
+                  event stays put.
   PAYMENT EVENTS: one per payment after the first, on each payment date.
-  LATE EVENT    : per-tenant floating event (today's date) once grace period
-                  passes. Refreshes every run (the "daily preview").
 
-Model (future months):
+─── Future-month model ──────────────────────────────────────────────────────
   PLACEHOLDER   : frozen event on the 1st. Unfrozen only for next month when
-                  current tenant has a credit balance.
+                  the current tenant has a credit balance.
 
-─── New in v2 ───────────────────────────────────────────────────────────────
+─── Commitments (promise-to-pay) ────────────────────────────────────────────
 COMMITMENT / PROMISE EVENTS
-  The PM can register a payment plan by dragging a MOVABLE event to a future
-  date in Google Calendar.  The next poll detects the move and converts the
-  event into a  okpm_event_type = "commitment"  event (tangerine color).
+  The PM registers a payment plan by dragging an event to a future date in
+  Google Calendar.  The next poll detects the move and converts the event in
+  place into an  okpm_event_type = "commitment"  event (tangerine color).
 
-  MOVABLE events (PM may drag; forward moves register a promise):
+  MOVABLE events (PM may drag; a forward move registers a promise):
+    • Status events               "status"   — the 1st-of-month event dragged
+    • Payment events              "payment"  — a logged payment dragged
     • Future-month placeholders   "rent"     — kickstart commitment
-    • Today / preview markers      "late"     — arrears commitment
-    • Status & payment events      "status" / "payment" — dragged to a promise date
+  (Historical "late"-sourced commitments, created before the today-marker
+   dashboard was retired, are still tracked and managed normally.)
 
-  LOCKED events (reverted within one poll if accidentally moved):
-    • Status events not yet dragged into a promise
+  LOCKED events (snapped back within one poll if accidentally moved):
+    • Status / payment events not (yet) dragged into a promise
 
   COMMITMENT lifecycle:
     1. Detected (event dragged to a future date → converted in-place).
@@ -43,12 +43,6 @@ COMMITMENT / PROMISE EVENTS
        promise is treated as a slip and one is recreated, so a tracked unit keeps
        at least one promise until paid.
 
-  TODAY MARKER (daily dashboard):
-    Every unit that still owes (unpaid/partial) and has NO promise on or after
-    today gets a marker on today's date (🔴/🟡 + amount owed, regardless of grace
-    period).  Units tracked by a future promise are excluded — the "who owes me
-    today and hasn't promised" view.
-
   SPLIT PAYMENT PLANS:
     PM copy-pastes a commitment event for multiple promise dates. Each copy
     is discovered via extended-property listing and tracked independently.
@@ -59,13 +53,13 @@ COMMITMENT / PROMISE EVENTS
     not recreated. When M becomes current with no payments yet, no status event
     is created until the first payment arrives; the commitment anchors the month.
 
-  ARREARS COMMITMENT CROSSING MONTHS (Example 2):
-    A today marker dragged into a future month pre-loads that month's rent in the
+  COMMITMENT CROSSING MONTHS:
+    A commitment dragged into a future month pre-loads that month's rent in the
     displayed outstanding. When that month becomes current, the kickstart
     placeholder is deleted; the commitment anchors the month until paid.
 
-  PM ACCESS: Writer (was reader) so they can drag events.  Locked events are
-  detect-and-reverted within one poll cycle.
+  PM ACCESS: Owner (was reader) so the PM can drag events; owners stay reader.
+  Locked events are detect-and-reverted within one poll cycle.
 
 STATE ADDITIONS:
   state.json["_commitments"][oid] = list of:
@@ -878,54 +872,6 @@ class GoogleCalendarManager:
             }},
         }
 
-    def _build_today_marker(self, unit: dict, days_late: int, today: date,
-                            status: str) -> dict:
-        """
-        Today's status marker for a unit that owes and has no future promise.
-        Placed on today's date so the PM sees an at-a-glance "who owes me today"
-        list on opening the calendar.  Emoji/colour reflect the live balance
-        (🔴 owes a full month or more, 🟡 partial).  Past the grace period the
-        title also notes the day count.  Tagged event_type 'late' for continuity
-        with earlier preview events.
-        """
-        emoji        = emoji_for_status(status)
-        color        = color_for_status(status)
-        unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
-        tenant_short = normalize_tenant_name(unit['tenant'])
-        today_str    = today.isoformat()
-        late_tag     = f" (Day {days_late} late)" if days_late > 0 else ""
-        title = (
-            f"{emoji} · {tenant_short} · {unit_part}"
-            f"{unit['property_name']} · ${unit['past_due']:,.0f} owed{late_tag}"
-        )
-        tenants = unit['tenant']
-        if unit.get('additional_tenants'):
-            tenants += f", {unit['additional_tenants']}"
-        desc = [
-            f"Tenant(s):    {tenants}",
-            f"Address:      {unit['address']}",
-            "─" * 40,
-            f"Monthly Rent: ${unit['rent']:,.2f}",
-            f"Outstanding:  ${unit['past_due']:,.2f}",
-            f"Status:       {status}",
-        ]
-        if days_late > 0:
-            desc.append(f"Days Late:    {days_late}")
-        desc.append(f"Late Fee:     {unit.get('late_fee_desc','N/A')}")
-        return {
-            "summary":     title,
-            "location":    unit['address'],
-            "description": "\n".join(desc),
-            "start": {"date": today_str},
-            "end":   {"date": today_str},
-            "colorId": color,
-            "extendedProperties": {"private": {
-                "okpm_occupancy_id": str(unit['occupancy_id']),
-                "okpm_month":        today_str[:7],
-                "okpm_event_type":   "late",
-            }},
-        }
-
     # ── Event find / upsert / delete ─────────────────────────────────────────
     # All Google API calls below use _gcal_execute() for retry on rate limits.
 
@@ -1283,7 +1229,6 @@ class SyncOrchestrator:
 
         # ── Load commitment state ─────────────────────────────────────────────
         commitments = self.state.get_commitments(soid)
-        has_late_commitment = any(c.get("source_type") == "late" for c in commitments)
         # Months covered by any commitment (for kickstart suppression)
         commitment_months = {
             c["covers_rent_month"] for c in commitments
@@ -1391,7 +1336,6 @@ class SyncOrchestrator:
                     "covers_rent_month": this_month,
                 })
                 commitment_months.add(this_month)
-                has_late_commitment = True
                 suppress_kickstart  = True   # don't re-create a status event
                 # The converted event WAS the status event; forget its id so the
                 # status-build and locked-event checks below leave it alone.
@@ -1442,41 +1386,18 @@ class SyncOrchestrator:
                 unit, today, this_month, past_due, status, commitment_months,
             )
 
-        # ── Detect moved late event → register commitment ─────────────────────
-        # Skip during FORCE_REFRESH: no PM drags to detect, and the extra API
-        # reads would overload the run alongside all the writes.
-        prior_late_id        = prior.get("late_event_id") if prior else None
-        new_commitment_added = False
-
-        if prior_late_id and not has_late_commitment and not FORCE_REFRESH:
-            live_date = self.gcal.get_event_start_date(calendar_id, prior_late_id)
-            if live_date and live_date > today.isoformat():
-                # PM dragged the late/preview event to the future → commitment!
-                crosses_month    = live_date[:7] > this_month
-                covers_rent_month = live_date[:7] if crosses_month else None
-                # Pre-load next month's rent into displayed outstanding
-                outstanding = past_due + (rent if crosses_month else 0)
-
-                self.gcal.convert_to_commitment(
-                    calendar_id, prior_late_id, unit,
-                    live_date, "late", outstanding,
-                    source_status=status,
-                )
-                self.state.add_commitment(soid, {
-                    "event_id":           prior_late_id,
-                    "anchor_date":        live_date,
-                    "source_type":        "late",
-                    "origin_month":       this_month,
-                    "calendar_id":       calendar_id,
-                    "covers_rent_month":  covers_rent_month,
-                })
-                prior_late_id        = None   # no longer a plain today marker
-                has_late_commitment  = True
-                new_commitment_added = True
-                # The new commitment's future anchor makes has_future_promise
-                # True below, so the today marker is suppressed correctly.
-                commitment_months.add(covers_rent_month) if covers_rent_month else None
-                log.info(f"  {oid}: late event dragged to {live_date} → commitment registered")
+        # ── Retire any legacy "today" / late preview event ────────────────────
+        # The daily today-marker dashboard has been removed.  Delete any marker
+        # left behind by a previous version so it doesn't linger on the calendar.
+        # Promises are now started by dragging the 1st-of-month status event (or a
+        # payment / future placeholder) forward.  Existing "late"-sourced
+        # commitments already on the calendar are untouched and stay managed by
+        # _process_commitments below.
+        prior_late_id = prior.get("late_event_id") if prior else None
+        if prior_late_id:
+            self.gcal.delete_event(calendar_id, prior_late_id)
+            log.info(f"  {oid}: removed retired today/late preview event")
+        late_event_id = None
 
         # ── Process all commitments for this unit ─────────────────────────────
         # Always runs — including during FORCE_REFRESH — so commitment events
@@ -1489,24 +1410,6 @@ class SyncOrchestrator:
                 soid, calendar_id, unit, today,
                 has_known_or_new=True,
             )
-
-        # ── Today marker (daily "who owes me today" dashboard) ────────────────
-        # Drawn AFTER commitments are processed so it reflects the final promise
-        # state.  A unit with a promise on or after today is already tracked by
-        # that promise, so its today marker is suppressed; un-promised units that
-        # still owe (unpaid/partial) surface on today's date regardless of the
-        # grace period.  Units whose only promises are overdue (all in the past)
-        # are not future-promised, so they still surface here alongside their ⚠️
-        # overdue markers.
-        has_future_promise = any(
-            c.get("anchor_date", "") >= today.isoformat()
-            for c in self.state.get_commitments(soid)
-        )
-        late_event_id = self._handle_today_marker(
-            unit, calendar_id, due_date, today, status,
-            prior_late_id,
-            suppress=has_future_promise,
-        )
 
         # ── Persist current-month state ───────────────────────────────────────
         self.state.set(soid, this_month, {
@@ -1701,49 +1604,6 @@ class SyncOrchestrator:
                 f"on {payment['date']}")
 
         return event_ids
-
-    # ── Late event  (v2: adds suppress parameter) ─────────────────────────────
-
-    def _handle_today_marker(
-        self,
-        unit: dict,
-        calendar_id: str,
-        due_date: date,
-        today: date,
-        status: str,
-        existing_id: Optional[str],
-        suppress: bool = False,
-    ) -> Optional[str]:
-        """
-        Daily 'today' status marker placed on today's date for any unit that
-        still owes (unpaid or partial) and is NOT being tracked by a future-dated
-        promise.  This is the at-a-glance "who owes me today" dashboard: open the
-        calendar and every un-promised delinquent unit is listed on today —
-        shown regardless of the grace period.
-
-        suppress=True when the unit has a future promise tracking it; the promise
-        marker stands in for the today marker, so any existing one is removed.
-        """
-        # Nothing owed → no marker.
-        if status in (STATUS_PAID, STATUS_PREPAID) or unit["past_due"] <= 0:
-            if existing_id:
-                self.gcal.delete_event(calendar_id, existing_id)
-            return None
-
-        # A future promise already tracks this unit → no separate today marker.
-        if suppress:
-            if existing_id:
-                self.gcal.delete_event(calendar_id, existing_id)
-            return None
-
-        # Owes and un-promised → draw/update the marker.  days_late is negative
-        # before the grace period ends; the builder shows the day count only when
-        # it is positive.
-        days_late = (today - (due_date + timedelta(days=LATE_GRACE_DAYS))).days
-        return self.gcal.upsert_event(
-            calendar_id,
-            self.gcal._build_today_marker(unit, days_late, today, status),
-        )
 
     # ── Locked-event revert ───────────────────────────────────────────────────
 
