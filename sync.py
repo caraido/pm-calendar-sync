@@ -897,15 +897,29 @@ class GoogleCalendarManager:
     def _find_event(
         self, calendar_id: str, occupancy_id: str, month: str, event_type: str,
     ) -> Optional[str]:
+        # Events are tagged with the RAW occupancy_id from AppFolio
+        # (unit["occupancy_id"]), never the owner-scoped soid.  Strip the
+        # "@owner_id" suffix so the search matches the tag on the event.
+        search_oid = occupancy_id.split("@")[0] if "@" in occupancy_id else occupancy_id
         result = _gcal_execute(self.service.events().list(
             calendarId=calendar_id,
             privateExtendedProperty=[
-                f"okpm_occupancy_id={occupancy_id}",
+                f"okpm_occupancy_id={search_oid}",
                 f"okpm_month={month}",
                 f"okpm_event_type={event_type}",
             ],
         ))
         items = result.get("items", [])
+        # Auto-clean any duplicates that slipped through during the soid migration.
+        for dup in items[1:]:
+            try:
+                _gcal_execute(self.service.events().delete(
+                    calendarId=calendar_id, eventId=dup["id"]))
+                log.warning(
+                    f"  Deduped: deleted extra {event_type} event "
+                    f"for oid={occupancy_id} on {month}")
+            except Exception:
+                pass
         return items[0]["id"] if items else None
 
     def _find_status_event(
