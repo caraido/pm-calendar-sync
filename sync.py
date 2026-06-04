@@ -304,7 +304,12 @@ def format_address(row: dict) -> str:
 
 
 def unit_label(row: dict) -> str:
-    return (row.get("unit") or "").strip()
+    raw = (row.get("unit") or "").strip()
+    if not raw:
+        return ""
+    # AppFolio is inconsistent: some properties store "Unit 2", others store a
+    # bare "2". Normalize so every label reads "Unit X" (and never "Unit Unit").
+    return raw if raw.lower().startswith("unit") else f"Unit {raw}"
 
 
 def owner_display_name(owner: dict) -> str:
@@ -584,10 +589,10 @@ class GoogleCalendarManager:
         emoji      = emoji_for_status(source_status)
         color      = color_for_status(source_status)
         unit_part  = f"{unit['unit_label']} · " if unit["unit_label"] else ""
-        first_name = normalize_tenant_name(unit["tenant"]).split()[0]
+        tenant_name = normalize_tenant_name(unit["tenant"])
 
         title = (
-            f"{emoji} · {first_name} · {unit_part}{unit['property_name']} · "
+            f"{emoji} · {tenant_name} · {unit_part}{unit['property_name']} · "
             f"${clamp_outstanding:,.0f} owed · Promise {display_date}"
         )
 
@@ -638,7 +643,7 @@ class GoogleCalendarManager:
     ) -> dict:
         emoji        = emoji_for_status(event_status)
         unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
-        tenant_short = unit['tenant'].split(",")[0].strip()
+        tenant_short = normalize_tenant_name(unit['tenant'])
         tenant_full  = normalize_tenant_name(unit['tenant'])
         tenants      = tenant_full
         if unit.get('additional_tenants'):
@@ -1287,6 +1292,23 @@ class SyncOrchestrator:
                     f"  {oid}: commitment covers {this_month} — removing stale placeholder")
                 self.gcal.delete_event(calendar_id, prior["rent_event_id"])
                 prior = {**prior, "rent_event_id": None}
+            # Clean up any status/rent events left over for a commitment-covered
+            # month — by an earlier version that snapped dragged events back, or
+            # as duplicates.  The commitment now represents the month, so none
+            # should remain.  _find_event auto-dedupes, so this also collapses
+            # duplicate copies.  Never delete the commitment event itself.
+            commit_ids = {c.get("event_id") for c in commitments}
+            for _etype in ("status", "rent"):
+                for _ in range(4):  # safety bound
+                    sid = self.gcal._find_event(calendar_id, oid, this_month, _etype)
+                    if not sid or sid in commit_ids:
+                        break
+                    self.gcal.delete_event(calendar_id, sid)
+                    log.info(
+                        f"  {oid}: removed stale {_etype} event "
+                        f"(commitment covers {this_month})")
+            if prior and prior.get("status_event_id") not in commit_ids:
+                prior = {**prior, "status_event_id": None}
 
         # ── prior_status_id resolution ────────────────────────────────────────
         prior_status_id   = (prior.get("status_event_id") or
@@ -1310,12 +1332,12 @@ class SyncOrchestrator:
             if prior else bool(sorted_payments)
         )
 
-        # ── Detect dragged status event → commitment ──────────────────────
-        # If PM drags any current-month event (status/unpaid/partial) to a
-        # future date, create a commitment at the target date.  The normal
-        # processing below will snap the status event back to its canonical
-        # position, so the PM sees both: the original status AND a tangerine
-        # commitment at the promised date.
+        # ── Detect dragged status event → commitment (retire & replace) ───────
+        # If the PM drags the current-month status event to a FUTURE date, treat
+        # it as a promise-to-pay.  Convert THAT SAME event in-place into a
+        # commitment — no second event, no snapping the original back to the 1st
+        # — and suppress this month's status event.  The single event the PM
+        # dragged simply becomes the commitment at the promised date.
         if (prior and prior.get("status_event_id")
                 and not FORCE_REFRESH
                 and not suppress_kickstart
@@ -1326,13 +1348,12 @@ class SyncOrchestrator:
             if (_drag_live
                     and _drag_live != _drag_canon
                     and _drag_live > today.isoformat()):
-                new_body = self.gcal._build_commitment_event(
-                    unit, _drag_live, "status", max(0.0, past_due),
-                    source_status=status)
-                created = _gcal_execute(self.gcal.service.events().insert(
-                    calendarId=calendar_id, body=new_body))
+                ev_id = prior["status_event_id"]
+                self.gcal.convert_to_commitment(
+                    calendar_id, ev_id, unit, _drag_live, "status",
+                    max(0.0, past_due), source_status=status)
                 self.state.add_commitment(soid, {
-                    "event_id":          created["id"],
+                    "event_id":          ev_id,
                     "anchor_date":       _drag_live,
                     "source_type":       "status",
                     "origin_month":      this_month,
@@ -1341,9 +1362,13 @@ class SyncOrchestrator:
                 })
                 commitment_months.add(this_month)
                 has_late_commitment = True
+                suppress_kickstart  = True   # don't re-create a status event
+                # The converted event WAS the status event; forget its id so the
+                # status-build and locked-event checks below leave it alone.
+                prior = {**prior, "status_event_id": None}
                 log.info(
-                    f"  {oid}: status event dragged to {_drag_live} "
-                    f"→ commitment registered")
+                    f"  {oid}: status event dragged to {_drag_live} → "
+                    f"converted in place to commitment (month suppressed)")
 
         # ── Build / update status event ───────────────────────────────────────
         if suppress_kickstart:
