@@ -22,19 +22,32 @@ COMMITMENT / PROMISE EVENTS
   date in Google Calendar.  The next poll detects the move and converts the
   event into a  okpm_event_type = "commitment"  event (tangerine color).
 
-  MOVABLE events (PM may drag; only forward moves honoured):
-    • Future-month placeholders   "rent"   — kickstart commitment
-    • Late / preview events       "late"   — arrears commitment
+  MOVABLE events (PM may drag; forward moves register a promise):
+    • Future-month placeholders   "rent"     — kickstart commitment
+    • Today / preview markers      "late"     — arrears commitment
+    • Status & payment events      "status" / "payment" — dragged to a promise date
 
   LOCKED events (reverted within one poll if accidentally moved):
-    • Status events               "status"
-    • Additional payment logs     "payment"
+    • Status events not yet dragged into a promise
 
   COMMITMENT lifecycle:
-    1. Detected (movable event dragged to future date → converted in-place).
+    1. Detected (event dragged to a future date → converted in-place).
     2. Updated each run: auto section rebuilt, PM notes above divider preserved.
-    3. Resolved: deleted when account balance ≤ 0.
-    4. Expired: deleted when anchor_date < today; late-pool recreates normally.
+       Display recomputes from the live date + balance: 🔴/🟡 while on or after
+       today, ⚠️ Overdue once the promised date has passed unpaid (no auto-expire
+       — a missed promise stays on its date until renegotiated or paid).
+    3. Resolved: every promise for the unit is deleted when balance ≤ 0 (full
+       payment).  Eviction handling is a separate track for later.
+    4. Safe delete (≥1-promise rule): the PM deleting a promise sticks only while
+       another promise remains (rearranging installments).  Deleting the LAST
+       promise is treated as a slip and one is recreated, so a tracked unit keeps
+       at least one promise until paid.
+
+  TODAY MARKER (daily dashboard):
+    Every unit that still owes (unpaid/partial) and has NO promise on or after
+    today gets a marker on today's date (🔴/🟡 + amount owed, regardless of grace
+    period).  Units tracked by a future promise are excluded — the "who owes me
+    today and hasn't promised" view.
 
   SPLIT PAYMENT PLANS:
     PM copy-pastes a commitment event for multiple promise dates. Each copy
@@ -47,9 +60,9 @@ COMMITMENT / PROMISE EVENTS
     is created until the first payment arrives; the commitment anchors the month.
 
   ARREARS COMMITMENT CROSSING MONTHS (Example 2):
-    A late event dragged into a future month pre-loads that month's rent in the
-    displayed outstanding. When that month becomes current, the July-1 kickstart
-    is deleted; commitment anchors the month until resolved or expired.
+    A today marker dragged into a future month pre-loads that month's rent in the
+    displayed outstanding. When that month becomes current, the kickstart
+    placeholder is deleted; the commitment anchors the month until paid.
 
   PM ACCESS: Writer (was reader) so they can drag events.  Locked events are
   detect-and-reverted within one poll cycle.
@@ -145,6 +158,7 @@ STATUS_PREPAID = "🩷 Prepaid"
 STATUS_PARTIAL = "🟡 Partial"
 STATUS_UNPAID  = "🔴 Unpaid"
 STATUS_LATE    = "🔴 Late"
+STATUS_OVERDUE = "⚠️ Overdue"   # a promised payment whose date has passed unpaid
 
 
 def classify_status(rent: float, past_due: float) -> str:
@@ -161,6 +175,7 @@ def color_for_status(status: str) -> str:
         STATUS_PARTIAL: COLOR_PARTIAL,
         STATUS_UNPAID:  COLOR_UNPAID,
         STATUS_LATE:    COLOR_LATE,
+        STATUS_OVERDUE: COLOR_COMMITMENT,   # tangerine
     }.get(status, COLOR_UNPAID)
 
 
@@ -171,6 +186,7 @@ def emoji_for_status(status: str) -> str:
         STATUS_PARTIAL: "🟡",
         STATUS_UNPAID:  "🔴",
         STATUS_LATE:    "🔴",
+        STATUS_OVERDUE: "⚠️",
     }.get(status, "🔴")
 
 
@@ -862,13 +878,25 @@ class GoogleCalendarManager:
             }},
         }
 
-    def _build_late_event(self, unit: dict, days_late: int, today: date) -> dict:
+    def _build_today_marker(self, unit: dict, days_late: int, today: date,
+                            status: str) -> dict:
+        """
+        Today's status marker for a unit that owes and has no future promise.
+        Placed on today's date so the PM sees an at-a-glance "who owes me today"
+        list on opening the calendar.  Emoji/colour reflect the live balance
+        (🔴 owes a full month or more, 🟡 partial).  Past the grace period the
+        title also notes the day count.  Tagged event_type 'late' for continuity
+        with earlier preview events.
+        """
+        emoji        = emoji_for_status(status)
+        color        = color_for_status(status)
         unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
-        tenant_short = unit['tenant'].split(",")[0].strip()
+        tenant_short = normalize_tenant_name(unit['tenant'])
         today_str    = today.isoformat()
+        late_tag     = f" (Day {days_late} late)" if days_late > 0 else ""
         title = (
-            f"🔴 · {tenant_short} · {unit_part}"
-            f"{unit['property_name']} · ${unit['past_due']:,.0f} owed (Day {days_late})"
+            f"{emoji} · {tenant_short} · {unit_part}"
+            f"{unit['property_name']} · ${unit['past_due']:,.0f} owed{late_tag}"
         )
         tenants = unit['tenant']
         if unit.get('additional_tenants'):
@@ -879,16 +907,18 @@ class GoogleCalendarManager:
             "─" * 40,
             f"Monthly Rent: ${unit['rent']:,.2f}",
             f"Outstanding:  ${unit['past_due']:,.2f}",
-            f"Days Late:    {days_late}",
-            f"Late Fee:     {unit.get('late_fee_desc','N/A')}",
+            f"Status:       {status}",
         ]
+        if days_late > 0:
+            desc.append(f"Days Late:    {days_late}")
+        desc.append(f"Late Fee:     {unit.get('late_fee_desc','N/A')}")
         return {
             "summary":     title,
             "location":    unit['address'],
             "description": "\n".join(desc),
             "start": {"date": today_str},
             "end":   {"date": today_str},
-            "colorId": COLOR_LATE,
+            "colorId": color,
             "extendedProperties": {"private": {
                 "okpm_occupancy_id": str(unit['occupancy_id']),
                 "okpm_month":        today_str[:7],
@@ -1440,28 +1470,43 @@ class SyncOrchestrator:
                     "calendar_id":       calendar_id,
                     "covers_rent_month":  covers_rent_month,
                 })
-                prior_late_id        = None   # no longer a plain late event
+                prior_late_id        = None   # no longer a plain today marker
                 has_late_commitment  = True
                 new_commitment_added = True
-                # Update local view so _handle_late_event suppresses correctly
+                # The new commitment's future anchor makes has_future_promise
+                # True below, so the today marker is suppressed correctly.
                 commitment_months.add(covers_rent_month) if covers_rent_month else None
                 log.info(f"  {oid}: late event dragged to {live_date} → commitment registered")
-
-        # ── Handle late/preview event ─────────────────────────────────────────
-        late_event_id = self._handle_late_event(
-            unit, calendar_id, due_date, today, status,
-            prior_late_id,
-            suppress=has_late_commitment,
-        )
 
         # ── Process all commitments for this unit ─────────────────────────────
         # Always runs — including during FORCE_REFRESH — so commitment events
         # are preserved and recreated even after a nuke-and-rebuild.
-        if self.state.get_commitments(soid):
+        # Trigger on the owner-scoped key OR a legacy bare-oid key (orphans left
+        # by an earlier key-mismatch bug); the latter get re-tracked under soid
+        # from the calendar's live events on this run.
+        if self.state.get_commitments(soid) or self.state.get_commitments(oid):
             self._process_commitments(
-                oid, calendar_id, unit, today,
+                soid, calendar_id, unit, today,
                 has_known_or_new=True,
             )
+
+        # ── Today marker (daily "who owes me today" dashboard) ────────────────
+        # Drawn AFTER commitments are processed so it reflects the final promise
+        # state.  A unit with a promise on or after today is already tracked by
+        # that promise, so its today marker is suppressed; un-promised units that
+        # still owe (unpaid/partial) surface on today's date regardless of the
+        # grace period.  Units whose only promises are overdue (all in the past)
+        # are not future-promised, so they still surface here alongside their ⚠️
+        # overdue markers.
+        has_future_promise = any(
+            c.get("anchor_date", "") >= today.isoformat()
+            for c in self.state.get_commitments(soid)
+        )
+        late_event_id = self._handle_today_marker(
+            unit, calendar_id, due_date, today, status,
+            prior_late_id,
+            suppress=has_future_promise,
+        )
 
         # ── Persist current-month state ───────────────────────────────────────
         self.state.set(soid, this_month, {
@@ -1659,40 +1704,46 @@ class SyncOrchestrator:
 
     # ── Late event  (v2: adds suppress parameter) ─────────────────────────────
 
-    def _handle_late_event(
+    def _handle_today_marker(
         self,
         unit: dict,
         calendar_id: str,
         due_date: date,
         today: date,
         status: str,
-        existing_late_id: Optional[str],
+        existing_id: Optional[str],
         suppress: bool = False,
     ) -> Optional[str]:
         """
-        suppress=True when an active commitment is already tracking this unit.
-        In that case we skip creating a new late event (avoiding a duplicate
-        daily-preview event alongside the commitment event).
+        Daily 'today' status marker placed on today's date for any unit that
+        still owes (unpaid or partial) and is NOT being tracked by a future-dated
+        promise.  This is the at-a-glance "who owes me today" dashboard: open the
+        calendar and every un-promised delinquent unit is listed on today —
+        shown regardless of the grace period.
+
+        suppress=True when the unit has a future promise tracking it; the promise
+        marker stands in for the today marker, so any existing one is removed.
         """
-        if status in (STATUS_PAID, STATUS_PREPAID):
-            if existing_late_id:
-                self.gcal.delete_event(calendar_id, existing_late_id)
+        # Nothing owed → no marker.
+        if status in (STATUS_PAID, STATUS_PREPAID) or unit["past_due"] <= 0:
+            if existing_id:
+                self.gcal.delete_event(calendar_id, existing_id)
             return None
 
+        # A future promise already tracks this unit → no separate today marker.
         if suppress:
-            # A commitment handles monitoring — don't create a late event.
-            # Clean up any stale late event that pre-dates the commitment.
-            if existing_late_id:
-                self.gcal.delete_event(calendar_id, existing_late_id)
+            if existing_id:
+                self.gcal.delete_event(calendar_id, existing_id)
             return None
 
+        # Owes and un-promised → draw/update the marker.  days_late is negative
+        # before the grace period ends; the builder shows the day count only when
+        # it is positive.
         days_late = (today - (due_date + timedelta(days=LATE_GRACE_DAYS))).days
-        if days_late > 0:
-            return self.gcal.upsert_event(
-                calendar_id,
-                self.gcal._build_late_event(unit, days_late, today),
-            )
-        return existing_late_id
+        return self.gcal.upsert_event(
+            calendar_id,
+            self.gcal._build_today_marker(unit, days_late, today, status),
+        )
 
     # ── Locked-event revert ───────────────────────────────────────────────────
 
@@ -1797,7 +1848,7 @@ class SyncOrchestrator:
 
     def _process_commitments(
         self,
-        oid: str,
+        soid: str,
         calendar_id: str,
         unit: dict,
         today: date,
@@ -1806,11 +1857,15 @@ class SyncOrchestrator:
         """
         For each tracked commitment:
           1. Discover new copies (PM copy-pasted for split payment plans).
-          2. Recreate if PM deleted it (deleted movable events are recreated).
-          3. Resolve (delete) if account balance ≤ 0.
-          4. Expire (delete) if anchor_date < today — late pool takes over.
-          5. Update the auto section, preserving PM notes above the divider.
+          2. Resolve (delete every promise) if account balance ≤ 0.
+          3. Update the auto section, preserving PM notes above the divider.
+             Display recomputes from the live date + balance: ⚠️ Overdue once the
+             promised date has passed unpaid, otherwise 🔴 / 🟡.  No auto-expire.
              Also picks up re-drags (PM moved the commitment again).
+          4. Safe delete (≥1-promise rule): a deleted promise sticks only while
+             another promise remains; deleting the LAST promise recreates one.
+          Kickstart placeholders keep their own recreate + drag-back-to-1st
+          behaviour and are exempt from the ≥1-promise rule.
 
         Optimisation: skips the Google list call entirely when no commitments
         are known and none were registered this run.
@@ -1818,9 +1873,13 @@ class SyncOrchestrator:
         if not has_known_or_new:
             return
 
-        soid = oid  # oid may already be owner-scoped (e.g. "96@owner42")
+        # State is keyed by the owner-scoped soid (e.g. "96@owner42"); Google
+        # Calendar events are tagged with the BARE occupancy_id.  Use each key in
+        # its own domain — this was the root of commitments not refreshing
+        # (titles, suppression) for owner-scoped units.
+        bare_oid = soid.split("@")[0] if "@" in soid else soid
         live_events = self.gcal.find_all_events_by_type(
-            calendar_id, oid, "commitment")
+            calendar_id, bare_oid, "commitment")
         live_by_id  = {ev["id"]: ev for ev in live_events}
 
         commitments = self.state.get_commitments(soid)
@@ -1841,11 +1900,13 @@ class SyncOrchestrator:
                     "origin_month":       anchor[:7],
                     "covers_rent_month":  (
                         anchor[:7] if (src == "late" and anchor[:7] > today_month)
-                        else (anchor[:7] if src == "kickstart" else None)
+                        else anchor[:7] if src == "kickstart"
+                        else today_month if src in ("status", "payment")
+                        else None
                     ),
                 }
                 self.state.add_commitment(soid, new_c)
-                log.info(f"  {oid}: discovered new split commitment on {anchor}")
+                log.info(f"  {bare_oid}: discovered new split commitment on {anchor}")
 
         # Reload after potential additions
         commitments = self.state.get_commitments(soid)
@@ -1854,8 +1915,15 @@ class SyncOrchestrator:
 
         past_due    = unit["past_due"]
         rent        = unit["rent"]
+        today_str   = today.isoformat()
         today_month = today.strftime("%Y-%m")
-        surviving   = []
+        surviving        = []   # commitments that persist into the next run
+        missing_promises = []   # promise commitments whose event the PM deleted
+
+        def _is_promise(src: str) -> bool:
+            # Promise-to-pay commitments (PM-created).  Kickstart placeholders are
+            # a separate mechanism and are NOT subject to the ≥1-promise rule.
+            return src in ("status", "payment", "late")
 
         for c in commitments:
             # Skip commitments that belong to a different calendar.
@@ -1872,66 +1940,58 @@ class SyncOrchestrator:
             source_type       = c.get("source_type", "late")
             covers_rent_month = c.get("covers_rent_month")
 
-            # ── Recreate if PM deleted the commitment event ───────────────────
+            # ── Resolve if fully paid ─────────────────────────────────────────
+            # Full payment (or a credit) is the ONLY thing that clears promises:
+            # every commitment for the unit is removed.  (Eviction handling is a
+            # separate track for another day.)
+            if past_due <= 0:
+                if event_id in live_by_id:
+                    self.gcal.delete_event(calendar_id, event_id)
+                    log.info(
+                        f"  {bare_oid}: commitment {event_id} resolved "
+                        f"(balance ≤ 0), deleted")
+                continue
+
+            # ── PM deleted the event ──────────────────────────────────────────
             ev_body = live_by_id.get(event_id)
             if ev_body is None:
-                if past_due > 0:
-                    outstanding = past_due + (
-                        rent if (covers_rent_month and covers_rent_month > today_month)
-                        else 0
-                    )
-                    new_body = self.gcal._build_commitment_event(
-                        unit, anchor_date, source_type, outstanding,
-                        pm_notes=(
-                            "PROMISED: [fill in, e.g. $500 or 'full balance']\n"
-                            "NOTES:    [optional context]"
-                        ),
-                    )
-                    try:
-                        created = _gcal_execute(self.gcal.service.events().insert(
-                            calendarId=calendar_id, body=new_body))
-                        c = {**c, "event_id": created["id"],
-                             "calendar_id": calendar_id}
-                        ev_body = new_body
-                        live_by_id[c["event_id"]] = new_body
-                        log.info(
-                            f"  {oid}: recreated deleted commitment on {anchor_date}")
-                    except HttpError as e:
-                        log.error(f"  {oid}: failed to recreate commitment: {e}")
-                        continue
-                else:
-                    # Paid; event was probably auto-deleted last run — skip
+                if _is_promise(source_type):
+                    # A promise delete is honoured ONLY if another promise still
+                    # remains (PM rearranging an installment plan).  Deleting the
+                    # LAST promise is treated as a slip — it is recreated after the
+                    # loop (see the ≥1-promise rule).  Defer the decision.
+                    missing_promises.append(c)
+                    continue
+                # Kickstart placeholder: recreate as before (auto-managed).
+                outstanding = past_due + (
+                    rent if (covers_rent_month and covers_rent_month > today_month)
+                    else 0
+                )
+                new_body = self.gcal._build_commitment_event(
+                    unit, anchor_date, source_type, outstanding)
+                try:
+                    created = _gcal_execute(self.gcal.service.events().insert(
+                        calendarId=calendar_id, body=new_body))
+                    c = {**c, "event_id": created["id"], "calendar_id": calendar_id}
+                    ev_body = new_body
+                    live_by_id[c["event_id"]] = new_body
+                    log.info(
+                        f"  {bare_oid}: recreated deleted kickstart on {anchor_date}")
+                except HttpError as e:
+                    log.error(f"  {bare_oid}: failed to recreate kickstart: {e}")
                     continue
 
-            # ── Resolve if fully paid ─────────────────────────────────────────
-            if past_due <= 0:
-                self.gcal.delete_event(calendar_id, event_id)
-                log.info(
-                    f"  {oid}: commitment {event_id} resolved (balance ≤ 0), deleted")
-                continue
-
-            # ── Expire if anchor date has passed ──────────────────────────────
-            if anchor_date < today.isoformat():
-                self.gcal.delete_event(calendar_id, event_id)
-                log.info(
-                    f"  {oid}: commitment {event_id} expired on {anchor_date} "
-                    f"— late pool will recreate")
-                # Do NOT add to surviving; _handle_late_event recreates a normal
-                # late event this run (suppress=False once commitment is gone).
-                continue
-
-            # ── Check if PM moved the commitment back to its origin ────────────
-            # (un-commit gesture: dragging back to the 1st / to today)
+            # ── Kickstart drag-back to its origin 1st → revert to placeholder ──
+            # (Only kickstart placeholders un-commit this way.  Promises never
+            #  un-commit — they clear only on full payment.)
             live_date = ev_body.get("start", {}).get("date", anchor_date)
             if source_type == "kickstart":
                 origin_first = f"{c.get('origin_month', anchor_date[:7])}-01"
                 if live_date == origin_first:
-                    # PM dragged it back → treat as placeholder again
                     log.info(
-                        f"  {oid}: commitment {event_id} dragged back to {live_date}"
-                        f" — reverting to placeholder")
-                    self.gcal.delete_event(calendar_id, event_id)
-                    # Clear is_commitment flag; normal loop will recreate placeholder
+                        f"  {bare_oid}: kickstart {c['event_id']} dragged back to "
+                        f"{live_date} — reverting to placeholder")
+                    self.gcal.delete_event(calendar_id, c["event_id"])
                     prior_f = self.state.get(soid, c.get("origin_month", ""))
                     if prior_f:
                         self.state.set(soid, c.get("origin_month", ""), {
@@ -1939,14 +1999,6 @@ class SyncOrchestrator:
                             "rent_event_id": None,
                             "is_commitment": False,
                         })
-                    continue
-            elif source_type == "late":
-                if live_date <= today.isoformat():
-                    # PM dragged it back to today or earlier → un-commit
-                    log.info(
-                        f"  {oid}: commitment {event_id} dragged back to {live_date}"
-                        f" — reverting to late event")
-                    self.gcal.delete_event(calendar_id, event_id)
                     continue
 
             # ── Compute displayed outstanding ─────────────────────────────────
@@ -1957,13 +2009,28 @@ class SyncOrchestrator:
                 # AppFolio's past_due already includes this month
                 outstanding = past_due
 
+            # ── Display status: overdue ⚠️  vs. live 🔴 / 🟡 ───────────────────
+            # A promise whose live date has already passed and is still unpaid
+            # shows ⚠️ Overdue (no auto-expire — the marker stays put).  Drag it
+            # onto today or a future date and it reverts to 🔴 (owes a full month
+            # or more) or 🟡 (partial) — recomputed every run from the live date
+            # and the current AppFolio balance.  Kickstart placeholders keep their
+            # own colour logic (source_status left blank).
+            display_status = ""
+            if _is_promise(source_type):
+                display_status = (
+                    STATUS_OVERDUE if live_date < today_str
+                    else classify_status(rent, past_due)
+                )
+
             # ── Update event (preserves PM notes, picks up re-drags) ──────────
-            # Refresh event_id — it may have changed if the event was just
+            # Refresh event_id — it may have changed if a kickstart was just
             # recreated above (old variable holds the deleted event's ID).
             event_id = c["event_id"]
             new_live_anchor = self.gcal.update_commitment_event(
                 calendar_id, event_id, ev_body,
                 unit, anchor_date, source_type, outstanding,
+                source_status=display_status,
             )
 
             # Persist any changes: re-drag updates anchor, and covers_rent_month
@@ -1974,9 +2041,59 @@ class SyncOrchestrator:
                     if new_live_anchor[:7] > today_month
                     else None
                 )
+            elif source_type in ("status", "payment"):
+                # A dragged status/payment event always represents its origin
+                # month's rent, so it must keep suppressing that month's status
+                # event no matter where it's dragged.  Repairs entries left with
+                # covers_rent_month=None by the earlier key-mismatch bug.
+                updated_c["covers_rent_month"] = (
+                    c.get("covers_rent_month")
+                    or c.get("origin_month")
+                    or today_month
+                )
             # For kickstart commitments, covers_rent_month stays = origin_month
 
             surviving.append(updated_c)
+
+        # ── ≥1-promise rule (mistake-proofing) ─────────────────────────────────
+        # A unit being tracked by promises must always keep at least one promise
+        # on the calendar until the balance is paid in full.  Deleting a promise
+        # is honoured only while another promise survives (installment
+        # rearrangement, above).  If the PM deleted the LAST promise, treat it as
+        # an accidental removal and recreate one — the most recent promised date —
+        # so tracking is never lost to a stray delete.
+        if (past_due > 0 and missing_promises
+                and not any(_is_promise(c.get("source_type", "late"))
+                            for c in surviving)):
+            c                 = max(missing_promises,
+                                    key=lambda x: x.get("anchor_date", ""))
+            anchor_date       = c["anchor_date"]
+            source_type       = c.get("source_type", "late")
+            covers_rent_month = c.get("covers_rent_month")
+            outstanding = past_due + (
+                rent if (covers_rent_month and covers_rent_month > today_month)
+                else 0
+            )
+            disp = (STATUS_OVERDUE if anchor_date < today_str
+                    else classify_status(rent, past_due))
+            new_body = self.gcal._build_commitment_event(
+                unit, anchor_date, source_type, outstanding,
+                pm_notes=(
+                    "PROMISED: [fill in, e.g. $500 or 'full balance']\n"
+                    "NOTES:    [optional context]"
+                ),
+                source_status=disp,
+            )
+            try:
+                created = _gcal_execute(self.gcal.service.events().insert(
+                    calendarId=calendar_id, body=new_body))
+                surviving.append({**c, "event_id": created["id"],
+                                  "calendar_id": calendar_id})
+                log.info(
+                    f"  {bare_oid}: last promise was deleted — recreated one on "
+                    f"{anchor_date} (a tracked unit keeps ≥1 promise until paid)")
+            except HttpError as e:
+                log.error(f"  {bare_oid}: failed to recreate last promise: {e}")
 
         self.state.set_commitments(soid, surviving)
 
