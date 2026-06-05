@@ -14,12 +14,14 @@ Usage:
     python inspect_latasha.py
 """
 
-import os, json, requests
+import json, requests
 from datetime import date
 
-DB  = os.environ["APPFOLIO_DB_NAME"]
-CID = os.environ["APPFOLIO_CLIENT_ID"]
-CSC = os.environ["APPFOLIO_CLIENT_SECRET"]
+from local_config import get_config
+
+DB  = get_config("APPFOLIO_DB_NAME")
+CID = get_config("APPFOLIO_CLIENT_ID")
+CSC = get_config("APPFOLIO_CLIENT_SECRET")
 BASE    = f"https://{CID}:{CSC}@{DB}.appfolio.com/api/v2/reports"
 HEADERS = {"Content-Type": "application/json", "Accept": "application/json"}
 

@@ -11,23 +11,18 @@ Usage:
     python cleanup_duplicates.py
 """
 
-import os, json
+import json
 from pathlib import Path
 from collections import defaultdict
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from local_config import load_json_config
 
 STATE_FILE      = Path("state.json")
 CALENDAR_PREFIX = "OKPM"
 
-# Accept either a file path or raw JSON string
-_sa_raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
-if _sa_raw.strip().endswith(".json") or ("\\" in _sa_raw or "/" in _sa_raw):
-    with open(_sa_raw.strip()) as f:
-        SA_INFO = json.load(f)
-else:
-    SA_INFO = json.loads(_sa_raw)
+SA_INFO = load_json_config("GOOGLE_SERVICE_ACCOUNT_JSON")
 
 creds = service_account.Credentials.from_service_account_info(
     SA_INFO,

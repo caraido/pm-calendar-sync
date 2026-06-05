@@ -78,6 +78,7 @@ from zoneinfo import ZoneInfo
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from local_config import get_config, load_json_config
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -88,19 +89,19 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-APPFOLIO_DB_NAME       = os.environ["APPFOLIO_DB_NAME"]
-APPFOLIO_CLIENT_ID     = os.environ["APPFOLIO_CLIENT_ID"]
-APPFOLIO_CLIENT_SECRET = os.environ["APPFOLIO_CLIENT_SECRET"]
-GOOGLE_SA_JSON         = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
+APPFOLIO_DB_NAME       = get_config("APPFOLIO_DB_NAME")
+APPFOLIO_CLIENT_ID     = get_config("APPFOLIO_CLIENT_ID")
+APPFOLIO_CLIENT_SECRET = get_config("APPFOLIO_CLIENT_SECRET")
+GOOGLE_SA_INFO         = load_json_config("GOOGLE_SERVICE_ACCOUNT_JSON")
 GOOGLE_SCOPES          = ["https://www.googleapis.com/auth/calendar"]
 
-LATE_GRACE_DAYS             = int(os.environ.get("LATE_GRACE_DAYS", 5))
-RENT_DUE_DAY                = int(os.environ.get("RENT_DUE_DAY", 1))
-PM_EMAIL                    = os.environ.get("PM_EMAIL", "")
-DEFAULT_LEASE_MONTHS        = int(os.environ.get("DEFAULT_LEASE_MONTHS", 12))
-FORCE_REFRESH               = os.environ.get("FORCE_REFRESH", "").lower() == "true"
-COMMITMENT_LOOKAHEAD_MONTHS = int(os.environ.get("COMMITMENT_LOOKAHEAD_MONTHS", 3))
-TIMEZONE                    = os.environ.get("TIMEZONE", "America/Chicago")
+LATE_GRACE_DAYS             = int(get_config("LATE_GRACE_DAYS", 5))
+RENT_DUE_DAY                = int(get_config("RENT_DUE_DAY", 1))
+PM_EMAIL                    = str(get_config("PM_EMAIL", ""))
+DEFAULT_LEASE_MONTHS        = int(get_config("DEFAULT_LEASE_MONTHS", 12))
+FORCE_REFRESH               = str(get_config("FORCE_REFRESH", "")).lower() == "true"
+COMMITMENT_LOOKAHEAD_MONTHS = int(get_config("COMMITMENT_LOOKAHEAD_MONTHS", 3))
+TIMEZONE                    = str(get_config("TIMEZONE", "America/Chicago"))
 
 STATE_FILE       = Path("state.json")
 CALENDAR_PREFIX  = "OKPM"
@@ -335,7 +336,7 @@ class GoogleCalendarManager:
 
     def __init__(self):
         creds = service_account.Credentials.from_service_account_info(
-            json.loads(GOOGLE_SA_JSON), scopes=GOOGLE_SCOPES)
+            GOOGLE_SA_INFO, scopes=GOOGLE_SCOPES)
         self.service = build("calendar", "v3", credentials=creds)
         self._cal_cache: dict = {}
 

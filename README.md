@@ -250,6 +250,16 @@ Open **any owner's calendar on today's date** and you get a live, zero-effort co
 
 *Settings → Secrets and variables → Actions → Variables* (all optional — defaults shown in [Configuration reference](#configuration-reference)).
 
+### 💻 Local runs
+
+For local runs, you can keep the same values in a JSON file instead of exporting env vars each time.
+
+1. Copy `local_config.example.json` to `local_config.json`, or create `secrets/local_config.json`.
+2. Fill in the values you need for the script you are running.
+3. Run the script normally.
+
+The scripts check `secrets/local_config.json` first, then `local_config.json`, then environment variables. `secrets/` is already ignored by git, and `local_config.json` is ignored too.
+
 ### 🎯 First-run checklist
 
 1. ▶️ Let the workflow run once — it creates all the calendars automatically.
@@ -260,7 +270,7 @@ Open **any owner's calendar on today's date** and you get a live, zero-effort co
 
 ## ⚙️ Configuration reference
 
-All configuration is via environment variables — wired in `.github/workflows/sync.yml` for production.
+Production configuration still uses environment variables in `.github/workflows/sync.yml`, but local runs can use `local_config.json` or `secrets/local_config.json`.
 
 **🔒 Required (secrets):**
 

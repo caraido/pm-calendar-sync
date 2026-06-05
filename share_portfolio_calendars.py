@@ -44,32 +44,22 @@ Safe to re-run.  It only touches the PM's ACL rule on "… Portfolio" calendars.
 """
 
 import json
-import os
 import sys
 import time
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from local_config import get_config, load_json_config
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 
 def load_service_account() -> dict:
-    raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-    if not raw:
-        if len(sys.argv) > 1:
-            with open(sys.argv[1], "r", encoding="utf-8") as f:
-                return json.load(f)
-        sys.exit(
-            "No credentials. Set GOOGLE_SERVICE_ACCOUNT_JSON, or pass the path to "
-            "the service-account JSON file as the first argument."
-        )
-    raw = raw.strip()
-    if raw.endswith(".json") or ("\\" in raw or "/" in raw):
-        with open(raw) as f:
+    if len(sys.argv) > 1:
+        with open(sys.argv[1], "r", encoding="utf-8") as f:
             return json.load(f)
-    return json.loads(raw)
+    return load_json_config("GOOGLE_SERVICE_ACCOUNT_JSON")
 
 
 def list_portfolio_calendars(svc) -> list[tuple[str, str]]:
@@ -101,7 +91,7 @@ def reshare_with_notification(svc, calendar_id: str, pm_email: str):
 
 
 def main():
-    pm_email = (os.environ.get("PM_EMAIL") or "openkey.pmcompany@gmail.com").strip()
+    pm_email = str(get_config("PM_EMAIL", "openkey.pmcompany@gmail.com")).strip()
     info = load_service_account()
     creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
     svc = build("calendar", "v3", credentials=creds)

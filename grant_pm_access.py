@@ -12,21 +12,13 @@ Usage:
     python grant_pm_access.py
 """
 
-import os, json
+from local_config import get_config, load_json_config
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# Accept either a file path or raw JSON string
-_sa_raw  = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
-PM_EMAIL = os.environ["PM_EMAIL"]   # your openkey Google account email
-
-if _sa_raw.strip().endswith(".json") or ("\\" in _sa_raw or "/" in _sa_raw):
-    # Looks like a file path — read it
-    with open(_sa_raw.strip()) as f:
-        SA_INFO = json.load(f)
-else:
-    SA_INFO = json.loads(_sa_raw)
+SA_INFO  = load_json_config("GOOGLE_SERVICE_ACCOUNT_JSON")
+PM_EMAIL = str(get_config("PM_EMAIL"))   # your openkey Google account email
 
 creds = service_account.Credentials.from_service_account_info(
     SA_INFO,
