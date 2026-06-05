@@ -1408,7 +1408,24 @@ class SyncOrchestrator:
             log.info(f"  Status event {oid}: {event_status} on {status_event_date}")
         else:
             status_event_id = prior_status_id
-            log.info(f"  No change for {oid} — skipping status event")
+            # Self-heal: verify the event still exists on Google Calendar.
+            # A previous bug could have deleted events while state retained
+            # their IDs — the "No change" path would then silently skip a
+            # unit whose event is physically gone.
+            if status_event_id and not self.gcal.get_event(calendar_id, status_event_id):
+                log.warning(
+                    f"  {oid}: status event {status_event_id} orphaned "
+                    f"(missing from calendar) — recreating")
+                body = self.gcal._build_status_event(
+                    unit, event_status, status_event_date,
+                    first_pay,
+                    balances[0] if balances else None,
+                    total_payments=len(sorted_payments),
+                )
+                status_event_id = self.gcal._update_or_create(
+                    calendar_id, None, body)
+            else:
+                log.info(f"  No change for {oid} — skipping status event")
 
         # ── Additional payment events ─────────────────────────────────────────
         if FORCE_REFRESH or data_changed or new_payments:
