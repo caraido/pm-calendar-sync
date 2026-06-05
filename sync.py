@@ -1473,11 +1473,17 @@ class SyncOrchestrator:
         late_event_id = None
 
         # ── Process all commitments for this unit ─────────────────────────────
-        if self.state.get_commitments(soid):
-            self._process_commitments(
-                soid, calendar_id, unit, today,
-                has_known_or_new=True,
-            )
+        # ALWAYS scan the calendar for commitment events, even when state has no
+        # record of any.  Dragged promises live as commitment events on the
+        # calendar (okpm_event_type="commitment") — that is the source of truth.
+        # Scanning unconditionally makes the system self-recovering: after a
+        # state wipe or corruption repair, promises are rediscovered from the
+        # calendar and re-tracked automatically.  (A unit with no commitment
+        # events costs one empty list call and returns immediately.)
+        self._process_commitments(
+            soid, calendar_id, unit, today,
+            has_known_or_new=True,
+        )
 
         # ── Persist current-month state ───────────────────────────────────────
         self.state.set(soid, this_month, {
