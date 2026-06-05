@@ -833,7 +833,7 @@ class GoogleCalendarManager:
         """Frozen future-month event on the 1st."""
         emoji        = emoji_for_status(status)
         unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
-        tenant_short = unit['tenant'].split(",")[0].strip()
+        tenant_short = normalize_tenant_name(unit['tenant'])
         outstanding  = max(0.0, unit['past_due'])
         title = (
             f"{emoji} · {tenant_short} · "
@@ -1390,6 +1390,7 @@ class SyncOrchestrator:
 
         # ── Build / update status event ───────────────────────────────────────
         if suppress_kickstart:
+            # Commitment anchors this month; no status event on the 1st
             status_event_id = None
             log.info(f"  {oid}: status event suppressed (commitment anchors {this_month})")
         elif FORCE_REFRESH or date_changed or data_changed:
@@ -1406,13 +1407,30 @@ class SyncOrchestrator:
             status_event_id = self.gcal._update_or_create(
                 calendar_id, existing_id, body)
             log.info(f"  Status event {oid}: {event_status} on {status_event_date}")
+        elif prior_status_id is None:
+            # RECOVERY: a prior run suppressed this event (commitment was active)
+            # but the commitment has since been removed or resolved.  The state
+            # has status_event_id=None and rent_event_id=None, data hasn't changed,
+            # so the normal paths all skip.  Force-create the missing event.
+            body = self.gcal._build_status_event(
+                unit, event_status, status_event_date,
+                first_pay,
+                balances[0] if balances else None,
+                total_payments=len(sorted_payments),
+            )
+            # Search the calendar first to avoid creating duplicates
+            existing_id = self.gcal._find_status_event(calendar_id, oid, this_month)
+            status_event_id = self.gcal._update_or_create(
+                calendar_id, existing_id, body)
+            log.warning(
+                f"  {oid}: status event was missing (post-suppression recovery) "
+                f"— {'updated' if existing_id else 'created'} on {status_event_date}")
         else:
             status_event_id = prior_status_id
-            # Self-heal: verify the event still exists on Google Calendar.
+            # SELF-HEAL: verify the event still exists on Google Calendar.
             # A previous bug could have deleted events while state retained
-            # their IDs — the "No change" path would then silently skip a
-            # unit whose event is physically gone.
-            if status_event_id and not self.gcal.get_event(calendar_id, status_event_id):
+            # their stale IDs.
+            if not self.gcal.get_event(calendar_id, status_event_id):
                 log.warning(
                     f"  {oid}: status event {status_event_id} orphaned "
                     f"(missing from calendar) — recreating")
@@ -1422,8 +1440,11 @@ class SyncOrchestrator:
                     balances[0] if balances else None,
                     total_payments=len(sorted_payments),
                 )
+                # Search the calendar first to avoid creating duplicates
+                existing_id = self.gcal._find_status_event(
+                    calendar_id, oid, this_month)
                 status_event_id = self.gcal._update_or_create(
-                    calendar_id, None, body)
+                    calendar_id, existing_id, body)
             else:
                 log.info(f"  No change for {oid} — skipping status event")
 
