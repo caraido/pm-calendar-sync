@@ -78,7 +78,6 @@ from zoneinfo import ZoneInfo
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from local_config import get_config, load_json_config
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -89,19 +88,19 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-APPFOLIO_DB_NAME       = get_config("APPFOLIO_DB_NAME")
-APPFOLIO_CLIENT_ID     = get_config("APPFOLIO_CLIENT_ID")
-APPFOLIO_CLIENT_SECRET = get_config("APPFOLIO_CLIENT_SECRET")
-GOOGLE_SA_INFO         = load_json_config("GOOGLE_SERVICE_ACCOUNT_JSON")
+APPFOLIO_DB_NAME       = os.environ["APPFOLIO_DB_NAME"]
+APPFOLIO_CLIENT_ID     = os.environ["APPFOLIO_CLIENT_ID"]
+APPFOLIO_CLIENT_SECRET = os.environ["APPFOLIO_CLIENT_SECRET"]
+GOOGLE_SA_JSON         = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
 GOOGLE_SCOPES          = ["https://www.googleapis.com/auth/calendar"]
 
-LATE_GRACE_DAYS             = int(get_config("LATE_GRACE_DAYS", 5))
-RENT_DUE_DAY                = int(get_config("RENT_DUE_DAY", 1))
-PM_EMAIL                    = str(get_config("PM_EMAIL", ""))
-DEFAULT_LEASE_MONTHS        = int(get_config("DEFAULT_LEASE_MONTHS", 12))
-FORCE_REFRESH               = str(get_config("FORCE_REFRESH", "")).lower() == "true"
-COMMITMENT_LOOKAHEAD_MONTHS = int(get_config("COMMITMENT_LOOKAHEAD_MONTHS", 3))
-TIMEZONE                    = str(get_config("TIMEZONE", "America/Chicago"))
+LATE_GRACE_DAYS             = int(os.environ.get("LATE_GRACE_DAYS", 5))
+RENT_DUE_DAY                = int(os.environ.get("RENT_DUE_DAY", 1))
+PM_EMAIL                    = os.environ.get("PM_EMAIL", "")
+DEFAULT_LEASE_MONTHS        = int(os.environ.get("DEFAULT_LEASE_MONTHS", 12))
+FORCE_REFRESH               = os.environ.get("FORCE_REFRESH", "").lower() == "true"
+COMMITMENT_LOOKAHEAD_MONTHS = int(os.environ.get("COMMITMENT_LOOKAHEAD_MONTHS", 3))
+TIMEZONE                    = os.environ.get("TIMEZONE", "America/Chicago")
 
 STATE_FILE       = Path("state.json")
 CALENDAR_PREFIX  = "OKPM"
@@ -336,7 +335,7 @@ class GoogleCalendarManager:
 
     def __init__(self):
         creds = service_account.Credentials.from_service_account_info(
-            GOOGLE_SA_INFO, scopes=GOOGLE_SCOPES)
+            json.loads(GOOGLE_SA_JSON), scopes=GOOGLE_SCOPES)
         self.service = build("calendar", "v3", credentials=creds)
         self._cal_cache: dict = {}
 
@@ -992,6 +991,7 @@ class StateManager:
           origin_month    : str,   YYYY-MM of the original event's month
           covers_rent_month: str|None  YYYY-MM if commitment crosses into a
                                        future month and pre-loads that rent
+          calendar_id     : str,   Google Calendar ID this commitment lives on
         },
         ...   # one entry per split (copy-pasted events)
       ]
@@ -1010,15 +1010,6 @@ class StateManager:
         return f"{oid}_{month}"
 
     def get(self, oid: str, month: str) -> Optional[dict]:
-        # NOTE: no bare-oid fallback. A unit co-owned by several owners is
-        # processed once per owner with a distinct owner-scoped key
-        # (f"{oid}@{owner_id}"). Falling back to the bare-oid entry would make
-        # the 2nd+ owner inherit the 1st owner's sync state and skip creating
-        # events on their calendar. Each calendar's events are still found and
-        # de-duplicated via _find_status_event/_find_event (which search by the
-        # event's extendedProperties on that specific calendar), so dropping the
-        # fallback never creates duplicates — it only lets each calendar build
-        # its own events independently.
         return self.data.get(self._key(oid, month))
 
     def set(self, oid: str, month: str, entry: dict):
@@ -1042,6 +1033,63 @@ class StateManager:
         if not any(c["event_id"] == commitment["event_id"] for c in existing):
             existing.append(commitment)
             self.set_commitments(oid, existing)
+
+    def migrate_bare_commitments(self, bare_oid: str, soid: str, calendar_id: str):
+        """
+        Migrate bare-oid commitments to owner-scoped key.  Called once per
+        owner per unit at the start of _sync_unit.  Bare entries that can be
+        claimed by this calendar (event exists here) are moved; others are
+        left for the next owner to claim.
+        """
+        bare = self.get_commitments(bare_oid)
+        if not bare or bare_oid == soid:
+            return
+        scoped   = self.get_commitments(soid)
+        known_ids = {c["event_id"] for c in scoped}
+        migrated = []
+        remaining = []
+        for bc in bare:
+            if bc["event_id"] in known_ids:
+                # Already exists in scoped — drop the bare copy
+                migrated.append(bc)
+            elif not bc.get("calendar_id"):
+                # No calendar_id — claim it for this calendar
+                bc["calendar_id"] = calendar_id
+                scoped.append(bc)
+                known_ids.add(bc["event_id"])
+                migrated.append(bc)
+            elif bc.get("calendar_id") == calendar_id:
+                # Tagged for this calendar
+                if bc["event_id"] not in known_ids:
+                    scoped.append(bc)
+                    known_ids.add(bc["event_id"])
+                migrated.append(bc)
+            else:
+                remaining.append(bc)
+        if migrated:
+            self.set_commitments(soid, scoped)
+            self.set_commitments(bare_oid, remaining)
+            log.info(
+                f"  Migrated {len(migrated)} bare-oid commitment(s) "
+                f"from '{bare_oid}' → '{soid}'")
+
+    def deduplicate_commitments(self, oid: str):
+        """Remove duplicate commitments (same event_id) for a given key."""
+        comms = self.get_commitments(oid)
+        if len(comms) <= 1:
+            return
+        seen = set()
+        unique = []
+        for c in comms:
+            eid = c.get("event_id")
+            if eid and eid not in seen:
+                seen.add(eid)
+                unique.append(c)
+        if len(unique) < len(comms):
+            log.info(
+                f"  Deduped commitments for {oid}: "
+                f"{len(comms)} → {len(unique)}")
+            self.set_commitments(oid, unique)
 
 
 # ---------------------------------------------------------------------------
@@ -1155,7 +1203,21 @@ class SyncOrchestrator:
         past_due = float(row.get("past_due", 0) or 0)
         info     = tenant_info.get(int(oid), {})
         t_norm   = normalize_tenant_name(row.get("tenant", ""))
+
+        # ── Match payments by primary tenant AND additional tenants ────────
+        # The AppFolio tenant_ledger has no occupancy_id field, so name-
+        # matching is the only option.  Check primary first, then fall back
+        # to additional tenants (deduplicated).
         payments = payment_map.get(t_norm, [])
+        if not payments:
+            addl = row.get("additional_tenants", "")
+            if addl:
+                for name in addl.split(","):
+                    name_norm = normalize_tenant_name(name.strip())
+                    if name_norm and name_norm in payment_map:
+                        payments = payment_map[name_norm]
+                        break
+
         amount_paid = sum(p["amount"] for p in payments if not p["is_nsf"])
         return {
             "occupancy_id":       oid,
@@ -1200,12 +1262,6 @@ class SyncOrchestrator:
         sorted_payments = sorted(unit["payments"], key=lambda p: (p["date"], -p["amount"]))
 
         # ── Filter payments to current month ───────────────────────────────
-        # The AppFolio tenant_ledger API may return transactions outside the
-        # requested date range (similar to how it ignores occupancy_id
-        # filters).  Payments from previous months would place the status
-        # event on a past date, making it vanish from the current month's
-        # calendar view.  Keep only payments whose date falls in this_month
-        # or later.
         sorted_payments = [
             p for p in sorted_payments
             if p["date"][:7] >= this_month
@@ -1217,18 +1273,17 @@ class SyncOrchestrator:
         balances        = compute_running_balances(sorted_payments, past_due)
         prior           = self.state.get(soid, this_month)
 
-        # Distrust state written for a DIFFERENT calendar.  Earlier runs (before
-        # co-ownership state-scoping was fixed) could persist a soid entry whose
-        # event IDs actually live on another co-owner's calendar — e.g. Cloutier
-        # inheriting Palmer's status_event_id for a shared unit.  If the stored
-        # calendar_id doesn't match this calendar (or is absent, i.e. an entry
-        # written before tagging existed), drop it so the event is re-resolved
-        # against THIS calendar via _find_status_event, which de-dupes by event
-        # properties and therefore never creates duplicates.
+        # Distrust state written for a DIFFERENT calendar.
         if prior and prior.get("calendar_id") != calendar_id:
             prior = None
 
         # ── Load commitment state ─────────────────────────────────────────────
+        # Migrate any bare-oid commitment entries to this owner-scoped key,
+        # then deduplicate.  This fixes the runaway duplication bug where bare
+        # entries without calendar_id were processed for every calendar.
+        self.state.migrate_bare_commitments(oid, soid, calendar_id)
+        self.state.deduplicate_commitments(soid)
+
         commitments = self.state.get_commitments(soid)
         # Months covered by any commitment (for kickstart suppression)
         commitment_months = {
@@ -1251,8 +1306,6 @@ class SyncOrchestrator:
         # ── Kickstart suppression ─────────────────────────────────────────────
         # When a commitment covers this month and no payments exist yet,
         # we skip creating/keeping a status event on the 1st.
-        # Only suppress if the prior entry was a frozen placeholder (rent_event_id),
-        # not an already-established status event.
         suppress_kickstart = (
             this_month in commitment_months and not sorted_payments
         )
@@ -1269,10 +1322,7 @@ class SyncOrchestrator:
                 self.gcal.delete_event(calendar_id, prior["rent_event_id"])
                 prior = {**prior, "rent_event_id": None}
             # Clean up any status/rent events left over for a commitment-covered
-            # month — by an earlier version that snapped dragged events back, or
-            # as duplicates.  The commitment now represents the month, so none
-            # should remain.  _find_event auto-dedupes, so this also collapses
-            # duplicate copies.  Never delete the commitment event itself.
+            # month.  Never delete the commitment event itself.
             commit_ids = {c.get("event_id") for c in commitments}
             for _etype in ("status", "rent"):
                 for _ in range(4):  # safety bound
@@ -1309,11 +1359,6 @@ class SyncOrchestrator:
         )
 
         # ── Detect dragged status event → commitment (retire & replace) ───────
-        # If the PM drags the current-month status event to a FUTURE date, treat
-        # it as a promise-to-pay.  Convert THAT SAME event in-place into a
-        # commitment — no second event, no snapping the original back to the 1st
-        # — and suppress this month's status event.  The single event the PM
-        # dragged simply becomes the commitment at the promised date.
         if (prior and prior.get("status_event_id")
                 and not FORCE_REFRESH
                 and not suppress_kickstart
@@ -1337,9 +1382,7 @@ class SyncOrchestrator:
                     "covers_rent_month": this_month,
                 })
                 commitment_months.add(this_month)
-                suppress_kickstart  = True   # don't re-create a status event
-                # The converted event WAS the status event; forget its id so the
-                # status-build and locked-event checks below leave it alone.
+                suppress_kickstart  = True
                 prior = {**prior, "status_event_id": None}
                 log.info(
                     f"  {oid}: status event dragged to {_drag_live} → "
@@ -1347,7 +1390,6 @@ class SyncOrchestrator:
 
         # ── Build / update status event ───────────────────────────────────────
         if suppress_kickstart:
-            # Commitment anchors this month; no status event on the 1st
             status_event_id = None
             log.info(f"  {oid}: status event suppressed (commitment anchors {this_month})")
         elif FORCE_REFRESH or date_changed or data_changed:
@@ -1378,22 +1420,14 @@ class SyncOrchestrator:
             payment_event_ids = prior.get("payment_event_ids", []) if prior else []
 
         # ── Detect-and-revert locked events ──────────────────────────────────
-        # Only needed when we did NOT just write the event this run; skipped
-        # for commitment-suppressed months (no real status event to verify).
         if not suppress_kickstart and not (FORCE_REFRESH or date_changed or data_changed):
             self._verify_locked_events(
-                oid, calendar_id, prior,
+                soid, calendar_id, prior,
                 status_event_id, status_event_date, sorted_payments,
                 unit, today, this_month, past_due, status, commitment_months,
             )
 
         # ── Retire any legacy "today" / late preview event ────────────────────
-        # The daily today-marker dashboard has been removed.  Delete any marker
-        # left behind by a previous version so it doesn't linger on the calendar.
-        # Promises are now started by dragging the 1st-of-month status event (or a
-        # payment / future placeholder) forward.  Existing "late"-sourced
-        # commitments already on the calendar are untouched and stay managed by
-        # _process_commitments below.
         prior_late_id = prior.get("late_event_id") if prior else None
         if prior_late_id:
             self.gcal.delete_event(calendar_id, prior_late_id)
@@ -1401,12 +1435,7 @@ class SyncOrchestrator:
         late_event_id = None
 
         # ── Process all commitments for this unit ─────────────────────────────
-        # Always runs — including during FORCE_REFRESH — so commitment events
-        # are preserved and recreated even after a nuke-and-rebuild.
-        # Trigger on the owner-scoped key OR a legacy bare-oid key (orphans left
-        # by an earlier key-mismatch bug); the latter get re-tracked under soid
-        # from the calendar's live events on this run.
-        if self.state.get_commitments(soid) or self.state.get_commitments(oid):
+        if self.state.get_commitments(soid):
             self._process_commitments(
                 soid, calendar_id, unit, today,
                 has_known_or_new=True,
@@ -1427,11 +1456,6 @@ class SyncOrchestrator:
         future_unit = {**unit, "past_due": 0.0, "amount_paid": 0.0, "payments": []}
         has_credit  = past_due < 0
 
-        # During FORCE_REFRESH: purge ALL events for this unit that belong
-        # to FUTURE months (anything with okpm_month > this_month).  This
-        # guarantees a clean slate — no orphaned / corrupted / wrong-date /
-        # wrong-type events survive.  Current-month events (status, payment,
-        # late) are kept because they were just written above.
         if FORCE_REFRESH:
             all_unit_evs, _pt = [], None
             while True:
@@ -1449,7 +1473,6 @@ class SyncOrchestrator:
                 props = ev.get("extendedProperties", {}).get("private", {})
                 ev_month = props.get("okpm_month", "")
                 ev_type  = props.get("okpm_event_type", "")
-                # Preserve commitment events — they represent PM work
                 if ev_month > this_month and ev_type != "commitment":
                     self.gcal.delete_event(calendar_id, ev["id"])
                     purged += 1
@@ -1464,9 +1487,6 @@ class SyncOrchestrator:
         ):
             fmonth  = fdue.strftime("%Y-%m")
             prior_f = self.state.get(soid, fmonth)
-            # Same cross-calendar distrust as current-month state (see above):
-            # drop placeholders whose stored calendar_id doesn't match, so each
-            # calendar rebuilds its own future placeholders via upsert_event.
             if prior_f and prior_f.get("calendar_id") != calendar_id:
                 prior_f = None
             is_next = (i == 0)
@@ -1479,15 +1499,9 @@ class SyncOrchestrator:
                 for c in commitments
             )
             if commitment_covers_month:
-                # Skip placeholder creation/update.
-                # The existing placeholder (if any) stays visible until this
-                # month becomes current, at which point suppress_kickstart
-                # deletes it.  (Double-display is intentional.)
                 continue
 
             # ── Scan first COMMITMENT_LOOKAHEAD_MONTHS for moved kickstarts ──
-            # Skip during FORCE_REFRESH to avoid extra API reads that cause
-            # rate-limit issues.  Commitment detection runs on normal polls only.
             if prior_f and i < COMMITMENT_LOOKAHEAD_MONTHS and not FORCE_REFRESH:
                 placeholder_id = prior_f.get("rent_event_id")
                 if placeholder_id and not prior_f.get("is_commitment"):
@@ -1496,7 +1510,6 @@ class SyncOrchestrator:
                     expected  = fdue.isoformat()
                     if live_date and live_date != expected:
                         if live_date > today.isoformat():
-                            # PM moved this kickstart → commitment!
                             self.gcal.convert_to_commitment(
                                 calendar_id, placeholder_id, unit,
                                 live_date, "kickstart", max(0.0, past_due),
@@ -1507,8 +1520,8 @@ class SyncOrchestrator:
                                 "anchor_date":        live_date,
                                 "source_type":        "kickstart",
                                 "origin_month":       fmonth,
-                                "calendar_id":       calendar_id,
-                    "covers_rent_month":  fmonth,
+                                "calendar_id":        calendar_id,
+                                "covers_rent_month":  fmonth,
                             })
                             self.state.set(soid, fmonth, {
                                 **prior_f, "is_commitment": True,
@@ -1525,34 +1538,15 @@ class SyncOrchestrator:
                         log.warning(
                             f"  {oid}: kickstart {placeholder_id} for {fmonth} — "
                             f"event not found in Google (deleted?)")
-                        # Clear stale ID so the frozen-placeholder check below
-                        # doesn't block recreation of a fresh placeholder.
                         prior_f = {**prior_f, "rent_event_id": None}
-                        # Persist the clear under BOTH the owner-scoped key and
-                        # the bare-oid key.  Otherwise the stale bare-oid entry
-                        # keeps shadowing via StateManager.get()'s fallback and
-                        # the warning repeats on every run.
                         self.state.set(soid, fmonth, prior_f)
-                        bare_oid = soid.split("@")[0]
-                        if bare_oid != soid:
-                            bare_prior = self.state.data.get(
-                                self.state._key(bare_oid, fmonth))
-                            if bare_prior:
-                                self.state.set(bare_oid, fmonth, {
-                                    **bare_prior, "rent_event_id": None})
 
             # ── Normal frozen-placeholder logic ─────────────────────────────────
-            # During FORCE_REFRESH we rewrite ALL placeholders (nuke & rebuild),
-            # which fixes stale/wrong status from prior runs.  During normal
-            # polls, frozen placeholders are skipped as before.
             if not FORCE_REFRESH and prior_f and prior_f.get("rent_event_id") and not (is_next and has_credit):
                 continue
 
             if is_next and has_credit:
-                projected  = rent + past_due         # past_due is negative
-                # On kickstart placeholders, show green (✅ Paid) even if the
-                # credit exceeds one month's rent.  Pink 🩷 Prepaid is reserved
-                # for current-month logging events only.
+                projected  = rent + past_due
                 if projected <= 0:
                     fut_status = STATUS_PAID
                 else:
@@ -1610,7 +1604,7 @@ class SyncOrchestrator:
 
     def _verify_locked_events(
         self,
-        oid: str,
+        soid: str,
         calendar_id: str,
         prior: Optional[dict],
         status_event_id: Optional[str],
@@ -1632,7 +1626,6 @@ class SyncOrchestrator:
         if not prior or not status_event_id:
             return
 
-        soid = oid  # oid is already owner-scoped when passed from _sync_unit
         # ── Status event ──────────────────────────────────────────────────
         if prior.get("status_event_id"):
             live = self.gcal.get_event_start_date(calendar_id, status_event_id)
@@ -1640,7 +1633,6 @@ class SyncOrchestrator:
             if live and live != canon:
                 if live > today.isoformat():
                     if this_month not in commitment_months:
-                        # PM dragged status event to future → register commitment
                         new_body = self.gcal._build_commitment_event(
                             unit, live, "status", max(0.0, past_due),
                             source_status=status)
@@ -1652,13 +1644,12 @@ class SyncOrchestrator:
                             "source_type":       "status",
                             "origin_month":      this_month,
                             "calendar_id":       calendar_id,
-                    "covers_rent_month": this_month,
+                            "covers_rent_month": this_month,
                         })
                         commitment_months.add(this_month)
                         log.info(
-                            f"  {oid}: status event dragged to {live} "
+                            f"  {soid}: status event dragged to {live} "
                             f"→ commitment registered")
-                    # Snap back silently (commitment already covers this drag)
                     ev = self.gcal.get_event(calendar_id, status_event_id)
                     if ev:
                         ev["start"] = {"date": canon}
@@ -1670,12 +1661,11 @@ class SyncOrchestrator:
                         except HttpError as e:
                             log.error(f"  Failed to snap back {status_event_id}: {e}")
                 else:
-                    # Dragged to past — warn and use standard revert
                     self.gcal.revert_event_to_date(
                         calendar_id, status_event_id, canon)
 
         # ── Payment events ────────────────────────────────────────────────
-        additional_payments = sorted_payments[1:]   # [0] absorbed into status
+        additional_payments = sorted_payments[1:]
         for i, event_id in enumerate(prior.get("payment_event_ids", [])):
             if i < len(additional_payments):
                 pay_canon = additional_payments[i]["date"]
@@ -1695,13 +1685,12 @@ class SyncOrchestrator:
                             "source_type":       "payment",
                             "origin_month":      this_month,
                             "calendar_id":       calendar_id,
-                    "covers_rent_month": this_month,
+                            "covers_rent_month": this_month,
                         })
                         commitment_months.add(this_month)
                         log.info(
-                            f"  {oid}: payment event dragged to {live} "
+                            f"  {soid}: payment event dragged to {live} "
                             f"→ commitment registered")
-                    # Snap payment event back
                     self.gcal.revert_event_to_date(
                         calendar_id, event_id, pay_canon)
 
@@ -1734,10 +1723,6 @@ class SyncOrchestrator:
         if not has_known_or_new:
             return
 
-        # State is keyed by the owner-scoped soid (e.g. "96@owner42"); Google
-        # Calendar events are tagged with the BARE occupancy_id.  Use each key in
-        # its own domain — this was the root of commitments not refreshing
-        # (titles, suppression) for owner-scoped units.
         bare_oid = soid.split("@")[0] if "@" in soid else soid
         live_events = self.gcal.find_all_events_by_type(
             calendar_id, bare_oid, "commitment")
@@ -1759,6 +1744,7 @@ class SyncOrchestrator:
                     "anchor_date":        anchor,
                     "source_type":        src,
                     "origin_month":       anchor[:7],
+                    "calendar_id":        calendar_id,
                     "covers_rent_month":  (
                         anchor[:7] if (src == "late" and anchor[:7] > today_month)
                         else anchor[:7] if src == "kickstart"
@@ -1778,33 +1764,25 @@ class SyncOrchestrator:
         rent        = unit["rent"]
         today_str   = today.isoformat()
         today_month = today.strftime("%Y-%m")
-        surviving        = []   # commitments that persist into the next run
-        missing_promises = []   # promise commitments whose event the PM deleted
+        surviving        = []
+        missing_promises = []
 
         def _is_promise(src: str) -> bool:
-            # Promise-to-pay commitments (PM-created).  Kickstart placeholders are
-            # a separate mechanism and are NOT subject to the ≥1-promise rule.
             return src in ("status", "payment", "late")
 
         for c in commitments:
             # Skip commitments that belong to a different calendar.
-            # calendar_id is stored in the entry when the commitment is created;
-            # entries without it (old format) are treated as belonging to any
-            # calendar (backward compat — will be fixed on first update).
             c_cal = c.get("calendar_id")
             if c_cal and c_cal != calendar_id:
-                surviving.append(c)  # keep it; belongs to another owner's calendar
+                surviving.append(c)
                 continue
 
             event_id          = c["event_id"]
-            anchor_date       = c["anchor_date"]
-            source_type       = c.get("source_type", "late")
+            anchor_date       = c.get("anchor_date") or today_str
+            source_type       = c.get("source_type") or "late"
             covers_rent_month = c.get("covers_rent_month")
 
             # ── Resolve if fully paid ─────────────────────────────────────────
-            # Full payment (or a credit) is the ONLY thing that clears promises:
-            # every commitment for the unit is removed.  (Eviction handling is a
-            # separate track for another day.)
             if past_due <= 0:
                 if event_id in live_by_id:
                     self.gcal.delete_event(calendar_id, event_id)
@@ -1817,13 +1795,9 @@ class SyncOrchestrator:
             ev_body = live_by_id.get(event_id)
             if ev_body is None:
                 if _is_promise(source_type):
-                    # A promise delete is honoured ONLY if another promise still
-                    # remains (PM rearranging an installment plan).  Deleting the
-                    # LAST promise is treated as a slip — it is recreated after the
-                    # loop (see the ≥1-promise rule).  Defer the decision.
                     missing_promises.append(c)
                     continue
-                # Kickstart placeholder: recreate as before (auto-managed).
+                # Kickstart placeholder: recreate
                 outstanding = past_due + (
                     rent if (covers_rent_month and covers_rent_month > today_month)
                     else 0
@@ -1842,9 +1816,7 @@ class SyncOrchestrator:
                     log.error(f"  {bare_oid}: failed to recreate kickstart: {e}")
                     continue
 
-            # ── Kickstart drag-back to its origin 1st → revert to placeholder ──
-            # (Only kickstart placeholders un-commit this way.  Promises never
-            #  un-commit — they clear only on full payment.)
+            # ── Kickstart drag-back to origin 1st → revert to placeholder ──
             live_date = ev_body.get("start", {}).get("date", anchor_date)
             if source_type == "kickstart":
                 origin_first = f"{c.get('origin_month', anchor_date[:7])}-01"
@@ -1864,19 +1836,11 @@ class SyncOrchestrator:
 
             # ── Compute displayed outstanding ─────────────────────────────────
             if covers_rent_month and covers_rent_month > today_month:
-                # Pre-load future month's rent before it accrues in AppFolio
                 outstanding = past_due + rent
             else:
-                # AppFolio's past_due already includes this month
                 outstanding = past_due
 
             # ── Display status: overdue ⚠️  vs. live 🔴 / 🟡 ───────────────────
-            # A promise whose live date has already passed and is still unpaid
-            # shows ⚠️ Overdue (no auto-expire — the marker stays put).  Drag it
-            # onto today or a future date and it reverts to 🔴 (owes a full month
-            # or more) or 🟡 (partial) — recomputed every run from the live date
-            # and the current AppFolio balance.  Kickstart placeholders keep their
-            # own colour logic (source_status left blank).
             display_status = ""
             if _is_promise(source_type):
                 display_status = (
@@ -1885,8 +1849,6 @@ class SyncOrchestrator:
                 )
 
             # ── Update event (preserves PM notes, picks up re-drags) ──────────
-            # Refresh event_id — it may have changed if a kickstart was just
-            # recreated above (old variable holds the deleted event's ID).
             event_id = c["event_id"]
             new_live_anchor = self.gcal.update_commitment_event(
                 calendar_id, event_id, ev_body,
@@ -1894,8 +1856,8 @@ class SyncOrchestrator:
                 source_status=display_status,
             )
 
-            # Persist any changes: re-drag updates anchor, and covers_rent_month
-            updated_c = {**c, "anchor_date": new_live_anchor}
+            # Persist any changes
+            updated_c = {**c, "anchor_date": new_live_anchor, "calendar_id": calendar_id}
             if source_type == "late":
                 updated_c["covers_rent_month"] = (
                     new_live_anchor[:7]
@@ -1903,33 +1865,22 @@ class SyncOrchestrator:
                     else None
                 )
             elif source_type in ("status", "payment"):
-                # A dragged status/payment event always represents its origin
-                # month's rent, so it must keep suppressing that month's status
-                # event no matter where it's dragged.  Repairs entries left with
-                # covers_rent_month=None by the earlier key-mismatch bug.
                 updated_c["covers_rent_month"] = (
                     c.get("covers_rent_month")
                     or c.get("origin_month")
                     or today_month
                 )
-            # For kickstart commitments, covers_rent_month stays = origin_month
 
             surviving.append(updated_c)
 
-        # ── ≥1-promise rule (mistake-proofing) ─────────────────────────────────
-        # A unit being tracked by promises must always keep at least one promise
-        # on the calendar until the balance is paid in full.  Deleting a promise
-        # is honoured only while another promise survives (installment
-        # rearrangement, above).  If the PM deleted the LAST promise, treat it as
-        # an accidental removal and recreate one — the most recent promised date —
-        # so tracking is never lost to a stray delete.
+        # ── ≥1-promise rule ─────────────────────────────────────────────────
         if (past_due > 0 and missing_promises
                 and not any(_is_promise(c.get("source_type", "late"))
                             for c in surviving)):
             c                 = max(missing_promises,
-                                    key=lambda x: x.get("anchor_date", ""))
-            anchor_date       = c["anchor_date"]
-            source_type       = c.get("source_type", "late")
+                                    key=lambda x: x.get("anchor_date") or "")
+            anchor_date       = c.get("anchor_date") or today_str
+            source_type       = c.get("source_type") or "late"
             covers_rent_month = c.get("covers_rent_month")
             outstanding = past_due + (
                 rent if (covers_rent_month and covers_rent_month > today_month)
