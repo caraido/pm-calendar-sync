@@ -74,6 +74,7 @@ import os, re, json, time, logging, requests
 from datetime import date, timedelta, datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -88,9 +89,9 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-APPFOLIO_DB_NAME       = os.environ["APPFOLIO_DB_NAME"]
-APPFOLIO_CLIENT_ID     = os.environ["APPFOLIO_CLIENT_ID"]
-APPFOLIO_CLIENT_SECRET = os.environ["APPFOLIO_CLIENT_SECRET"]
+APPFOLIO_DB_NAME       = os.environ["APPFOLIO_DB_NAME"].strip()
+APPFOLIO_CLIENT_ID     = os.environ["APPFOLIO_CLIENT_ID"].strip()
+APPFOLIO_CLIENT_SECRET = os.environ["APPFOLIO_CLIENT_SECRET"].strip()
 GOOGLE_SA_JSON         = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
 GOOGLE_SCOPES          = ["https://www.googleapis.com/auth/calendar"]
 
@@ -106,7 +107,10 @@ STATE_FILE       = Path("state.json")
 CALENDAR_PREFIX  = "OKPM"
 AF_API_DELAY_SEC = 2.0
 
-_AF_BASE    = (f"https://{APPFOLIO_CLIENT_ID}:{APPFOLIO_CLIENT_SECRET}"
+# Credentials are URL-encoded so special characters (@ : / # etc.) in the
+# client id/secret can't corrupt the embedded-credential URL and cause a 403.
+_AF_BASE    = (f"https://{quote(APPFOLIO_CLIENT_ID, safe='')}:"
+               f"{quote(APPFOLIO_CLIENT_SECRET, safe='')}"
                f"@{APPFOLIO_DB_NAME}.appfolio.com/api/v2/reports")
 _AF_HEADERS = {"Content-Type": "application/json", "Accept": "application/json"}
 
@@ -162,6 +166,24 @@ def classify_status(rent: float, past_due: float) -> str:
     else:                 return STATUS_UNPAID
 
 
+def payment_status(rent: float, balance: float) -> str:
+    """
+    Status for any event that represents a RECEIVED payment (the migrated
+    status event on a payment date, or an additional-payment event).
+
+    Differs from classify_status in one way: a tenant who has paid something
+    this month is NEVER shown 🔴 Unpaid, even when the remaining balance is
+    one month's rent or more (i.e. they're in arrears across months).  As long
+    as a balance remains it reads 🟡 Partial.  Zero → ✅ Paid, credit → 🩷 Prepaid.
+
+    Rationale: 🔴 means "nothing received"; once money has come in this month
+    the event should reflect a partial payment, not a missed one.
+    """
+    if balance < 0:    return STATUS_PREPAID
+    elif balance == 0: return STATUS_PAID
+    else:              return STATUS_PARTIAL
+
+
 def color_for_status(status: str) -> str:
     return {
         STATUS_PAID:    COLOR_PAID,
@@ -182,6 +204,19 @@ def emoji_for_status(status: str) -> str:
         STATUS_LATE:    "🔴",
         STATUS_OVERDUE: "⚠️",
     }.get(status, "🔴")
+
+
+def _next_day(iso_date: str) -> str:
+    """
+    Return the day AFTER the given ISO date (YYYY-MM-DD).
+
+    Google Calendar all-day events use an EXCLUSIVE end date: a one-day event
+    on date D must have start=D and end=D+1.  Writing end==start creates a
+    zero-length span that the Calendar UI rejects the moment you try to edit
+    the event ("the event end time cannot be set before the start time").
+    All event builders use this so every all-day event is a proper 1-day span.
+    """
+    return (date.fromisoformat(iso_date) + timedelta(days=1)).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -491,8 +526,8 @@ class GoogleCalendarManager:
         body = self._build_commitment_event(
             unit, anchor_date, source_type, outstanding,
             pm_notes=pm_template, source_status=source_status)
-        body["start"]["date"] = anchor_date
-        body["end"]["date"]   = anchor_date
+        # (start/end already set correctly by the builder: start=anchor_date,
+        #  end=anchor_date+1 for a proper one-day all-day event)
         try:
             _gcal_execute(self.service.events().update(
                 calendarId=calendar_id, eventId=event_id, body=body))
@@ -532,7 +567,7 @@ class GoogleCalendarManager:
         # Honour the live date: PM may have re-dragged the event
         live_date = existing_body.get("start", {}).get("date", anchor_date)
         new_body["start"]["date"] = live_date
-        new_body["end"]["date"]   = live_date
+        new_body["end"]["date"]   = _next_day(live_date)
 
         try:
             _gcal_execute(self.service.events().update(
@@ -557,7 +592,7 @@ class GoogleCalendarManager:
             return
         log.warning(f"  REVERT locked event {event_id}: {live_date} → {canonical_date}")
         ev["start"] = {"date": canonical_date}
-        ev["end"]   = {"date": canonical_date}
+        ev["end"]   = {"date": _next_day(canonical_date)}
         try:
             _gcal_execute(self.service.events().update(
                 calendarId=calendar_id, eventId=event_id, body=ev))
@@ -635,7 +670,7 @@ class GoogleCalendarManager:
             "location":    unit["address"],
             "description": description,
             "start":       {"date": anchor_date},
-            "end":         {"date": anchor_date},
+            "end":         {"date": _next_day(anchor_date)},
             "colorId":     color,
             "extendedProperties": {"private": {
                 "okpm_occupancy_id":  str(unit["occupancy_id"]),
@@ -747,7 +782,7 @@ class GoogleCalendarManager:
             "location":    unit['address'],
             "description": "\n".join(desc),
             "start":       {"date": event_date.isoformat()},
-            "end":         {"date": event_date.isoformat()},
+            "end":         {"date": _next_day(event_date.isoformat())},
             "colorId":     color_for_status(event_status),
             "extendedProperties": {"private": {
                 "okpm_occupancy_id": str(unit['occupancy_id']),
@@ -762,7 +797,10 @@ class GoogleCalendarManager:
         running_balance: float, month_received: float,
     ) -> dict:
         pay_date   = payment["date"]
-        pay_status = classify_status(unit['rent'], running_balance)
+        # This event represents a received payment → payment_status keeps it
+        # 🟡 Partial (never 🔴) while any balance remains.  (NSF and intended-
+        # month cases below override the colour explicitly.)
+        pay_status = payment_status(unit['rent'], running_balance)
         pay_emoji  = emoji_for_status(pay_status)
         try: pay_display = date.fromisoformat(pay_date).strftime("%b %d, %Y")
         except: pay_display = pay_date
@@ -819,7 +857,7 @@ class GoogleCalendarManager:
             "location":    unit['address'],
             "description": "\n".join(desc),
             "start":       {"date": pay_date},
-            "end":         {"date": pay_date},
+            "end":         {"date": _next_day(pay_date)},
             "colorId":     color,
             "extendedProperties": {"private": {
                 "okpm_occupancy_id":  str(unit['occupancy_id']),
@@ -863,7 +901,7 @@ class GoogleCalendarManager:
             "location":    unit['address'],
             "description": "\n".join(desc),
             "start":       {"date": due_date.isoformat()},
-            "end":         {"date": due_date.isoformat()},
+            "end":         {"date": _next_day(due_date.isoformat())},
             "colorId":     color_for_status(status),
             "extendedProperties": {"private": {
                 "okpm_occupancy_id": str(unit['occupancy_id']),
@@ -1001,7 +1039,18 @@ class StateManager:
         self.path = STATE_FILE
         self.data: dict = {}
         if self.path.exists():
-            self.data = json.loads(self.path.read_text())
+            # Decode defensively against PowerShell encoding mishaps.  `echo >`
+            # writes UTF-16LE (BOM ff fe); `Set-Content` can write UTF-8-with-BOM
+            # (ef bb bf).  Plain utf-8 decoding chokes on either ("invalid start
+            # byte 0xff" / a stray BOM char).  Sniff the BOM and decode to match.
+            raw = self.path.read_bytes()
+            if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+                text = raw.decode("utf-16")          # UTF-16 LE / BE
+            elif raw.startswith(b"\xef\xbb\xbf"):
+                text = raw.decode("utf-8-sig")        # UTF-8 with BOM
+            else:
+                text = raw.decode("utf-8")            # plain UTF-8
+            self.data = json.loads(text) if text.strip() else {}
         # Ensure commitment registry exists
         if "_commitments" not in self.data:
             self.data["_commitments"] = {}
@@ -1017,7 +1066,7 @@ class StateManager:
         self.data[self._key(oid, month)] = entry
 
     def save(self):
-        self.path.write_text(json.dumps(self.data, indent=2))
+        self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
 
     # ── Commitment helpers ────────────────────────────────────────────────────
 
@@ -1297,7 +1346,10 @@ class SyncOrchestrator:
             # Safety clamp: never place the event before this month's due date
             status_event_date = max(status_event_date, due_date)
             first_pay         = sorted_payments[0]
-            event_status      = classify_status(rent, balances[0])
+            # A payment was received this month → use payment_status so the event
+            # reads 🟡 Partial (never 🔴) as long as any balance remains, even
+            # when the tenant is one+ months in arrears.
+            event_status      = payment_status(rent, balances[0])
         else:
             status_event_date = due_date
             first_pay         = None
@@ -1697,7 +1749,7 @@ class SyncOrchestrator:
                     ev = self.gcal.get_event(calendar_id, status_event_id)
                     if ev:
                         ev["start"] = {"date": canon}
-                        ev["end"]   = {"date": canon}
+                        ev["end"]   = {"date": _next_day(canon)}
                         try:
                             _gcal_execute(self.gcal.service.events().update(
                                 calendarId=calendar_id,
