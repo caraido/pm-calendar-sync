@@ -1,7 +1,7 @@
 """Status classification and colour / emoji mapping."""
 from .config import (
     COLOR_PAID, COLOR_PREPAID, COLOR_PARTIAL,
-    COLOR_UNPAID, COLOR_LATE, COLOR_COMMITMENT,
+    COLOR_UNPAID, COLOR_LATE,
 )
 
 
@@ -10,7 +10,6 @@ STATUS_PREPAID = "🩷 Prepaid"
 STATUS_PARTIAL = "🟡 Partial"
 STATUS_UNPAID  = "🔴 Unpaid"
 STATUS_LATE    = "🔴 Late"
-STATUS_OVERDUE = "⚠️ Overdue"   # a promised payment whose date has passed unpaid
 
 
 def classify_status(rent: float, past_due: float) -> str:
@@ -45,7 +44,6 @@ def color_for_status(status: str) -> str:
         STATUS_PARTIAL: COLOR_PARTIAL,
         STATUS_UNPAID:  COLOR_UNPAID,
         STATUS_LATE:    COLOR_LATE,
-        STATUS_OVERDUE: COLOR_COMMITMENT,   # tangerine
     }.get(status, COLOR_UNPAID)
 
 
@@ -56,5 +54,4 @@ def emoji_for_status(status: str) -> str:
         STATUS_PARTIAL: "🟡",
         STATUS_UNPAID:  "🔴",
         STATUS_LATE:    "🔴",
-        STATUS_OVERDUE: "⚠️",
     }.get(status, "🔴")

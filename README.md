@@ -98,7 +98,6 @@ No more digging through spreadsheets. Every event has a leading emoji and a matc
    ✅ Paid     ──────────────────────── sage green     (balance = $0)
    🟡 Partial  ──────────────────────── banana yellow  (partial payment)
    🔴 Unpaid   ──────────────────────── tomato red     (full month owed)
-   ⚠️ Overdue  ──────────────────────── tangerine      (missed promise)
 ```
 
 | Status | Condition | Color |
@@ -107,9 +106,10 @@ No more digging through spreadsheets. Every event has a leading emoji and a matc
 | ✅ **Paid** | Fully paid (`past_due == 0`) | Sage green |
 | 🟡 **Partial** | Partial payment (`0 < past_due < rent`) | Banana yellow |
 | 🔴 **Unpaid** | Full month owed (`past_due >= rent`) | Tomato red |
-| ⚠️ **Overdue** | Missed promise, still unpaid | Tangerine |
 
 The live `past_due` balance from AppFolio is the single source of truth — including negative values (credits), which trigger the 🩷 Prepaid state automatically.
+
+> 📌 **Commitments use the same colors.** A promise-to-pay event takes the color of its current balance — 🔴 when nothing has been paid this month, 🟡 when a partial payment leaves a balance. A promise whose date has already passed is **not** specially flagged; it simply keeps its 🔴 / 🟡 color until it's renegotiated or paid. *(There is no separate "overdue" color — the old ⚠️ tangerine state was removed.)*
 
 ---
 
@@ -179,10 +179,10 @@ This is where OKPM Calendar Sync really shines as a collections tool. When a ten
 ### 🔄 The promise lifecycle
 
 1. **📍 Detected** — any movable event dragged to a future date becomes a commitment automatically.
-2. **🔄 Updated every run** — the auto-generated description section rebuilds with live balance data, while any PM notes above the divider are **always preserved**:
-   - On or after today → 🔴 (full month owed) or 🟡 (partial)
-   - Promised date passed, still unpaid → ⚠️ **Overdue**
-   - **No auto-expire** — drag an overdue ⚠️ to a new date and it instantly becomes 🔴 / 🟡 again
+2. **🔄 Updated every run** — the auto-generated description section rebuilds with live balance data, while any PM notes above the divider are **always preserved**. The color tracks the live balance:
+   - 🔴 **Unpaid** — nothing paid this month (full month owed)
+   - 🟡 **Partial** — a partial payment leaves a balance
+   - **No special "overdue" state** — a promise whose date has already passed keeps its 🔴 / 🟡 color (no auto-expire); it stays put until renegotiated or paid.
 3. **✅ Resolved** — balance reaches ≤ 0 and every promise for that unit is automatically removed.
 4. **🛡️ Safe-delete protection** — deleting the *last* promise on a unit that still owes? The sync treats it as an accident and recreates it. A tracked unit always keeps at least one promise until it's paid in full.
 
@@ -214,16 +214,16 @@ You don't need a spreadsheet or an AppFolio login to see who owes what. Open any
 ```
    📅 This month's view
    ─────────────────────────────────────────────
-   🔴 123 Main St Unit 2   — $1,200 due        (status event, 1st)
+   🔴 123 Main St Unit 2   — $1,200 due          (status event, 1st)
    🟡 456 Oak Ave Unit 1   — $600 paid, $600 left (migrated status event)
    ✅ 789 Elm St Unit 4    — paid in full
-   📌 321 Pine Rd Unit 1   — Promise Jun 20     (commitment, tangerine)
+   🔴 321 Pine Rd Unit 1   — $950 owed · Promise Jun 20   (commitment)
    ─────────────────────────────────────────────
 ```
 
 - **Color is the signal** — 🔴 unpaid, 🟡 partial, ✅ paid, 🩷 prepaid; the [status model](#the-visual-language-status-model) tells the whole story for each unit.
-- **Promises are visible** — every promise-to-pay is its own 📌 tangerine commitment event sitting on the promised date.
-- **Broken promises resurface** — once a promised date passes unpaid, that commitment flips to ⚠️ **Overdue** (still tangerine) and stays on its date until renegotiated or paid. No auto-expire.
+- **Promises are visible** — every promise-to-pay is its own commitment event sitting on the promised date, colored 🔴 / 🟡 by its current balance.
+- **Broken promises keep their color** — once a promised date passes unpaid, the commitment stays on its date and keeps its 🔴 / 🟡 balance color until renegotiated or paid. No auto-expire, no special overdue color.
 - **Grace-period aware** — each status/placeholder event records its `Late After:` date (due date + the tenant's grace days) in the description.
 
 ---

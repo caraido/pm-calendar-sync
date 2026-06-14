@@ -11,7 +11,7 @@ from .config import (
 )
 from .status import (
     classify_status, payment_status,
-    STATUS_OVERDUE, STATUS_PAID, STATUS_UNPAID,
+    STATUS_PAID, STATUS_UNPAID,
 )
 from .transforms import (
     normalize_tenant_name, build_owner_property_map, build_tenant_info_map,
@@ -684,8 +684,10 @@ class SyncOrchestrator:
           1. Discover new copies (PM copy-pasted for split payment plans).
           2. Resolve (delete every promise) if account balance ≤ 0.
           3. Update the auto section, preserving PM notes above the divider.
-             Display recomputes from the live date + balance: ⚠️ Overdue once the
-             promised date has passed unpaid, otherwise 🔴 / 🟡.  No auto-expire.
+             Display recomputes from the live balance: 🔴 when nothing has been
+             paid this month, 🟡 when a partial payment leaves a balance.  A
+             promise whose date has already passed is NOT specially flagged — it
+             keeps its 🔴 / 🟡 colour (no auto-expire, no ⚠️ overdue state).
              Also picks up re-drags (PM moved the commitment again).
           4. Safe delete (≥1-promise rule): a deleted promise sticks only while
              another promise remains; deleting the LAST promise recreates one.
@@ -815,13 +817,13 @@ class SyncOrchestrator:
             else:
                 outstanding = past_due
 
-            # ── Display status: overdue ⚠️  vs. live 🔴 / 🟡 ───────────────────
+            # ── Display status: 🔴 if nothing paid this month, 🟡 if a partial
+            #    payment leaves a balance.  A promise whose date has already
+            #    passed is NOT specially flagged — it keeps its 🔴 / 🟡 balance
+            #    colour (the old ⚠️ Overdue / tangerine state was removed).
             display_status = ""
             if _is_promise(source_type):
-                display_status = (
-                    STATUS_OVERDUE if live_date < today_str
-                    else classify_status(rent, past_due)
-                )
+                display_status = classify_status(rent, past_due)
 
             # ── Update event (preserves PM notes, picks up re-drags) ──────────
             event_id = c["event_id"]
@@ -861,8 +863,7 @@ class SyncOrchestrator:
                 rent if (covers_rent_month and covers_rent_month > today_month)
                 else 0
             )
-            disp = (STATUS_OVERDUE if anchor_date < today_str
-                    else classify_status(rent, past_due))
+            disp = classify_status(rent, past_due)
             new_body = self.gcal._build_commitment_event(
                 unit, anchor_date, source_type, outstanding,
                 pm_notes=(

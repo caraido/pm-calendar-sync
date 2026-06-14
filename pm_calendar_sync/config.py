@@ -47,7 +47,10 @@ COLOR_PREPAID    = "4"   # flamingo pink
 COLOR_PARTIAL    = "5"   # banana yellow
 COLOR_UNPAID     = "11"  # tomato red
 COLOR_LATE       = "11"  # tomato red
-COLOR_COMMITMENT = "6"   # tangerine — distinct colour for commitment events
+# COLOR_COMMITMENT (tangerine, "6") was the old ⚠️ Overdue colour. The overdue
+# state was removed — commitments now take their balance colour (red/yellow) —
+# so this is no longer applied. Kept here for reference / possible future use.
+COLOR_COMMITMENT = "6"   # tangerine — unused since overdue removal
 
 GCAL_RETRY_ATTEMPTS = 3
 GCAL_RETRY_BASE_DELAY = 5   # seconds — doubled on each retry

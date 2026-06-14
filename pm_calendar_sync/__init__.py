@@ -18,7 +18,9 @@ Polls AppFolio Plus Reports API (v2) and maintains per-owner Google Calendars.
 COMMITMENT / PROMISE EVENTS
   The PM registers a payment plan by dragging an event to a future date in
   Google Calendar.  The next poll detects the move and converts the event in
-  place into an  okpm_event_type = "commitment"  event (tangerine color).
+  place into an  okpm_event_type = "commitment"  event.  The commitment keeps
+  the red/yellow colour of its live balance (🔴 nothing paid this month,
+  🟡 partial payment outstanding).
 
   MOVABLE events (PM may drag; a forward move registers a promise):
     • Status events               "status"   — the 1st-of-month event dragged
@@ -33,9 +35,10 @@ COMMITMENT / PROMISE EVENTS
   COMMITMENT lifecycle:
     1. Detected (event dragged to a future date → converted in-place).
     2. Updated each run: auto section rebuilt, PM notes above divider preserved.
-       Display recomputes from the live date + balance: 🔴/🟡 while on or after
-       today, ⚠️ Overdue once the promised date has passed unpaid (no auto-expire
-       — a missed promise stays on its date until renegotiated or paid).
+       Display recomputes from the live balance: 🔴 when nothing has been paid
+       this month, 🟡 when a partial payment leaves a balance.  A missed promise
+       (date already passed) is NOT specially flagged — it keeps its 🔴/🟡 colour
+       and stays on its date until renegotiated or paid (no auto-expire).
     3. Resolved: every promise for the unit is deleted when balance ≤ 0 (full
        payment).  Eviction handling is a separate track for later.
     4. Safe delete (≥1-promise rule): the PM deleting a promise sticks only while
