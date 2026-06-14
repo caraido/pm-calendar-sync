@@ -17,7 +17,7 @@ OKPM Calendar Sync automatically pulls real-time rent and payment data from AppF
 | 🎨 | **Instant visual status** | Color-coded events tell the whole story at a glance |
 | 👆 | **Drag to track promises** | Log a promise-to-pay in seconds — just drag an event to the date |
 | 🤝 | **Split payment plans** | Copy-paste a commitment to map out installment arrangements |
-| 🔍 | **Daily "who owes me" view** | Open today's date for an instant collections dashboard |
+| 🔍 | **Read a month at a glance** | Color-coded status events + promise markers show who owes what — no spreadsheet |
 | 🏘️ | **Co-ownership support** | One unit, multiple owners — each gets their own calendar entry |
 | 💸 | **$0 infrastructure cost** | Runs entirely on free GitHub Actions |
 
@@ -31,7 +31,7 @@ OKPM Calendar Sync automatically pulls real-time rent and payment data from AppF
 * [Event types](#event-types)
 * [The monthly lifecycle](#the-monthly-lifecycle)
 * [Promise-to-pay](#promise-to-pay-commitments)
-* [The "today" dashboard](#the-today-dashboard)
+* [Reading the calendar at a glance](#reading-the-calendar-at-a-glance)
 * [Setup](#setup)
 * [Configuration reference](#configuration-reference)
 * [Scheduling](#scheduling)
@@ -51,7 +51,7 @@ OKPM Calendar Sync automatically pulls real-time rent and payment data from AppF
 │  (v2 Reports API)   │──────► │  (GitHub Actions)    │──────► │  (one cal / owner)  │
 │                     │        │                      │        │                     │
 │  📋 rent_roll       │        │  ✅ builds status,   │        │  👁️ owners subscribe │
-│  👤 owner_dir       │        │  💳 payment, today,  │        │     (read-only)     │
+│  👤 owner_dir       │        │  💳 payment,         │        │     (read-only)     │
 │  🧑 tenant_dir      │        │  📌 placeholder &    │        │  🖱️ PM owns + drags  │
 │  📒 tenant_ledger   │        │     commitment events│        │     events to manage│
 └─────────────────────┘        └──────────────────────┘        └─────────────────────┘
@@ -115,26 +115,27 @@ The live `past_due` balance from AppFolio is the single source of truth — incl
 
 ## 📌 Event types
 
-Five smart event types work together to tell the complete story of every unit's payment history and future:
+Four active event types work together to tell the complete story of every unit's payment history and future:
 
 | Type | 📍 Appears on | Purpose |
 | ---- | ------------- | ------- |
 | `status` | 1st of month → migrates to first payment date | The month's headline status for a unit |
 | `payment` | Each payment date after the first | Logs every additional payment individually |
-| `late` | Today's date | The **daily collections dashboard** marker |
 | `rent` | 1st of future months | Frozen placeholder for upcoming rent |
 | `commitment` | A promised payment date | Tracks a promise-to-pay the PM is managing |
+| ~~`late`~~ | *(retired)* | Former "today" marker — **no longer created**; see [below](#reading-the-calendar-at-a-glance) |
+
+> ⚠️ **`late` is retired.** Earlier versions placed a "today" marker event on the current date as a collections dashboard. That event type is gone: each run now **deletes** any leftover `late` event it finds. Promise-to-pay commitments that were originally created by dragging an old `late` marker (`source_type = "late"`) are still tracked and managed normally — they're just never created anymore.
 
 ### 🖱️ Drag to manage — movable vs. locked
 
 The PM's primary interaction is **dragging events** on the calendar:
 
 - **Movable** — drag any of these to a future date to instantly create a promise-to-pay:
-  - Future-month placeholders (`rent`)
-  - Today markers (`late`)
+  - Future-month placeholders (`rent`) → `kickstart` commitment
   - Status events (`status`)
   - Payment events (`payment`)
-- **Locked** — status events that haven't been dragged snap back to their correct date on the next sync, protecting against accidental moves.
+- **Locked** — status and payment events that haven't been dragged into a promise snap back to their correct date on the next sync, protecting against accidental moves.
 
 ---
 
@@ -199,29 +200,31 @@ Every commitment has an editable section *above* an `AUTO-SYNCED — do not edit
 | ------ | --------- | -------- |
 | `status` | Monthly status event | Represents that origin month's rent |
 | `payment` | Additional payment event | Same as above |
-| `late` | Today marker | Arrears — may pre-load next month's rent |
 | `kickstart` | Future-month placeholder | Drag back to the 1st to revert to a placeholder |
+| `late` *(legacy)* | Old "today" marker | Arrears; may pre-load next month's rent. **No longer created** — only pre-existing ones are still managed |
 
 ---
 
-## 🔍 The "today" dashboard
+## 🔍 Reading the calendar at a glance
 
-Open **any owner's calendar on today's date** and you get a live, zero-effort collections dashboard — every unit that owes money and isn't already tracked by a promise, all in one place.
+> 🗓️ **Note — the dedicated "today" marker was retired.** Earlier versions stamped a single dashboard event on today's date listing everyone who owed money. That marker is gone; the sync now deletes any leftover ones. Collections are read directly off the events that are already there, which stay current automatically.
+
+You don't need a spreadsheet or an AppFolio login to see who owes what. Open any owner's calendar for the current month and the picture is in the colors:
 
 ```
-   📅 Today's view
+   📅 This month's view
    ─────────────────────────────────────────────
-   🔴 123 Main St Unit 2   — $1,200 due (Day 3 late)
-   🟡 456 Oak Ave Unit 1   — $600 partial, $600 still owed
-   🔴 789 Elm St Unit 4    — $950 due
+   🔴 123 Main St Unit 2   — $1,200 due        (status event, 1st)
+   🟡 456 Oak Ave Unit 1   — $600 paid, $600 left (migrated status event)
+   ✅ 789 Elm St Unit 4    — paid in full
+   📌 321 Pine Rd Unit 1   — Promise Jun 20     (commitment, tangerine)
    ─────────────────────────────────────────────
-   (units with active promises don't appear here)
 ```
 
-- **Instant insight** — no spreadsheet, no report, no login to AppFolio. Just open today.
-- **Promised units are excluded** — if a unit already has a future-dated promise, it won't clutter the dashboard.
-- **Broken promises resurface** — a unit whose promises have all passed appears in today's dashboard *and* shows ⚠️ overdue markers on the missed dates.
-- **Grace-period aware** — markers appear from the 1st of the month onward; the `(Day N late)` tag appears only after the grace period.
+- **Color is the signal** — 🔴 unpaid, 🟡 partial, ✅ paid, 🩷 prepaid; the [status model](#the-visual-language-status-model) tells the whole story for each unit.
+- **Promises are visible** — every promise-to-pay is its own 📌 tangerine commitment event sitting on the promised date.
+- **Broken promises resurface** — once a promised date passes unpaid, that commitment flips to ⚠️ **Overdue** (still tangerine) and stays on its date until renegotiated or paid. No auto-expire.
+- **Grace-period aware** — each status/placeholder event records its `Late After:` date (due date + the tenant's grace days) in the description.
 
 ---
 
@@ -252,19 +255,21 @@ Open **any owner's calendar on today's date** and you get a live, zero-effort co
 
 ### 💻 Local runs
 
-For local runs, you can keep the same values in a JSON file instead of exporting env vars each time.
+The **helper scripts** (`grant_pm_access.py`, `restrict_access.py`, `share_portfolio_calendars.py`, and the tools under `tests/` and `misc/`) read config through `local_config.py`, so you can keep credentials in a JSON file instead of exporting env vars each time.
 
-1. Copy `local_config.example.json` to `local_config.json`, or create `secrets/local_config.json`.
-2. Fill in the values you need for the script you are running.
+1. Create `local_config.json` in the repo root, or `secrets/local_config.json`.
+2. Fill in the keys you need (same names as the [repository secrets](#-repository-secrets)) as a JSON object.
 3. Run the script normally.
 
-The scripts check `secrets/local_config.json` first, then `local_config.json`, then environment variables. `secrets/` is already ignored by git, and `local_config.json` is ignored too.
+`local_config.py` resolves each key by checking `secrets/local_config.json` first, then `local_config.json`, then environment variables. `secrets/` is git-ignored, and `local_config.json` is too.
+
+> ⚠️ **The main sync is the exception.** `pm_calendar_sync/config.py` reads the required AppFolio/Google values straight from environment variables (it does **not** consult `local_config.json`). To run `python sync.py` locally, export the env vars first — see the `set …` example at the top of `smoke_test.py`.
 
 ### 🎯 First-run checklist
 
 1. ▶️ Let the workflow run once — it creates all the calendars automatically.
 2. 📬 Run `share_portfolio_calendars.py` once to receive "Add this calendar" emails, then click each to add them to the PM's sidebar.
-3. 🔗 Share each calendar's subscription link with the corresponding owner (`list_calendars.py` prints these), or let the sync auto-share when owner emails are in AppFolio.
+3. 🔗 Share each calendar's subscription link with the corresponding owner (`tests/list_calendars.py` prints these), or let the sync auto-share when owner emails are in AppFolio.
 
 ---
 
@@ -314,11 +319,12 @@ After each run, `state.json` is committed back to `main` automatically. Concurre
 **Per occupancy + month** (keyed `"{occupancy_id}@{owner_id}_{YYYY-MM}"`):
 - `status`, `past_due`
 - `calendar_id`, `status_event_id`, `status_event_date`
-- `late_event_id`, `payment_event_ids`
+- `payment_event_ids`
+- `late_event_id` — retained for backward compatibility but now always `null` (any pre-existing `late` event is deleted on the next run)
 - Future months also store `rent_event_id` and `is_commitment`
 
 **Commitment registry** (`state["_commitments"]["{occupancy_id}@{owner_id}"]`):
-One entry per promise (multiple for split plans), each with `event_id`, `anchor_date`, `source_type`, `origin_month`, `calendar_id`, and `covers_rent_month`.
+One entry per promise (multiple for split plans), each with `event_id`, `anchor_date`, `source_type` (`status` / `payment` / `kickstart`, or legacy `late`), `origin_month`, `calendar_id`, and `covers_rent_month`.
 
 > 🏘️ **Owner-scoped keys** — state keys use `occupancy_id@owner_id`, not the bare occupancy ID. Co-owned units are processed independently per owner, with completely separate event IDs on each owner's calendar.
 
@@ -326,17 +332,36 @@ One entry per promise (multiple for split plans), each with `event_id`, `anchor_
 
 ## 🛠️ Helper scripts
 
-One-time and occasional maintenance tools — run locally with the same service-account JSON. On Windows/Miniconda, set env vars with `set` and run with `python <script>.py`.
+One-time and occasional maintenance tools — run locally with credentials in `local_config.json` / `secrets/local_config.json` (or env vars). On Windows/Miniconda, you can also `set` env vars and run with `python <path>.py`.
+
+**Root-level helpers:**
 
 | Script | What it does |
 | ------ | ------------ |
-| `list_calendars.py` | 📋 Lists every Portfolio calendar with its ID, sharing info, and subscription link |
 | `grant_pm_access.py` | 🔑 One-time: grants the PM access to all portfolio calendars |
 | `restrict_access.py` | 🔒 Revokes access from everyone except the PM and one specified owner (`KEEP_EMAIL`) |
 | `share_portfolio_calendars.py` | 📬 Re-shares each calendar with notifications **on**, triggering fresh "Add this calendar" emails |
-| `cleanup_duplicates.py` | 🧹 Scans calendars and deletes duplicate events, keeping IDs recorded in `state.json` |
+| `smoke_test.py` | 🧪 Offline self-check: imports every module, verifies the package wires together, and exercises core fixes. Hits no network (Google client is mocked) |
 
-> ⚠️ **Heads-up — `cleanup_duplicates.py`** uses a legacy `OKPM` name filter. After the rename to `… Portfolio`, update its filter to `summary.endswith("Portfolio")` before use. Similarly, `grant_pm_access.py` grants **reader** access while the sync now grants the PM **owner** — harmless, as the sync upgrades the role on its next run.
+**`tests/` — read-only inspection tools:**
+
+| Script | What it does |
+| ------ | ------------ |
+| `tests/list_calendars.py` | 📋 Lists every Portfolio calendar with its ID, sharing info, and subscription link |
+| `tests/inspect_appfolio.py` | 🔎 Dumps raw AppFolio report rows for debugging |
+| `tests/inspect_payment.py` | 🔎 Inspects how a tenant's ledger payments are parsed |
+| `tests/probe_matching.py` | 🔎 Probes tenant-name ↔ payment matching |
+
+**`misc/` — state-repair / cleanup tools (use with care, they mutate calendars or `state.json`):**
+
+| Script | What it does |
+| ------ | ------------ |
+| `misc/cleanup_duplicates.py` | 🧹 Scans calendars and deletes duplicate events, keeping IDs recorded in `state.json` |
+| `misc/clean_keep_commitments.py` | 🧹 Removes events while preserving commitment (promise) events |
+| `misc/repair_state.py` | 🛠️ Rebuilds/repairs `state.json` from what's live on the calendars |
+| `misc/fix_state_json.py` | 🛠️ Fixes encoding/structure issues in `state.json` |
+
+> ⚠️ **Heads-up — `misc/cleanup_duplicates.py`** still uses a legacy `OKPM` name filter (`summary.startswith("OKPM")`). After the rename to `… Portfolio` (no prefix), that filter matches **nothing** — update it to `summary.endswith("Portfolio")` before use. Similarly, `grant_pm_access.py` grants **reader** access while the sync now grants the PM **owner** — harmless, as the sync upgrades the role on its next run.
 
 ---
 
@@ -364,7 +389,7 @@ Key details for anyone extending the data layer:
 | ----- | -------- |
 | 🔄 Need to rebuild all future events | Set `FORCE_REFRESH=true`, run once, set back to `false` |
 | 🐢 Promises take time to settle | Normal — titles/colors refresh on cycle 1, stale events sweep on cycle 2. No `FORCE_REFRESH` needed |
-| 📋 Duplicate events on the same day | Sync auto-dedupes on each run; for migration artifacts run `cleanup_duplicates.py` (fix name filter first) |
+| 📋 Duplicate events on the same day | Sync auto-dedupes on each run; for migration artifacts run `misc/cleanup_duplicates.py` (fix name filter first) |
 | 📆 Calendar missing from PM sidebar | Run `share_portfolio_calendars.py` and click the "Add this calendar" links |
 | 🚦 Rate limits | Google Calendar retries with exponential backoff on 403/429/500/503; AppFolio waits 60s on 429 |
 | ❌ One unit fails to sync | Logged with stack trace — all other units continue unaffected |
@@ -373,25 +398,46 @@ Key details for anyone extending the data layer:
 
 ## 🗂️ Project structure
 
+The core logic lives in the **`pm_calendar_sync/`** package. `sync.py` is now a thin entry-point shim (it just calls `SyncOrchestrator().run()`), kept so the existing GitHub Actions command — `python sync.py` — keeps working unchanged.
+
 ```
 pm-calendar-sync/
-├── 🔁 sync.py                        — the sync engine (all core logic)
-├── 📦 requirements.txt               — requests, google-auth, google-api-python-client
-├── 💾 state.json                     — persisted state (auto-committed each run)
-├── ⚙️  .github/workflows/sync.yml    — GitHub Actions schedule + job
-├── 📋 list_calendars.py              — helper: list calendars + links
-├── 🔑 grant_pm_access.py             — helper: grant PM access (one-time)
-├── 🔒 restrict_access.py             — helper: lock a calendar to PM + one owner
-├── 📬 share_portfolio_calendars.py   — helper: force "Add this calendar" emails
-└── 🧹 cleanup_duplicates.py          — helper: remove duplicate events
+├── 🔁 sync.py                         — entry-point shim → pm_calendar_sync.orchestrator
+├── 🏁 __main__.py                     — `python -m` entry point
+├── 📦 pm_calendar_sync/               — the sync engine (all core logic)
+│   ├── __init__.py                    — package docstring (the full event/commitment model)
+│   ├── config.py                      — env vars, constants, colors, logger
+│   ├── appfolio.py                    — AppFolioClient: the four v2 report calls
+│   ├── transforms.py                  — pure helpers: name/phone/unit normalization,
+│   │                                    payment parsing, NSF detection, running balances
+│   ├── status.py                      — status classification + color / emoji mapping
+│   ├── state.py                       — StateManager: state.json + commitment registry
+│   ├── calendar_manager.py            — GoogleCalendarManager: calendar create/share,
+│   │                                    event builders, find / upsert / delete
+│   └── orchestrator.py                — SyncOrchestrator: run loop, per-unit sync,
+│                                        future months, commitment lifecycle
+├── 🧪 smoke_test.py                   — offline package self-check (no network)
+├── 🔑 grant_pm_access.py              — helper: grant PM access (one-time)
+├── 🔒 restrict_access.py              — helper: lock a calendar to PM + one owner
+├── 📬 share_portfolio_calendars.py    — helper: force "Add this calendar" emails
+├── 🧰 local_config.py                 — config loader for the helper scripts
+├── 🔎 tests/                          — read-only inspection tools (list_calendars, etc.)
+├── 🛠️  misc/                          — state-repair / cleanup tools
+├── 📦 requirements.txt                — requests, google-auth, google-api-python-client
+├── 💾 state.json                      — persisted state (auto-committed each run)
+└── ⚙️  .github/workflows/sync.yml     — GitHub Actions schedule + job
 ```
 
-**Inside `sync.py`:**
+**Module responsibilities** (the old monolith split out, no logic change):
 
 ```
-AppFolioClient          ──► the four AppFolio report calls
-data helpers            ──► name normalization, payment parsing, NSF detection
-GoogleCalendarManager   ──► calendar create/share, event builders, upsert/delete
-StateManager            ──► state.json reads/writes + commitment registry
-SyncOrchestrator        ──► run loop, per-unit sync, commitment lifecycle, today dashboard
+config.py              ──► environment variables, shared constants, colors, logger
+appfolio.py            ──► AppFolioClient — the four AppFolio report calls
+transforms.py          ──► name normalization, payment parsing, NSF detection, balances
+status.py              ──► classify status, map status → color + emoji
+state.py               ──► StateManager — state.json reads/writes + commitment registry
+calendar_manager.py    ──► GoogleCalendarManager — calendar create/share, event
+                           builders, upsert/delete
+orchestrator.py        ──► SyncOrchestrator — run loop, per-unit sync, future-month
+                           placeholders, commitment lifecycle
 ```
