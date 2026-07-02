@@ -1,7 +1,7 @@
 """Status classification and colour / emoji mapping."""
 from .config import (
     COLOR_PAID, COLOR_PREPAID, COLOR_PARTIAL,
-    COLOR_UNPAID, COLOR_LATE,
+    COLOR_UNPAID, COLOR_LATE, COLOR_SETTLED,
 )
 
 
@@ -10,6 +10,9 @@ STATUS_PREPAID = "🩷 Prepaid"
 STATUS_PARTIAL = "🟡 Partial"
 STATUS_UNPAID  = "🔴 Unpaid"
 STATUS_LATE    = "🔴 Late"
+# Muted state for an earlier / failed payment once the month is fully paid.
+# Only used to recolour past events grey — never returned by classify_status.
+STATUS_SETTLED = "⚪ Settled"
 
 
 def classify_status(rent: float, past_due: float) -> str:
@@ -44,6 +47,7 @@ def color_for_status(status: str) -> str:
         STATUS_PARTIAL: COLOR_PARTIAL,
         STATUS_UNPAID:  COLOR_UNPAID,
         STATUS_LATE:    COLOR_LATE,
+        STATUS_SETTLED: COLOR_SETTLED,
     }.get(status, COLOR_UNPAID)
 
 
@@ -54,4 +58,5 @@ def emoji_for_status(status: str) -> str:
         STATUS_PARTIAL: "🟡",
         STATUS_UNPAID:  "🔴",
         STATUS_LATE:    "🔴",
+        STATUS_SETTLED: "⚪",
     }.get(status, "🔴")

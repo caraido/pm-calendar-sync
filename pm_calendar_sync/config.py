@@ -47,6 +47,7 @@ COLOR_PREPAID    = "4"   # flamingo pink
 COLOR_PARTIAL    = "5"   # banana yellow
 COLOR_UNPAID     = "11"  # tomato red
 COLOR_LATE       = "11"  # tomato red
+COLOR_SETTLED    = "8"   # graphite — muted grey for earlier payments once paid in full
 # COLOR_COMMITMENT (tangerine, "6") was the old ⚠️ Overdue colour. The overdue
 # state was removed — commitments now take their balance colour (red/yellow) —
 # so this is no longer applied. Kept here for reference / possible future use.

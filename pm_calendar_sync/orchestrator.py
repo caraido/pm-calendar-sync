@@ -178,6 +178,10 @@ class SyncOrchestrator:
         rent     = unit["rent"]
         past_due = unit["past_due"]
         status   = classify_status(rent, past_due)
+        # When the month is settled (balance 0) or in credit (< 0), earlier and
+        # failed payment events are recoloured grey to cut visual noise; the
+        # settling (green) and prepaid (pink) events stay coloured.
+        month_fully_paid = past_due <= 0
 
         try:
             lease_end = date.fromisoformat(unit["lease_to"])
@@ -330,6 +334,7 @@ class SyncOrchestrator:
                 first_pay,
                 balances[0] if balances else None,
                 total_payments=len(sorted_payments),
+                month_fully_paid=month_fully_paid,
             )
             existing_id = (
                 prior_status_id or
@@ -348,6 +353,7 @@ class SyncOrchestrator:
                 first_pay,
                 balances[0] if balances else None,
                 total_payments=len(sorted_payments),
+                month_fully_paid=month_fully_paid,
             )
             # Search the calendar first to avoid creating duplicates
             existing_id = self.gcal._find_status_event(calendar_id, oid, this_month)
@@ -384,6 +390,7 @@ class SyncOrchestrator:
             payment_event_ids = self._sync_additional_payments(
                 unit, calendar_id, this_month,
                 sorted_payments[1:], balances[1:], prior,
+                month_fully_paid=month_fully_paid,
             )
         else:
             payment_event_ids = prior.get("payment_event_ids", []) if prior else []
@@ -553,6 +560,7 @@ class SyncOrchestrator:
     def _sync_additional_payments(
         self, unit: dict, calendar_id: str, this_month: str,
         additional: list[dict], balances: list[float], prior: Optional[dict],
+        month_fully_paid: bool = False,
     ) -> list[str]:
         """Sync payment events for idx 1+. Payment 0 is absorbed into status event."""
         prior_ids  = prior.get("payment_event_ids", []) if prior else []
@@ -562,7 +570,8 @@ class SyncOrchestrator:
 
         for i, (payment, balance) in enumerate(zip(additional, balances)):
             body = self.gcal._build_additional_payment_event(
-                unit, payment, i + 2, total, balance, month_recv)
+                unit, payment, i + 2, total, balance, month_recv,
+                month_fully_paid=month_fully_paid)
             existing = prior_ids[i] if i < len(prior_ids) else None
             if not existing:
                 existing = self.gcal._find_payment_event(

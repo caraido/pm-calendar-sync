@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python smoke_test.py)",
+      "Bash(python -c \"import google\")",
+      "Bash(conda env *)",
+      "Bash(pip show *)",
+      "Bash(python \"C:/Users/Owner/AppData/Local/Temp/claude/d--Repos-pm-calendar-sync/32f0bb61-a04b-4c60-a373-35d9a08af67e/scratchpad/verify_settled.py\")",
+      "Bash(sed -i 's/date\\(2026,7,05\\)/date\\(2026,7,5\\)/g' verify_settled.py)",
+      "Bash(python verify_settled.py)",
+      "Bash(PYTHONPATH=\"d:/Repos/pm-calendar-sync\" python \"C:/Users/Owner/AppData/Local/Temp/claude/d--Repos-pm-calendar-sync/32f0bb61-a04b-4c60-a373-35d9a08af67e/scratchpad/verify_settled.py\")",
+      "Bash(git --no-pager diff -- pm_calendar_sync/)"
+    ]
+  }
+}

@@ -106,8 +106,11 @@ No more digging through spreadsheets. Every event has a leading emoji and a matc
 | ✅ **Paid** | Fully paid (`past_due == 0`) | Sage green |
 | 🟡 **Partial** | Partial payment (`0 < past_due < rent`) | Banana yellow |
 | 🔴 **Unpaid** | Full month owed (`past_due >= rent`) | Tomato red |
+| ⚪ **Settled** | An *earlier* / NSF payment, once the month is fully paid | Graphite grey |
 
 The live `past_due` balance from AppFolio is the single source of truth — including negative values (credits), which trigger the 🩷 Prepaid state automatically.
+
+> ⚪ **Once a unit is paid in full, its earlier payment events fade to grey.** When the month's balance reaches zero (or a credit), every *previous* payment event that was 🟡 Partial or 🔴 NSF is recolored graphite grey — the visual noise disappears so the PM's eye goes straight to the units that still owe. The payment that actually **settled** the month stays ✅ green (so you can see exactly when they paid up), and any 🩷 prepaid/credit event stays pink. Nothing greys while a balance remains.
 
 > 📌 **Commitments use the same colors.** A promise-to-pay event takes the color of its current balance — 🔴 when nothing has been paid this month, 🟡 when a partial payment leaves a balance. A promise whose date has already passed is **not** specially flagged; it simply keeps its 🔴 / 🟡 color until it's renegotiated or paid. *(There is no separate "overdue" color — the old ⚠️ tangerine state was removed.)*
 

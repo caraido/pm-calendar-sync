@@ -11,11 +11,12 @@ from googleapiclient.errors import HttpError
 from .config import (
     GOOGLE_SA_JSON, GOOGLE_SCOPES, PM_EMAIL, CALENDAR_PREFIX,
     RENT_DUE_DAY, LATE_GRACE_DAYS, COMMITMENT_DIVIDER,
-    COLOR_PARTIAL, COLOR_UNPAID,
+    COLOR_PARTIAL, COLOR_UNPAID, COLOR_SETTLED,
     GCAL_RETRY_ATTEMPTS, GCAL_RETRY_BASE_DELAY, log,
 )
 from .status import (
     classify_status, payment_status, color_for_status, emoji_for_status,
+    STATUS_PARTIAL, STATUS_UNPAID, STATUS_SETTLED,
 )
 from .transforms import normalize_tenant_name, _next_day
 
@@ -359,8 +360,17 @@ class GoogleCalendarManager:
         first_payment: Optional[dict] = None,
         balance_after_first: Optional[float] = None,
         total_payments: int = 0,
+        month_fully_paid: bool = False,
     ) -> dict:
         emoji        = emoji_for_status(event_status)
+        # Once the month is fully paid, mute an earlier/partial headline event to
+        # grey so attention stays on units that still owe. A single payment that
+        # settles the month has event_status Paid (green) and prepaid has Prepaid
+        # (pink) — neither is Partial/Unpaid, so neither is muted here.
+        title_color  = color_for_status(event_status)
+        if month_fully_paid and event_status in (STATUS_PARTIAL, STATUS_UNPAID):
+            emoji       = emoji_for_status(STATUS_SETTLED)
+            title_color = COLOR_SETTLED
         unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
         tenant_short = normalize_tenant_name(unit['tenant'])
         tenant_full  = normalize_tenant_name(unit['tenant'])
@@ -457,7 +467,7 @@ class GoogleCalendarManager:
             "description": "\n".join(desc),
             "start":       {"date": event_date.isoformat()},
             "end":         {"date": _next_day(event_date.isoformat())},
-            "colorId":     color_for_status(event_status),
+            "colorId":     title_color,
             "extendedProperties": {"private": {
                 "okpm_occupancy_id": str(unit['occupancy_id']),
                 "okpm_month":        event_date.strftime("%Y-%m"),
@@ -469,6 +479,7 @@ class GoogleCalendarManager:
         self, unit: dict, payment: dict,
         payment_num: int, total_payments: int,
         running_balance: float, month_received: float,
+        month_fully_paid: bool = False,
     ) -> dict:
         pay_date   = payment["date"]
         # This event represents a received payment → payment_status keeps it
@@ -490,6 +501,14 @@ class GoogleCalendarManager:
             emoji, color, tag = "🟡", COLOR_PARTIAL, " (late)"
         else:
             emoji, color, tag = pay_emoji, color_for_status(pay_status), ""
+
+        # Once the month is fully paid, mute earlier or failed (NSF) payments to
+        # grey so the PM's attention stays on units that still owe.  The settling
+        # payment (balance 0 → Paid/green) and any prepaid/credit payment (Prepaid/
+        # pink) leave running_balance <= 0, so pay_status is not Partial and they
+        # keep their colour — marking exactly when the tenant paid in full.
+        if month_fully_paid and (payment['is_nsf'] or pay_status == STATUS_PARTIAL):
+            emoji, color = emoji_for_status(STATUS_SETTLED), COLOR_SETTLED
 
         title = (
             f"{emoji} · {tenant_full} · "
