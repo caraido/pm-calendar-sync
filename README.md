@@ -193,6 +193,21 @@ This is where OKPM Calendar Sync really shines as a collections tool. When a ten
 
 Need to track an installment arrangement? **Copy-paste** a commitment event onto each promised date. Every copy is discovered and tracked automatically. Edit the `PROMISED:` line in each copy to note the installment amount.
 
+### 🗓️ Promise into next month — combined total, itemized
+
+Tenant says they'll cover *this* month's rent *next* month? Drag the event into next month and the promise event shows the **combined amount they'll owe by then**, broken down:
+
+```
+🔴 · Jane Doe · Unit 2 · Main St · $2,800 owed · Promise Aug 10, 2026
+────────────────────────────────────────────
+Outstanding:  $2,800.00  (combined)
+   • Previous balance: $400.00
+   • This month (Jul 2026): $1,200.00
+   • Promised (Aug 2026): $1,200.00
+```
+
+The promise **absorbs next month's placeholder** on the 1st (no duplicate event), folding that month's rent into the combined total. Every figure is recomputed **live from AppFolio's current balance each run** — there's no stored per-tenant history to drift or corrupt when a sync run fails, so the numbers are always right on the next successful run. *("Previous balance" is the lump sum older than this month; the total is always exact.)* If the tenant pays or you drag the promise back, the placeholder reappears automatically.
+
 ### 📝 PM notes that survive every sync
 
 Every commitment has an editable section *above* an `AUTO-SYNCED — do not edit below` divider. Type notes like `PROMISED: $500 — spoke with tenant` and they'll survive every future sync run, forever.

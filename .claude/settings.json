@@ -9,7 +9,13 @@
       "Bash(sed -i 's/date\\(2026,7,05\\)/date\\(2026,7,5\\)/g' verify_settled.py)",
       "Bash(python verify_settled.py)",
       "Bash(PYTHONPATH=\"d:/Repos/pm-calendar-sync\" python \"C:/Users/Owner/AppData/Local/Temp/claude/d--Repos-pm-calendar-sync/32f0bb61-a04b-4c60-a373-35d9a08af67e/scratchpad/verify_settled.py\")",
-      "Bash(git --no-pager diff -- pm_calendar_sync/)"
+      "Bash(git --no-pager diff -- pm_calendar_sync/)",
+      "Bash(python \"C:/Users/Owner/AppData/Local/Temp/claude/d--Repos-pm-calendar-sync/32f0bb61-a04b-4c60-a373-35d9a08af67e/scratchpad/verify_promise.py\")",
+      "Bash(sed -i '1i import sys as _s; _s.stdout.reconfigure\\(encoding=\"utf-8\"\\)' verify_promise.py)",
+      "Bash(python verify_promise.py)",
+      "Bash(git --no-pager diff --stat)",
+      "Bash(git --no-pager diff pm_calendar_sync/orchestrator.py)",
+      "Bash(git --no-pager diff .claude/settings.json)"
     ]
   }
 }

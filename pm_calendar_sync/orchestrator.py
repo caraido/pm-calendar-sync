@@ -125,6 +125,55 @@ class SyncOrchestrator:
                 cur = cur.replace(year=y, month=m, day=cm.monthrange(y, m)[1])
         return months
 
+    @staticmethod
+    def _months_ahead(m_from: str, m_to: str) -> int:
+        """Whole months from m_from to m_to (both 'YYYY-MM'); negative if earlier."""
+        try:
+            y1, mo1 = int(m_from[:4]), int(m_from[5:7])
+            y2, mo2 = int(m_to[:4]), int(m_to[5:7])
+        except (ValueError, IndexError):
+            return 0
+        return (y2 - y1) * 12 + (mo2 - mo1)
+
+    def _promise_outstanding(self, anchor_month: str, unit: dict, today: date):
+        """
+        Combined outstanding + itemised breakdown for a promise commitment (this
+        month's arrears the PM dragged into a future month).
+
+        Stateless: everything is derived fresh from the live AppFolio `past_due`
+        and `rent` each run — no stored per-tenant history — so a missed or failed
+        GitHub Actions run can never make the figures drift.
+
+        Combined  = past_due (all owed now: this month + any prior) + the rent that
+                    will have accrued by the promised month.
+        Breakdown = Previous balance / This month / Promised month(s).
+
+        Returns (outstanding, breakdown) where breakdown is None unless the promise
+        actually lands in a future month.
+        """
+        rent          = unit["rent"]
+        past_due      = unit["past_due"]
+        today_month   = today.strftime("%Y-%m")
+        future_months = max(0, self._months_ahead(today_month, anchor_month))
+        outstanding   = past_due + rent * future_months
+        if future_months < 1:
+            return outstanding, None
+
+        prev_bal  = max(0.0, past_due - rent)        # arrears older than this month
+        this_owed = max(0.0, past_due - prev_bal)    # = min(past_due, rent), clamped
+        this_lbl  = today.strftime("%b %Y")
+        try:
+            prom_lbl = date.fromisoformat(anchor_month + "-01").strftime("%b %Y")
+        except ValueError:
+            prom_lbl = anchor_month
+        prom_label = prom_lbl if future_months == 1 else f"{future_months} mo → {prom_lbl}"
+        breakdown = [
+            ("Previous balance",        prev_bal),
+            (f"This month ({this_lbl})", this_owed),
+            (f"Promised ({prom_label})", rent * future_months),
+        ]
+        return outstanding, breakdown
+
     def _make_unit(self, row: dict, tenant_info: dict, payment_map: dict) -> dict:
         oid      = str(row["occupancy_id"])
         rent     = float(row.get("rent", 0) or 0)
@@ -483,6 +532,27 @@ class SyncOrchestrator:
             if commitment_covers_month:
                 continue
 
+            # ── A promise dragged into this month absorbs its placeholder ─────
+            # A status/payment/late commitment landing in (or beyond) this month
+            # already folds this month's rent into its combined total, so a
+            # separate placeholder here would double-count.  Delete any existing
+            # placeholder and skip creation while the promise stands; if the
+            # promise later resolves or is dragged back, the placeholder returns.
+            promise_absorbs_month = any(
+                c.get("source_type") in ("status", "payment", "late")
+                and (c.get("anchor_date") or "")[:7] >= fmonth
+                for c in commitments
+            )
+            if promise_absorbs_month:
+                if (prior_f and prior_f.get("rent_event_id")
+                        and not prior_f.get("is_commitment")):
+                    self.gcal.delete_event(calendar_id, prior_f["rent_event_id"])
+                    self.state.set(soid, fmonth,
+                                   {**prior_f, "rent_event_id": None})
+                    log.info(
+                        f"  {oid}: promise absorbs {fmonth} placeholder — removed")
+                continue
+
             # ── Scan first COMMITMENT_LOOKAHEAD_MONTHS for moved kickstarts ──
             if prior_f and i < COMMITMENT_LOOKAHEAD_MONTHS and not FORCE_REFRESH:
                 placeholder_id = prior_f.get("rent_event_id")
@@ -820,8 +890,15 @@ class SyncOrchestrator:
                         })
                     continue
 
-            # ── Compute displayed outstanding ─────────────────────────────────
-            if covers_rent_month and covers_rent_month > today_month:
+            # ── Compute displayed outstanding (+ breakdown for promises) ──────
+            # A promise dragged into a future month shows a COMBINED total with an
+            # itemised breakdown (previous / this month / promised); a kickstart or
+            # in-month promise keeps the single-line display.
+            breakdown = None
+            if _is_promise(source_type):
+                outstanding, breakdown = self._promise_outstanding(
+                    anchor_date[:7], unit, today)
+            elif covers_rent_month and covers_rent_month > today_month:
                 outstanding = past_due + rent
             else:
                 outstanding = past_due
@@ -839,7 +916,7 @@ class SyncOrchestrator:
             new_live_anchor = self.gcal.update_commitment_event(
                 calendar_id, event_id, ev_body,
                 unit, anchor_date, source_type, outstanding,
-                source_status=display_status,
+                source_status=display_status, breakdown=breakdown,
             )
 
             # Persist any changes
@@ -867,11 +944,8 @@ class SyncOrchestrator:
                                     key=lambda x: x.get("anchor_date") or "")
             anchor_date       = c.get("anchor_date") or today_str
             source_type       = c.get("source_type") or "late"
-            covers_rent_month = c.get("covers_rent_month")
-            outstanding = past_due + (
-                rent if (covers_rent_month and covers_rent_month > today_month)
-                else 0
-            )
+            outstanding, breakdown = self._promise_outstanding(
+                anchor_date[:7], unit, today)
             disp = classify_status(rent, past_due)
             new_body = self.gcal._build_commitment_event(
                 unit, anchor_date, source_type, outstanding,
@@ -879,7 +953,7 @@ class SyncOrchestrator:
                     "PROMISED: [fill in, e.g. $500 or 'full balance']\n"
                     "NOTES:    [optional context]"
                 ),
-                source_status=disp,
+                source_status=disp, breakdown=breakdown,
             )
             try:
                 created = _gcal_execute(self.gcal.service.events().insert(

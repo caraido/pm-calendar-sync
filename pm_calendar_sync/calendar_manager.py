@@ -223,6 +223,7 @@ class GoogleCalendarManager:
         source_type: str,
         outstanding: float,
         source_status: str = "",
+        breakdown: Optional[list] = None,
     ) -> str:
         """
         Update a commitment event while preserving PM notes above COMMITMENT_DIVIDER.
@@ -237,7 +238,7 @@ class GoogleCalendarManager:
         )
         new_body = self._build_commitment_event(
             unit, anchor_date, source_type, outstanding,
-            pm_notes=pm_notes, source_status=source_status)
+            pm_notes=pm_notes, source_status=source_status, breakdown=breakdown)
 
         # Honour the live date: PM may have re-dragged the event
         live_date = existing_body.get("start", {}).get("date", anchor_date)
@@ -284,6 +285,7 @@ class GoogleCalendarManager:
         outstanding: float,
         pm_notes: str = "",
         source_status: str = "",
+        breakdown: Optional[list] = None,
     ) -> dict:
         """
         Commitment (promise-to-pay) event.
@@ -322,13 +324,24 @@ class GoogleCalendarManager:
                 "NOTES:    [optional context]"
             )
 
+        # When a promise was dragged into a future month, `outstanding` is the
+        # COMBINED total (everything owed now + rent accruing by the promised
+        # date). Itemise it so the PM sees what makes up the number.
+        if breakdown:
+            outstanding_lines = [f"Outstanding:  ${clamp_outstanding:,.2f}  (combined)"]
+            outstanding_lines += [
+                f"   • {label}: ${max(0.0, amt):,.2f}" for label, amt in breakdown
+            ]
+        else:
+            outstanding_lines = [f"Outstanding:  ${clamp_outstanding:,.2f}"]
+
         auto_lines = [
             f"Tenant:       {normalize_tenant_name(unit['tenant'])}",
             ((f"{unit['unit_label']}  |  ") if unit["unit_label"] else "") + unit["address"],
             f"Phone:        {unit['phone']}",
             "─" * 44,
             f"Monthly Rent: ${unit['rent']:,.2f}",
-            f"Outstanding:  ${clamp_outstanding:,.2f}",
+            *outstanding_lines,
             f"Status:       {source_status}",
             "─" * 44,
             f"Committed:    {display_date}",
