@@ -29,6 +29,10 @@ class SyncOrchestrator:
         self.af    = AppFolioClient()
         self.gcal  = GoogleCalendarManager()
         self.state = StateManager()
+        # Populated per run: bare occupancy_id → [(owner_id, calendar_id), ...]
+        # for every owner of that unit.  Co-owned units have >1 entry; used to
+        # mirror a promise created on one owner's calendar onto the co-owners'.
+        self._owners_by_oid: dict = {}
 
     # ── Top-level run  (unchanged) ────────────────────────────────────────────
 
@@ -86,12 +90,30 @@ class SyncOrchestrator:
                     f"({row.get('property_name','?')}, "
                     f"tenant={row.get('tenant_name','?')}) — no owner found, skipping")
 
+        # ── Resolve every owner's calendar up front ───────────────────────────
+        # A co-owned unit appears on multiple owner calendars.  Resolving all
+        # calendars before the sync loop lets each unit know its sibling
+        # calendars, so a promise dragged on one owner's calendar can be
+        # mirrored onto the co-owners' calendars in the same run.
+        owner_meta: dict = {}   # owner_id → (owner_name, owner_email, calendar_id)
         for owner_id, rows_and_owners in owner_rows.items():
             owner       = rows_and_owners[0][1]
             owner_name  = owner_display_name(owner)
             owner_email = (owner.get("email") or "").strip()
-            log.info(f"Owner: {owner_name} ({len(rows_and_owners)} units)")
             calendar_id = self.gcal.get_or_create_calendar(owner_name)
+            owner_meta[owner_id] = (owner_name, owner_email, calendar_id)
+
+        self._owners_by_oid = {}
+        for owner_id, rows_and_owners in owner_rows.items():
+            calendar_id = owner_meta[owner_id][2]
+            for row, _ in rows_and_owners:
+                oid = str(row.get("occupancy_id"))
+                self._owners_by_oid.setdefault(oid, []).append(
+                    (owner_id, calendar_id))
+
+        for owner_id, rows_and_owners in owner_rows.items():
+            owner_name, owner_email, calendar_id = owner_meta[owner_id]
+            log.info(f"Owner: {owner_name} ({len(rows_and_owners)} units)")
             self.gcal.ensure_pm_access(calendar_id)
             if owner_email:
                 self.gcal.share_with_owner(calendar_id, owner_email)
@@ -173,6 +195,87 @@ class SyncOrchestrator:
             (f"Promised ({prom_label})", rent * future_months),
         ]
         return outstanding, breakdown
+
+    def _mirror_commitment_to_siblings(
+        self, oid: str, commitment: dict, unit: dict, today: date,
+    ):
+        """
+        Mirror a promise onto co-owners' calendars.
+
+        A co-owned unit (owned by multiple owners / portfolios) shows up on one
+        calendar per owner.  When the PM drags an event on ONE owner's calendar,
+        the promise is created only there; without this, the co-owners never see
+        it.  For every OTHER owner of the same occupancy, create an equivalent
+        commitment event on their calendar and register it in their commitment
+        state.  Each co-owner's own `_sync_unit` then suppresses that month's
+        status/placeholder normally (this run if not yet processed, next run
+        otherwise) and thereafter treats the promise as its own.
+
+        Idempotent: a sibling that already carries a commitment with the same
+        source_type + anchor_date is skipped, so repeated runs, the sibling's own
+        rediscovery, and split copies never spawn duplicates.
+        """
+        siblings = self._owners_by_oid.get(oid, [])
+        if len(siblings) < 2:
+            return
+
+        origin_cal   = commitment.get("calendar_id")
+        anchor       = commitment.get("anchor_date") or today.isoformat()
+        source       = commitment.get("source_type") or "late"
+        origin_month = commitment.get("origin_month") or anchor[:7]
+        covers       = commitment.get("covers_rent_month")
+        today_month  = today.strftime("%Y-%m")
+
+        def _is_promise(src: str) -> bool:
+            return src in ("status", "payment", "late")
+
+        for owner_id, cal_id in siblings:
+            if cal_id == origin_cal:
+                continue
+            sib_soid = f"{oid}@{owner_id}"
+            self.state.migrate_bare_commitments(oid, sib_soid, cal_id)
+            self.state.deduplicate_commitments(sib_soid)
+            existing = self.state.get_commitments(sib_soid)
+            if any(c.get("calendar_id") == cal_id
+                   and (c.get("source_type") or "late") == source
+                   and (c.get("anchor_date") or "") == anchor
+                   for c in existing):
+                continue
+
+            # Mirror the origin's outstanding / breakdown computation.
+            breakdown = None
+            if _is_promise(source):
+                outstanding, breakdown = self._promise_outstanding(
+                    anchor[:7], unit, today)
+                disp = classify_status(unit["rent"], unit["past_due"])
+            else:
+                outstanding = unit["past_due"] + (
+                    unit["rent"] if (covers and covers > today_month) else 0.0)
+                disp = ""
+
+            body = self.gcal._build_commitment_event(
+                unit, anchor, source, max(0.0, outstanding),
+                source_status=disp, breakdown=breakdown)
+            try:
+                created = _gcal_execute(self.gcal.service.events().insert(
+                    calendarId=cal_id, body=body))
+            except HttpError as e:
+                log.error(
+                    f"  {oid}: failed to mirror {source} promise to "
+                    f"co-owner calendar {cal_id}: {e}")
+                continue
+
+            self.state.add_commitment(sib_soid, {
+                "event_id":          created["id"],
+                "anchor_date":       anchor,
+                "source_type":       source,
+                "origin_month":      origin_month,
+                "calendar_id":       cal_id,
+                "covers_rent_month": covers,
+            })
+            log.info(
+                f"  {oid}: mirrored {source} promise on {anchor} to co-owner "
+                f"calendar {cal_id}")
 
     def _make_unit(self, row: dict, tenant_info: dict, payment_map: dict) -> dict:
         oid      = str(row["occupancy_id"])
@@ -357,14 +460,16 @@ class SyncOrchestrator:
                 self.gcal.convert_to_commitment(
                     calendar_id, ev_id, unit, _drag_live, "status",
                     max(0.0, past_due), source_status=status)
-                self.state.add_commitment(soid, {
+                _commit = {
                     "event_id":          ev_id,
                     "anchor_date":       _drag_live,
                     "source_type":       "status",
                     "origin_month":      this_month,
                     "calendar_id":       calendar_id,
                     "covers_rent_month": this_month,
-                })
+                }
+                self.state.add_commitment(soid, _commit)
+                self._mirror_commitment_to_siblings(oid, _commit, unit, today)
                 commitment_months.add(this_month)
                 suppress_kickstart  = True
                 prior = {**prior, "status_event_id": None}
@@ -567,14 +672,17 @@ class SyncOrchestrator:
                                 live_date, "kickstart", max(0.0, past_due),
                                 source_status=STATUS_UNPAID,
                             )
-                            self.state.add_commitment(soid, {
+                            _commit = {
                                 "event_id":           placeholder_id,
                                 "anchor_date":        live_date,
                                 "source_type":        "kickstart",
                                 "origin_month":       fmonth,
                                 "calendar_id":        calendar_id,
                                 "covers_rent_month":  fmonth,
-                            })
+                            }
+                            self.state.add_commitment(soid, _commit)
+                            self._mirror_commitment_to_siblings(
+                                oid, _commit, unit, today)
                             self.state.set(soid, fmonth, {
                                 **prior_f, "is_commitment": True,
                             })
@@ -692,14 +800,17 @@ class SyncOrchestrator:
                             source_status=status)
                         created = _gcal_execute(self.gcal.service.events().insert(
                             calendarId=calendar_id, body=new_body))
-                        self.state.add_commitment(soid, {
+                        _commit = {
                             "event_id":          created["id"],
                             "anchor_date":       live,
                             "source_type":       "status",
                             "origin_month":      this_month,
                             "calendar_id":       calendar_id,
                             "covers_rent_month": this_month,
-                        })
+                        }
+                        self.state.add_commitment(soid, _commit)
+                        self._mirror_commitment_to_siblings(
+                            soid.split("@")[0], _commit, unit, today)
                         commitment_months.add(this_month)
                         log.info(
                             f"  {soid}: status event dragged to {live} "
@@ -733,14 +844,17 @@ class SyncOrchestrator:
                         created = _gcal_execute(
                             self.gcal.service.events().insert(
                                 calendarId=calendar_id, body=new_body))
-                        self.state.add_commitment(soid, {
+                        _commit = {
                             "event_id":          created["id"],
                             "anchor_date":       live,
                             "source_type":       "payment",
                             "origin_month":      this_month,
                             "calendar_id":       calendar_id,
                             "covers_rent_month": this_month,
-                        })
+                        }
+                        self.state.add_commitment(soid, _commit)
+                        self._mirror_commitment_to_siblings(
+                            soid.split("@")[0], _commit, unit, today)
                         commitment_months.add(this_month)
                         log.info(
                             f"  {soid}: payment event dragged to {live} "
@@ -809,6 +923,7 @@ class SyncOrchestrator:
                     ),
                 }
                 self.state.add_commitment(soid, new_c)
+                self._mirror_commitment_to_siblings(bare_oid, new_c, unit, today)
                 log.info(f"  {bare_oid}: discovered new split commitment on {anchor}")
 
         # Reload after potential additions

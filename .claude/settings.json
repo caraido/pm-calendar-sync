@@ -15,7 +15,12 @@
       "Bash(python verify_promise.py)",
       "Bash(git --no-pager diff --stat)",
       "Bash(git --no-pager diff pm_calendar_sync/orchestrator.py)",
-      "Bash(git --no-pager diff .claude/settings.json)"
+      "Bash(git --no-pager diff .claude/settings.json)",
+      "PowerShell(pip install -q -r requirements.txt 2>&1)",
+      "PowerShell(python smoke_test.py 2>&1)",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; python smoke_test.py 2>&1 | Select-Object -Last 40)",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\e7469429-67b0-411f-ad40-0f6adf6cd632\\\\scratchpad\\\\test_mirror.py\")",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; $env:PYTHONPATH=\"D:\\\\Repos\\\\pm-calendar-sync\"; python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\e7469429-67b0-411f-ad40-0f6adf6cd632\\\\scratchpad\\\\test_mirror.py\")"
     ]
   }
 }
