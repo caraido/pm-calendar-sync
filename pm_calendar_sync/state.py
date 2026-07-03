@@ -13,6 +13,9 @@ class StateManager:
       status_event_id, status_event_date,
       late_event_id,
       payment_event_ids,
+      payment_event_dates,   — index-aligned canonical dates for
+                               payment_event_ids; submit-mode payment-drag
+                               detection reads them (no ledger there)
       last_updated
 
     Future-month entries additionally use:

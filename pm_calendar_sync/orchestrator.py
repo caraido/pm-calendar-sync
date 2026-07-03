@@ -471,6 +471,205 @@ class SyncOrchestrator:
             "lease_to":           row.get("lease_to", "") or "",
         }
 
+    # ── Drag detection (shared by the full sweep and submit mode) ────────────
+    # Each primitive takes an optional events_by_id index (event_id → event
+    # body from ONE unbounded listing of the calendar).  With no index (full
+    # sweep) it issues the same live GETs as always — byte-identical traffic.
+    # With an index (submit mode) a missing id means the event is GONE; that
+    # equivalence holds ONLY because submit's listing has no time window.
+
+    def _live_event_start(self, calendar_id: str, event_id: str,
+                          events_by_id: Optional[dict] = None) -> Optional[str]:
+        """Live ISO start date of an event; None/'' when it is gone.  Mirrors
+        gcal.get_event_start_date semantics exactly when reading the index."""
+        if events_by_id is not None:
+            ev = events_by_id.get(event_id)
+            if not ev:
+                return None
+            start = ev.get("start", {})
+            return start.get("date") or start.get("dateTime", "")[:10]
+        return self.gcal.get_event_start_date(calendar_id, event_id)
+
+    def _convert_status_drag(
+        self, soid: str, calendar_id: str, unit: dict,
+        status_event_id: str, canonical_date: str,
+        today: date, this_month: str, commitment_months: set,
+        source_status: str,
+        events_by_id: Optional[dict] = None,
+    ) -> bool:
+        """Drag site 1: the current-month STATUS event dragged to a future
+        date → convert it in place to a commitment (retire & replace),
+        register + mirror the promise, and mark this_month covered.  Returns
+        True on conversion; the caller owns its flag/state updates."""
+        live = self._live_event_start(calendar_id, status_event_id, events_by_id)
+        if not (live and live != canonical_date and live > today.isoformat()):
+            return False
+        oid      = soid.split("@")[0] if "@" in soid else soid
+        past_due = unit["past_due"]
+        self.gcal.convert_to_commitment(
+            calendar_id, status_event_id, unit, live, "status",
+            max(0.0, past_due), source_status=source_status)
+        _commit = {
+            "event_id":          status_event_id,
+            "anchor_date":       live,
+            "source_type":       "status",
+            "origin_month":      this_month,
+            "calendar_id":       calendar_id,
+            "covers_rent_month": this_month,
+        }
+        self.state.add_commitment(soid, _commit)
+        self._mirror_commitment_to_siblings(oid, _commit, unit, today)
+        commitment_months.add(this_month)
+        log.info(
+            f"  {oid}: status event dragged to {live} → "
+            f"converted in place to commitment (month suppressed)")
+        return True
+
+    def _detect_status_snapback(
+        self, soid: str, calendar_id: str, status_event_id: str,
+        canonical_date: str, unit: dict, today: date, this_month: str,
+        past_due: float, status: str, commitment_months: set,
+        events_by_id: Optional[dict] = None,
+    ):
+        """Locked STATUS event: a forward drag (with no commitment covering
+        this month yet) spawns a NEW commitment at the target, then the
+        original snaps back to its canonical date; a backward drag reverts."""
+        live = self._live_event_start(calendar_id, status_event_id, events_by_id)
+        canon = canonical_date
+        if not (live and live != canon):
+            return
+        if live > today.isoformat():
+            if this_month not in commitment_months:
+                new_body = self.gcal._build_commitment_event(
+                    unit, live, "status", max(0.0, past_due),
+                    source_status=status)
+                created = _gcal_execute(self.gcal.service.events().insert(
+                    calendarId=calendar_id, body=new_body))
+                _commit = {
+                    "event_id":          created["id"],
+                    "anchor_date":       live,
+                    "source_type":       "status",
+                    "origin_month":      this_month,
+                    "calendar_id":       calendar_id,
+                    "covers_rent_month": this_month,
+                }
+                self.state.add_commitment(soid, _commit)
+                self._mirror_commitment_to_siblings(
+                    soid.split("@")[0], _commit, unit, today)
+                commitment_months.add(this_month)
+                log.info(
+                    f"  {soid}: status event dragged to {live} "
+                    f"→ commitment registered")
+            if events_by_id is not None:
+                ev = events_by_id.get(status_event_id)
+                ev = dict(ev) if ev else None
+            else:
+                ev = self.gcal.get_event(calendar_id, status_event_id)
+            if ev:
+                ev["start"] = {"date": canon}
+                ev["end"]   = {"date": _next_day(canon)}
+                try:
+                    _gcal_execute(self.gcal.service.events().update(
+                        calendarId=calendar_id,
+                        eventId=status_event_id, body=ev))
+                except HttpError as e:
+                    log.error(f"  Failed to snap back {status_event_id}: {e}")
+        else:
+            self.gcal.revert_event_to_date(
+                calendar_id, status_event_id, canon)
+
+    def _detect_payment_drags(
+        self, soid: str, calendar_id: str,
+        payment_event_ids: list, payment_dates: list,
+        unit: dict, today: date, this_month: str,
+        past_due: float, status: str, commitment_months: set,
+        events_by_id: Optional[dict] = None,
+    ):
+        """Locked PAYMENT events (idx 1+): a forward drag spawns a NEW
+        commitment at the target (unless one already covers this month), then
+        the marker is snapped back — a received payment's date can never move.
+        payment_dates is index-aligned with payment_event_ids."""
+        for i, event_id in enumerate(payment_event_ids):
+            if i < len(payment_dates):
+                pay_canon = payment_dates[i]
+                live = self._live_event_start(calendar_id, event_id, events_by_id)
+                if live and live != pay_canon:
+                    if (live > today.isoformat()
+                            and this_month not in commitment_months):
+                        new_body = self.gcal._build_commitment_event(
+                            unit, live, "payment", max(0.0, past_due),
+                            source_status=status)
+                        created = _gcal_execute(
+                            self.gcal.service.events().insert(
+                                calendarId=calendar_id, body=new_body))
+                        _commit = {
+                            "event_id":          created["id"],
+                            "anchor_date":       live,
+                            "source_type":       "payment",
+                            "origin_month":      this_month,
+                            "calendar_id":       calendar_id,
+                            "covers_rent_month": this_month,
+                        }
+                        self.state.add_commitment(soid, _commit)
+                        self._mirror_commitment_to_siblings(
+                            soid.split("@")[0], _commit, unit, today)
+                        commitment_months.add(this_month)
+                        log.info(
+                            f"  {soid}: payment event dragged to {live} "
+                            f"→ commitment registered")
+                    self.gcal.revert_event_to_date(
+                        calendar_id, event_id, pay_canon)
+
+    def _convert_kickstart_drag(
+        self, soid: str, calendar_id: str, unit: dict,
+        fmonth: str, expected_iso: str, prior_f: dict, today: date,
+        events_by_id: Optional[dict] = None,
+    ) -> str:
+        """Drag site 3: a future-month KICKSTART placeholder that was dragged
+        → convert it in place to a kickstart commitment.  Returns
+        'converted' | 'ignored_past' | 'missing' | 'unmoved' so the caller
+        keeps its exact loop flow (continue / clear id / fall through)."""
+        oid            = soid.split("@")[0] if "@" in soid else soid
+        placeholder_id = prior_f.get("rent_event_id")
+        past_due       = unit["past_due"]
+        live_date = self._live_event_start(
+            calendar_id, placeholder_id, events_by_id)
+        if live_date and live_date != expected_iso:
+            if live_date > today.isoformat():
+                self.gcal.convert_to_commitment(
+                    calendar_id, placeholder_id, unit,
+                    live_date, "kickstart", max(0.0, past_due),
+                    source_status=STATUS_UNPAID,
+                )
+                _commit = {
+                    "event_id":           placeholder_id,
+                    "anchor_date":        live_date,
+                    "source_type":        "kickstart",
+                    "origin_month":       fmonth,
+                    "calendar_id":        calendar_id,
+                    "covers_rent_month":  fmonth,
+                }
+                self.state.add_commitment(soid, _commit)
+                self._mirror_commitment_to_siblings(oid, _commit, unit, today)
+                self.state.set(soid, fmonth, {
+                    **prior_f, "is_commitment": True,
+                })
+                log.info(
+                    f"  {oid}: kickstart for {fmonth} moved "
+                    f"to {live_date} → commitment registered")
+                return "converted"
+            log.warning(
+                f"  {oid}: kickstart for {fmonth} moved to "
+                f"{live_date} (past/today) — ignoring, not a future commitment")
+            return "ignored_past"
+        if live_date is None:
+            log.warning(
+                f"  {oid}: kickstart {placeholder_id} for {fmonth} — "
+                f"event not found in Google (deleted?)")
+            self.state.set(soid, fmonth, {**prior_f, "rent_event_id": None})
+            return "missing"
+        return "unmoved"
+
     # ── Per-unit sync  (core v2 logic) ───────────────────────────────────────
 
     def _sync_unit(
@@ -604,32 +803,14 @@ class SyncOrchestrator:
                 and not FORCE_REFRESH
                 and not suppress_kickstart
                 and this_month not in commitment_months):
-            _drag_live  = self.gcal.get_event_start_date(
-                calendar_id, prior["status_event_id"])
-            _drag_canon = prior.get("status_event_date", due_date.isoformat())
-            if (_drag_live
-                    and _drag_live != _drag_canon
-                    and _drag_live > today.isoformat()):
-                ev_id = prior["status_event_id"]
-                self.gcal.convert_to_commitment(
-                    calendar_id, ev_id, unit, _drag_live, "status",
-                    max(0.0, past_due), source_status=status)
-                _commit = {
-                    "event_id":          ev_id,
-                    "anchor_date":       _drag_live,
-                    "source_type":       "status",
-                    "origin_month":      this_month,
-                    "calendar_id":       calendar_id,
-                    "covers_rent_month": this_month,
-                }
-                self.state.add_commitment(soid, _commit)
-                self._mirror_commitment_to_siblings(oid, _commit, unit, today)
-                commitment_months.add(this_month)
-                suppress_kickstart  = True
+            if self._convert_status_drag(
+                    soid, calendar_id, unit,
+                    prior["status_event_id"],
+                    prior.get("status_event_date", due_date.isoformat()),
+                    today, this_month, commitment_months,
+                    source_status=status):
+                suppress_kickstart = True
                 prior = {**prior, "status_event_id": None}
-                log.info(
-                    f"  {oid}: status event dragged to {_drag_live} → "
-                    f"converted in place to commitment (month suppressed)")
 
         # ── Build / update status event ───────────────────────────────────────
         if suppress_kickstart:
@@ -740,6 +921,9 @@ class SyncOrchestrator:
             "status_event_date": status_event_date.isoformat(),
             "late_event_id":     late_event_id,
             "payment_event_ids": payment_event_ids,
+            # Index-aligned with payment_event_ids.  Submit mode has no ledger,
+            # so payment-drag detection reads canonical dates from here.
+            "payment_event_dates": [p["date"] for p in sorted_payments[1:]],
         })
 
         # ── B. Future months ──────────────────────────────────────────────────
@@ -816,44 +1000,13 @@ class SyncOrchestrator:
             if prior_f and i < COMMITMENT_LOOKAHEAD_MONTHS and not FORCE_REFRESH:
                 placeholder_id = prior_f.get("rent_event_id")
                 if placeholder_id and not prior_f.get("is_commitment"):
-                    live_date = self.gcal.get_event_start_date(
-                        calendar_id, placeholder_id)
-                    expected  = fdue.isoformat()
-                    if live_date and live_date != expected:
-                        if live_date > today.isoformat():
-                            self.gcal.convert_to_commitment(
-                                calendar_id, placeholder_id, unit,
-                                live_date, "kickstart", max(0.0, past_due),
-                                source_status=STATUS_UNPAID,
-                            )
-                            _commit = {
-                                "event_id":           placeholder_id,
-                                "anchor_date":        live_date,
-                                "source_type":        "kickstart",
-                                "origin_month":       fmonth,
-                                "calendar_id":        calendar_id,
-                                "covers_rent_month":  fmonth,
-                            }
-                            self.state.add_commitment(soid, _commit)
-                            self._mirror_commitment_to_siblings(
-                                oid, _commit, unit, today)
-                            self.state.set(soid, fmonth, {
-                                **prior_f, "is_commitment": True,
-                            })
-                            log.info(
-                                f"  {oid}: kickstart for {fmonth} moved "
-                                f"to {live_date} → commitment registered")
-                            continue
-                        else:
-                            log.warning(
-                                f"  {oid}: kickstart for {fmonth} moved to "
-                                f"{live_date} (past/today) — ignoring, not a future commitment")
-                    elif live_date is None:
-                        log.warning(
-                            f"  {oid}: kickstart {placeholder_id} for {fmonth} — "
-                            f"event not found in Google (deleted?)")
+                    outcome = self._convert_kickstart_drag(
+                        soid, calendar_id, unit, fmonth, fdue.isoformat(),
+                        prior_f, today)
+                    if outcome == "converted":
+                        continue
+                    if outcome == "missing":
                         prior_f = {**prior_f, "rent_event_id": None}
-                        self.state.set(soid, fmonth, prior_f)
 
             # ── Normal frozen-placeholder logic ─────────────────────────────────
             if not FORCE_REFRESH and prior_f and prior_f.get("rent_event_id") and not (is_next and has_credit):
@@ -937,84 +1090,25 @@ class SyncOrchestrator:
         Read the live date of each locked event (status + payment logs) from
         Google.  If dragged to a future date and no commitment already covers
         this month, create a commitment at the target date and then snap the
-        event back.  Otherwise just revert.
+        event back.  Otherwise just revert.  (Thin composition of the shared
+        drag-detection primitives above.)
         """
         if not prior or not status_event_id:
             return
 
         # ── Status event ──────────────────────────────────────────────────
         if prior.get("status_event_id"):
-            live = self.gcal.get_event_start_date(calendar_id, status_event_id)
-            canon = canonical_status_date.isoformat()
-            if live and live != canon:
-                if live > today.isoformat():
-                    if this_month not in commitment_months:
-                        new_body = self.gcal._build_commitment_event(
-                            unit, live, "status", max(0.0, past_due),
-                            source_status=status)
-                        created = _gcal_execute(self.gcal.service.events().insert(
-                            calendarId=calendar_id, body=new_body))
-                        _commit = {
-                            "event_id":          created["id"],
-                            "anchor_date":       live,
-                            "source_type":       "status",
-                            "origin_month":      this_month,
-                            "calendar_id":       calendar_id,
-                            "covers_rent_month": this_month,
-                        }
-                        self.state.add_commitment(soid, _commit)
-                        self._mirror_commitment_to_siblings(
-                            soid.split("@")[0], _commit, unit, today)
-                        commitment_months.add(this_month)
-                        log.info(
-                            f"  {soid}: status event dragged to {live} "
-                            f"→ commitment registered")
-                    ev = self.gcal.get_event(calendar_id, status_event_id)
-                    if ev:
-                        ev["start"] = {"date": canon}
-                        ev["end"]   = {"date": _next_day(canon)}
-                        try:
-                            _gcal_execute(self.gcal.service.events().update(
-                                calendarId=calendar_id,
-                                eventId=status_event_id, body=ev))
-                        except HttpError as e:
-                            log.error(f"  Failed to snap back {status_event_id}: {e}")
-                else:
-                    self.gcal.revert_event_to_date(
-                        calendar_id, status_event_id, canon)
+            self._detect_status_snapback(
+                soid, calendar_id, status_event_id,
+                canonical_status_date.isoformat(), unit, today, this_month,
+                past_due, status, commitment_months)
 
         # ── Payment events ────────────────────────────────────────────────
-        additional_payments = sorted_payments[1:]
-        for i, event_id in enumerate(prior.get("payment_event_ids", [])):
-            if i < len(additional_payments):
-                pay_canon = additional_payments[i]["date"]
-                live = self.gcal.get_event_start_date(calendar_id, event_id)
-                if live and live != pay_canon:
-                    if (live > today.isoformat()
-                            and this_month not in commitment_months):
-                        new_body = self.gcal._build_commitment_event(
-                            unit, live, "payment", max(0.0, past_due),
-                            source_status=status)
-                        created = _gcal_execute(
-                            self.gcal.service.events().insert(
-                                calendarId=calendar_id, body=new_body))
-                        _commit = {
-                            "event_id":          created["id"],
-                            "anchor_date":       live,
-                            "source_type":       "payment",
-                            "origin_month":      this_month,
-                            "calendar_id":       calendar_id,
-                            "covers_rent_month": this_month,
-                        }
-                        self.state.add_commitment(soid, _commit)
-                        self._mirror_commitment_to_siblings(
-                            soid.split("@")[0], _commit, unit, today)
-                        commitment_months.add(this_month)
-                        log.info(
-                            f"  {soid}: payment event dragged to {live} "
-                            f"→ commitment registered")
-                    self.gcal.revert_event_to_date(
-                        calendar_id, event_id, pay_canon)
+        self._detect_payment_drags(
+            soid, calendar_id,
+            prior.get("payment_event_ids", []),
+            [p["date"] for p in sorted_payments[1:]],
+            unit, today, this_month, past_due, status, commitment_months)
 
     # ── Commitment lifecycle ──────────────────────────────────────────────────
 
@@ -1025,6 +1119,7 @@ class SyncOrchestrator:
         unit: dict,
         today: date,
         has_known_or_new: bool = False,
+        events: Optional[list] = None,
     ):
         """
         For each tracked commitment:
@@ -1043,13 +1138,22 @@ class SyncOrchestrator:
 
         Optimisation: skips the Google list call entirely when no commitments
         are known and none were registered this run.
+
+        events, when provided (submit mode), must be exactly this unit's
+        commitment-typed events from an UNBOUNDED listing of the calendar.
+        A time-windowed listing would misreport out-of-window promises as
+        PM-deleted and trip the ≥1-promise recreation — never pass a
+        windowed subset.
         """
         if not has_known_or_new:
             return
 
         bare_oid = soid.split("@")[0] if "@" in soid else soid
-        live_events = self.gcal.find_all_events_by_type(
-            calendar_id, bare_oid, "commitment")
+        if events is not None:
+            live_events = events
+        else:
+            live_events = self.gcal.find_all_events_by_type(
+                calendar_id, bare_oid, "commitment")
         live_by_id  = {ev["id"]: ev for ev in live_events}
 
         commitments = self.state.get_commitments(soid)

@@ -177,6 +177,66 @@ check("None/str value coercion (None == 0 == '0')",
           [{"occupancy_id": 3, "status": "Current", "past_due": "0",  "rent": 800.0}],
       ) == set())
 
+print("\n=== 9. E-a: shared drag-detection primitives (pre-listed index) ===")
+from datetime import date as _date
+
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {}}, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch2 = SyncOrchestrator()
+os.unlink(tmp)
+
+idx = {"ev1": {"id": "ev1", "start": {"date": "2026-08-05"}},
+       "ev2": {"id": "ev2", "start": {"dateTime": "2026-08-06T10:00:00-05:00"}}}
+check("_live_event_start: index date",
+      orch2._live_event_start("cal", "ev1", idx) == "2026-08-05")
+check("_live_event_start: index dateTime",
+      orch2._live_event_start("cal", "ev2", idx) == "2026-08-06")
+check("_live_event_start: missing-from-index == gone",
+      orch2._live_event_start("cal", "nope", idx) is None)
+with mock.patch.object(orch2.gcal, "get_event_start_date",
+                       return_value="2026-09-01") as ges:
+    ok = orch2._live_event_start("cal", "ev1") == "2026-09-01"
+    check("_live_event_start: no index -> live GET", ok and ges.called)
+
+with mock.patch.object(orch2.gcal, "find_all_events_by_type") as faebt:
+    orch2._process_commitments(
+        "69@10", "cal", {"past_due": 0.0, "rent": 900.0},
+        _date(2026, 7, 2), has_known_or_new=True, events=[])
+    check("_process_commitments(events=[]) skips the live list call",
+          not faebt.called)
+with mock.patch.object(orch2.gcal, "find_all_events_by_type",
+                       return_value=[]) as faebt:
+    orch2._process_commitments(
+        "69@10", "cal", {"past_due": 0.0, "rent": 900.0},
+        _date(2026, 7, 2), has_known_or_new=True)
+    check("_process_commitments() still lists live by default", faebt.called)
+
+# End-to-end conversion through the index: a dragged status event becomes a
+# registered commitment without any live GET.
+months = set()
+unit_stub = {"occupancy_id": "69", "rent": 900.0, "past_due": 900.0}
+with mock.patch.object(orch2.gcal, "convert_to_commitment") as conv, \
+     mock.patch.object(orch2.gcal, "get_event_start_date") as ges:
+    hit = orch2._convert_status_drag(
+        "69@10", "cal", unit_stub, "ev1", "2026-07-01",
+        _date(2026, 7, 2), "2026-07", months, "🔴 Unpaid",
+        events_by_id={"ev1": {"id": "ev1", "start": {"date": "2026-07-20"}}})
+    check("_convert_status_drag: converts via index (no live GET)",
+          hit and conv.called and not ges.called and "2026-07" in months)
+    check("_convert_status_drag: promise registered in state",
+          any(c["event_id"] == "ev1"
+              for c in orch2.state.get_commitments("69@10")))
+    hit2 = orch2._convert_status_drag(
+        "69@10", "cal", unit_stub, "ev9", "2026-07-01",
+        _date(2026, 7, 2), "2026-07", set(), "🔴 Unpaid",
+        events_by_id={"ev9": {"id": "ev9", "start": {"date": "2026-07-01"}}})
+    check("_convert_status_drag: unmoved event -> no conversion", not hit2)
+
 print()
 if failures:
     print(f"❌ {len(failures)} check(s) FAILED: {failures}")
