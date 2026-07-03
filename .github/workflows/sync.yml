@@ -2,9 +2,19 @@ name: AppFolio → Calendar Sync
 
 on:
   schedule:
-    - cron: '*/30 * * * *'    # every 30 min normally
-    - cron: '*/15 1-5 * * *'  # every 15 min on days 1-5 of month (rent week)
-  workflow_dispatch:            # manual trigger button in GitHub UI
+    # NOTE: the RUN_MODE expression below matches the nightly cron string
+    # VERBATIM — keep the two in sync if this line ever changes.
+    - cron: '15 8 * * *'      # nightly full_nightly (~2-3am Central): dirs + ACL refresh
+    - cron: '0 * 6-31 * *'    # hourly full sweep, days 6 → month-end
+    - cron: '*/30 * 1-5 * *'  # every 30 min, rent week (days 1-5)
+  workflow_dispatch:            # manual triggers (GitHub UI / Calendar add-on)
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: true
+        default: 'update'
+        type: choice
+        options: [submit, update, full]
 
 # Serialize ALL runs (cron + manual): concurrent state.json writes are
 # impossible, and repeated manual clicks coalesce into one queued run.
@@ -50,6 +60,9 @@ jobs:
           COMMITMENT_LOOKAHEAD_MONTHS:   ${{ vars.COMMITMENT_LOOKAHEAD_MONTHS   || '3' }}
           TIMEZONE:                      ${{ vars.TIMEZONE                      || 'America/Chicago' }}
           FORCE_REFRESH:                 ${{ vars.FORCE_REFRESH                 || 'false' }}
+          # Dispatch uses its input; the nightly cron (string must match the
+          # schedule entry above verbatim) is full_nightly; other crons: full.
+          RUN_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '15 8 * * *' && 'full_nightly' || 'full') }}
         run: python sync.py
 
       - name: Commit updated state

@@ -126,6 +126,28 @@ check("get/set_calendar_id round-trip (int key coerced)",
       sm.get_calendar_id("42") == "cal_abc")
 os.unlink(tmp)
 
+print("\n=== 7. RUN_MODE entrypoint dispatch (sync.py / python -m) ===")
+import pm_calendar_sync.__main__ as entry
+
+calls = []
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(entry.SyncOrchestrator, "run",
+                       lambda self, mode="full_nightly": calls.append(("run", mode))), \
+     mock.patch.object(entry.SyncOrchestrator, "run_update",
+                       lambda self: calls.append(("run_update",)), create=True), \
+     mock.patch.object(entry.SyncOrchestrator, "run_submit",
+                       lambda self: calls.append(("run_submit",)), create=True):
+    for rm in ("full_nightly", "full", "update", "submit", "bogus"):
+        os.environ["RUN_MODE"] = rm
+        entry.main()
+    os.environ.pop("RUN_MODE", None)
+check("full_nightly -> run('full_nightly')", calls[0] == ("run", "full_nightly"))
+check("full -> run('full')", calls[1] == ("run", "full"))
+check("update -> run_update", calls[2] == ("run_update",))
+check("submit -> run_submit", calls[3] == ("run_submit",))
+check("unknown mode falls back to run('full')", calls[4] == ("run", "full"))
+
 print()
 if failures:
     print(f"❌ {len(failures)} check(s) FAILED: {failures}")
