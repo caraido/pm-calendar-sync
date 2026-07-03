@@ -237,6 +237,102 @@ with mock.patch.object(orch2.gcal, "convert_to_commitment") as conv, \
         events_by_id={"ev9": {"id": "ev9", "start": {"date": "2026-07-01"}}})
     check("_convert_status_drag: unmoved event -> no conversion", not hit2)
 
+print("\n=== 10. E-b: list_all_events grouping + submit-mode unit flow ===")
+check("run_submit method exists", hasattr(orch, "run_submit"))
+
+# list_all_events: pagination + grouping by okpm_occupancy_id, untagged skipped
+pages = [
+    {"items": [
+        {"id": "a1", "extendedProperties": {"private": {
+            "okpm_occupancy_id": "69", "okpm_event_type": "status"}}},
+        {"id": "b1", "extendedProperties": {"private": {
+            "okpm_occupancy_id": "70", "okpm_event_type": "commitment"}}},
+        {"id": "x1"},  # untagged — skipped
+    ], "nextPageToken": "t"},
+    {"items": [
+        {"id": "a2", "extendedProperties": {"private": {
+            "okpm_occupancy_id": "69", "okpm_event_type": "rent"}}},
+    ]},
+]
+orch2.gcal.service.events.return_value.list.return_value.execute.side_effect = pages
+grouped = orch2.gcal.list_all_events("cal")
+check("list_all_events groups by oid across pages",
+      [e["id"] for e in grouped.get("69", [])] == ["a1", "a2"]
+      and [e["id"] for e in grouped.get("70", [])] == ["b1"])
+check("list_all_events skips untagged events",
+      all("x1" not in [e["id"] for e in evs] for evs in grouped.values()))
+
+# Submit-mode unit flow: dragged status event -> in-place conversion; the
+# fresh commitment is patched into the pre-listed snapshot (NOT treated as
+# PM-deleted); the promised month's placeholder is absorbed.
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({
+        "_commitments": {},
+        "77@5_2026-07": {"status": "🔴 Unpaid", "past_due": 1000.0,
+                         "calendar_id": "cal", "status_event_id": "st77",
+                         "status_event_date": "2026-07-01",
+                         "late_event_id": None,
+                         "payment_event_ids": [], "payment_event_dates": []},
+        "77@5_2026-08": {"status": "🔴 Unpaid", "past_due": 0.0,
+                         "calendar_id": "cal", "rent_event_id": "ph8",
+                         "late_event_id": None},
+    }, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch3 = SyncOrchestrator()
+os.unlink(tmp)
+
+unit77 = {"occupancy_id": "77", "rent": 1000.0, "past_due": 1000.0}
+listed = [  # the pre-run listing: dragged status event + untouched placeholder
+    {"id": "st77", "start": {"date": "2026-08-15"},
+     "extendedProperties": {"private": {
+         "okpm_occupancy_id": "77", "okpm_event_type": "status"}}},
+    {"id": "ph8", "start": {"date": "2026-08-01"},
+     "extendedProperties": {"private": {
+         "okpm_occupancy_id": "77", "okpm_event_type": "rent"}}},
+]
+converted_body = {  # what convert_to_commitment writes server-side
+    "summary": "🔴 promise", "start": {"date": "2026-08-15"},
+    "end": {"date": "2026-08-16"},
+    "description": "PROMISED: [fill in]\n────\nauto",
+    "extendedProperties": {"private": {
+        "okpm_occupancy_id": "77", "okpm_event_type": "commitment",
+        "okpm_source_type": "status"}},
+}
+_today = _date(2026, 7, 2)
+with mock.patch.object(orch3.gcal, "convert_to_commitment",
+                       return_value=converted_body) as conv, \
+     mock.patch.object(orch3.gcal, "update_commitment_event",
+                       return_value="2026-08-15") as upd, \
+     mock.patch.object(orch3.gcal, "delete_event") as dele, \
+     mock.patch.object(orch3.gcal, "find_all_events_by_type") as faebt:
+    orch3._detect_and_convert_drags(
+        "77@5", "cal", unit77, _today, "2026-07", listed)
+    orch3._process_commitments(
+        "77@5", "cal", unit77, _today, has_known_or_new=True,
+        events=orch3._commitment_events_for("77@5", listed))
+    orch3._absorb_promised_placeholders("77@5", "cal", _today)
+
+check("submit: dragged status event converted in place", conv.called)
+check("submit: month entry persisted with status_event_id=None",
+      orch3.state.get("77@5", "2026-07").get("status_event_id") is None)
+comms = orch3.state.get_commitments("77@5")
+check("submit: promise registered (anchor 2026-08-15, covers 2026-07)",
+      len(comms) == 1 and comms[0]["event_id"] == "st77"
+      and comms[0]["anchor_date"] == "2026-08-15"
+      and comms[0]["covers_rent_month"] == "2026-07")
+check("submit: fresh commitment consolidated, not treated as PM-deleted",
+      upd.called
+      and orch3.gcal.service.events.return_value.insert.call_count == 0)
+check("submit: no live listing needed (pre-listed events used)",
+      not faebt.called)
+check("submit: promised month's placeholder absorbed",
+      dele.call_args == mock.call("cal", "ph8")
+      and orch3.state.get("77@5", "2026-08").get("rent_event_id") is None)
+
 print()
 if failures:
     print(f"❌ {len(failures)} check(s) FAILED: {failures}")

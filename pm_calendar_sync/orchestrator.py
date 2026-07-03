@@ -34,6 +34,11 @@ class SyncOrchestrator:
         # for every owner of that unit.  Co-owned units have >1 entry; used to
         # mirror a promise created on one owner's calendar onto the co-owners'.
         self._owners_by_oid: dict = {}
+        # Commitment events created or converted DURING this run, event_id →
+        # body.  Submit mode patches these into its pre-run calendar snapshot:
+        # without the patch a commitment born after the listing would read as
+        # PM-deleted and the ≥1-promise rule would spawn duplicates.
+        self._fresh_commitments: dict = {}
 
     # ── Top-level run (full sweep — the sole authority for correctness) ──────
 
@@ -284,6 +289,252 @@ class SyncOrchestrator:
         self.state.save()
         log.info(f"=== Update complete: {synced} unit sync(s) ===")
 
+    # ── Submit mode (drag/commitment consolidation, no AppFolio) ─────────────
+
+    def run_submit(self):
+        """
+        Manual fast path: consolidate PM calendar drags into commitments using
+        ONLY cached data — no AppFolio call.  Per calendar, ONE unbounded
+        events().list supplies every event; per unit we run drag detection
+        (status / payment / kickstart), the commitment lifecycle, and
+        placeholder absorption.  Status/payment/placeholder events are NOT
+        rebuilt here, and balances (thus commitment title amounts) come from
+        the cached rent_roll snapshot — at most ~1h stale; the next full
+        sweep trues everything up.  FORCE_REFRESH is ignored in this mode.
+        """
+        log.info("=== OKPM sync starting (mode: submit) ===")
+        today      = datetime.now(ZoneInfo(TIMEZONE)).date()
+        this_month = today.strftime("%Y-%m")
+        log.info(f"  Timezone: {TIMEZONE}, local date: {today}")
+        self._fresh_commitments = {}
+
+        snap = cache.load_json(cache.RENT_ROLL_FILE)
+        rows = snap.get("rows") if snap else None
+        if isinstance(rows, list):
+            log.info(
+                "  Using cached rent_roll "
+                f"(refreshed {snap.get('refreshed_at', '?')})")
+        else:
+            # One-time live pull; also heals the cache for the next submit.
+            log.warning("  No usable rent_roll snapshot — pulling live rent_roll once")
+            rows = self.af.get_rent_roll()
+            self._save_rent_roll_snapshot(rows)
+
+        owners, tenants = self._load_directories("submit")
+
+        prop_to_owner = build_owner_property_map(owners)
+        tenant_info   = build_tenant_info_map(tenants)
+        active        = [r for r in rows if r.get("status") == "Current"]
+        log.info(f"  {len(active)} active leases (from snapshot)")
+
+        owner_rows = self._group_rows_by_owner(active, prop_to_owner)
+        owner_meta = self._resolve_owner_calendars(owner_rows, use_cache=True)
+        self._build_owners_by_oid(owner_rows, owner_meta)
+
+        for owner_id, rows_and_owners in owner_rows.items():
+            owner_name, owner_email, calendar_id = owner_meta[owner_id]
+            log.info(f"Owner: {owner_name} ({len(rows_and_owners)} units)")
+            # ACL only for a calendar created this very run (brand-new owner).
+            if calendar_id in self.gcal.created_calendar_ids:
+                self.gcal.ensure_pm_access(calendar_id)
+                if owner_email:
+                    self.gcal.share_with_owner(calendar_id, owner_email)
+            events_by_oid = self.gcal.list_all_events(calendar_id)
+            for row, _ in rows_and_owners:
+                oid  = str(row.get("occupancy_id"))
+                soid = f"{oid}@{owner_id}"
+                try:
+                    # No ledger in this mode → payments=[] / amount_paid=0.
+                    # The commitment builders only read balance + identity
+                    # fields, all present in the snapshot row.
+                    unit = self._make_unit(row, tenant_info, {})
+                    unit_events = events_by_oid.get(oid, [])
+                    self._detect_and_convert_drags(
+                        soid, calendar_id, unit, today, this_month,
+                        unit_events)
+                    self._process_commitments(
+                        soid, calendar_id, unit, today,
+                        has_known_or_new=True,
+                        events=self._commitment_events_for(soid, unit_events))
+                    self._absorb_promised_placeholders(soid, calendar_id, today)
+                except Exception as exc:
+                    log.error(f"  FAILED unit {oid}: {exc}", exc_info=True)
+
+        self.state.save()
+        log.info("=== Submit complete ===")
+
+    def _commitment_events_for(self, soid: str, unit_events: list) -> list:
+        """This unit's commitment-typed events for _process_commitments: the
+        pre-listed commitment events plus any commitment created or converted
+        DURING this run (in-place conversions, snap-back spawns, co-owner
+        mirrors) that the pre-run listing cannot contain.  Without the patch
+        those would read as PM-deleted and the ≥1-promise rule would spawn
+        duplicates."""
+        evs = [
+            ev for ev in unit_events
+            if (ev.get("extendedProperties", {}).get("private", {})
+                .get("okpm_event_type")) == "commitment"
+        ]
+        listed = {ev["id"] for ev in evs}
+        for c in self.state.get_commitments(soid):
+            eid = c.get("event_id")
+            if eid and eid not in listed and eid in self._fresh_commitments:
+                evs.append(self._fresh_commitments[eid])
+                listed.add(eid)
+        return evs
+
+    def _detect_and_convert_drags(
+        self, soid: str, calendar_id: str, unit: dict,
+        today: date, this_month: str, unit_events: list,
+    ):
+        """
+        Submit-mode drag pass over one unit, driven entirely by the
+        pre-listed events (no per-event Google reads).  Composes the same
+        primitives — and gates — as the full sweep.  Submit has no ledger, so
+        sorted_payments is always empty and the sweep's suppress_kickstart
+        reduces to "a commitment already covers this month".
+          1. status event dragged forward → in-place conversion (site 1);
+             submit persists the status_event_id=None state change itself
+             (in the sweep, _sync_unit's tail rewrite does it)
+          2. otherwise the locked status event is verified → new commitment
+             + snap-back, or plain revert
+          3. locked payment markers → same; canonical dates come from state's
+             payment_event_dates (entries predating that key skip payment
+             drags until a full/update run backfills them)
+          4. kickstart placeholders in the lookahead window → conversion
+        """
+        events_by_id = {ev["id"]: ev for ev in unit_events}
+        oid      = soid.split("@")[0] if "@" in soid else soid
+        rent     = unit["rent"]
+        past_due = unit["past_due"]
+        status   = classify_status(rent, past_due)
+        due_date = date(today.year, today.month, RENT_DUE_DAY)
+
+        prior = self.state.get(soid, this_month)
+        # Distrust state written for a DIFFERENT calendar (as in _sync_unit).
+        if prior and prior.get("calendar_id") != calendar_id:
+            prior = None
+
+        self.state.migrate_bare_commitments(oid, soid, calendar_id)
+        self.state.deduplicate_commitments(soid)
+        commitments = self.state.get_commitments(soid)
+        commitment_months = {
+            c["covers_rent_month"] for c in commitments
+            if c.get("covers_rent_month")
+        }
+
+        # ── 1+2: status event ────────────────────────────────────────────
+        if prior and prior.get("status_event_id"):
+            canonical = prior.get("status_event_date", due_date.isoformat())
+            converted = False
+            if this_month not in commitment_months:
+                converted = self._convert_status_drag(
+                    soid, calendar_id, unit, prior["status_event_id"],
+                    canonical, today, this_month, commitment_months,
+                    source_status=status, events_by_id=events_by_id)
+                if converted:
+                    self.state.set(soid, this_month,
+                                   {**prior, "status_event_id": None})
+            if not converted:
+                # Unmoved → no-op; moved backward → revert.  The forward-
+                # with-no-covering-commitment case was consumed above, so
+                # this can only create a commitment when one already exists
+                # for another reason — i.e. never (same net as the sweep).
+                self._detect_status_snapback(
+                    soid, calendar_id, prior["status_event_id"], canonical,
+                    unit, today, this_month, past_due, status,
+                    commitment_months, events_by_id=events_by_id)
+
+        # ── 3: payment markers ───────────────────────────────────────────
+        if prior and prior.get("payment_event_ids"):
+            dates = prior.get("payment_event_dates")
+            if dates is None:
+                log.info(
+                    f"  {oid}: state entry predates payment_event_dates — "
+                    f"payment drags wait for the next full/update run")
+            else:
+                self._detect_payment_drags(
+                    soid, calendar_id, prior["payment_event_ids"], dates,
+                    unit, today, this_month, past_due, status,
+                    commitment_months, events_by_id=events_by_id)
+
+        # ── 4: kickstart placeholders in the lookahead window ────────────
+        commitments = self.state.get_commitments(soid)   # 1–3 may have added
+        start   = due_date + timedelta(days=32)
+        horizon = start + timedelta(days=32 * COMMITMENT_LOOKAHEAD_MONTHS)
+        for i, fdue in enumerate(self._month_range(start, horizon)):
+            if i >= COMMITMENT_LOOKAHEAD_MONTHS:
+                break
+            fmonth  = fdue.strftime("%Y-%m")
+            prior_f = self.state.get(soid, fmonth)
+            if prior_f and prior_f.get("calendar_id") != calendar_id:
+                prior_f = None
+            if not prior_f:
+                continue
+            # Same skip gates as the sweep's future-months loop.
+            if any((c.get("source_type") == "kickstart"
+                    and c.get("origin_month") == fmonth)
+                   or c.get("covers_rent_month") == fmonth
+                   for c in commitments):
+                continue
+            if any(c.get("source_type") in ("status", "payment", "late")
+                   and (c.get("anchor_date") or "")[:7] >= fmonth
+                   for c in commitments):
+                continue
+            if prior_f.get("rent_event_id") and not prior_f.get("is_commitment"):
+                self._convert_kickstart_drag(
+                    soid, calendar_id, unit, fmonth, fdue.isoformat(),
+                    prior_f, today, events_by_id=events_by_id)
+
+    def _absorb_promised_placeholders(
+        self, soid: str, calendar_id: str, today: date,
+    ):
+        """
+        Submit-mode mirror of the future-months absorption step in _sync_unit
+        (keep the two in sync): a status/payment/late promise anchored in (or
+        beyond) a future month folds that month's rent into its combined
+        total, so the month's placeholder is deleted while the promise
+        stands.  The full sweep recreates the placeholder if the promise
+        later resolves or is dragged back.
+        """
+        oid         = soid.split("@")[0] if "@" in soid else soid
+        commitments = self.state.get_commitments(soid)
+        promise_months = [
+            (c.get("anchor_date") or "")[:7]
+            for c in commitments
+            if c.get("source_type") in ("status", "payment", "late")
+        ]
+        max_month = max([m for m in promise_months if m], default="")
+        if not max_month:
+            return
+        try:
+            end = date(int(max_month[:4]), int(max_month[5:7]), RENT_DUE_DAY)
+        except (ValueError, IndexError):
+            return
+        due_date = date(today.year, today.month, RENT_DUE_DAY)
+        for fdue in self._month_range(due_date + timedelta(days=32), end):
+            fmonth  = fdue.strftime("%Y-%m")
+            prior_f = self.state.get(soid, fmonth)
+            if prior_f and prior_f.get("calendar_id") != calendar_id:
+                prior_f = None
+            if not (prior_f and prior_f.get("rent_event_id")
+                    and not prior_f.get("is_commitment")):
+                continue
+            # Same gate order as the sweep: a kickstart covering the month
+            # wins over absorption.
+            if any((c.get("source_type") == "kickstart"
+                    and c.get("origin_month") == fmonth)
+                   or c.get("covers_rent_month") == fmonth
+                   for c in commitments):
+                continue
+            if not any(c.get("source_type") in ("status", "payment", "late")
+                       and (c.get("anchor_date") or "")[:7] >= fmonth
+                       for c in commitments):
+                continue
+            self.gcal.delete_event(calendar_id, prior_f["rent_event_id"])
+            self.state.set(soid, fmonth, {**prior_f, "rent_event_id": None})
+            log.info(f"  {oid}: promise absorbs {fmonth} placeholder — removed")
+
     # ── Helpers  (unchanged) ─────────────────────────────────────────────────
 
     def _month_range(self, from_date: date, to_date: date) -> list[date]:
@@ -419,6 +670,7 @@ class SyncOrchestrator:
                     f"co-owner calendar {cal_id}: {e}")
                 continue
 
+            self._fresh_commitments[created["id"]] = created
             self.state.add_commitment(sib_soid, {
                 "event_id":          created["id"],
                 "anchor_date":       anchor,
@@ -506,9 +758,10 @@ class SyncOrchestrator:
             return False
         oid      = soid.split("@")[0] if "@" in soid else soid
         past_due = unit["past_due"]
-        self.gcal.convert_to_commitment(
+        written = self.gcal.convert_to_commitment(
             calendar_id, status_event_id, unit, live, "status",
             max(0.0, past_due), source_status=source_status)
+        self._fresh_commitments[status_event_id] = {**written, "id": status_event_id}
         _commit = {
             "event_id":          status_event_id,
             "anchor_date":       live,
@@ -545,6 +798,7 @@ class SyncOrchestrator:
                     source_status=status)
                 created = _gcal_execute(self.gcal.service.events().insert(
                     calendarId=calendar_id, body=new_body))
+                self._fresh_commitments[created["id"]] = created
                 _commit = {
                     "event_id":          created["id"],
                     "anchor_date":       live,
@@ -602,6 +856,7 @@ class SyncOrchestrator:
                         created = _gcal_execute(
                             self.gcal.service.events().insert(
                                 calendarId=calendar_id, body=new_body))
+                        self._fresh_commitments[created["id"]] = created
                         _commit = {
                             "event_id":          created["id"],
                             "anchor_date":       live,
@@ -636,11 +891,13 @@ class SyncOrchestrator:
             calendar_id, placeholder_id, events_by_id)
         if live_date and live_date != expected_iso:
             if live_date > today.isoformat():
-                self.gcal.convert_to_commitment(
+                written = self.gcal.convert_to_commitment(
                     calendar_id, placeholder_id, unit,
                     live_date, "kickstart", max(0.0, past_due),
                     source_status=STATUS_UNPAID,
                 )
+                self._fresh_commitments[placeholder_id] = {
+                    **written, "id": placeholder_id}
                 _commit = {
                     "event_id":           placeholder_id,
                     "anchor_date":        live_date,
@@ -981,6 +1238,8 @@ class SyncOrchestrator:
             # separate placeholder here would double-count.  Delete any existing
             # placeholder and skip creation while the promise stands; if the
             # promise later resolves or is dragged back, the placeholder returns.
+            # (Submit mode mirrors this in _absorb_promised_placeholders —
+            # keep the two in sync.)
             promise_absorbs_month = any(
                 c.get("source_type") in ("status", "payment", "late")
                 and (c.get("anchor_date") or "")[:7] >= fmonth

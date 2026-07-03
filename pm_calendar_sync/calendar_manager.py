@@ -181,6 +181,36 @@ class GoogleCalendarManager:
                 break
         return items
 
+    def list_all_events(self, calendar_id: str) -> dict:
+        """
+        EVERY okpm-tagged event on the calendar, grouped by bare occupancy_id
+        (oid → list of event bodies).  One paginated events().list with NO
+        extended-property filter and NO time bounds: submit mode uses the
+        result both as its event index and as its "is this event gone?"
+        oracle, and _process_commitments treats a commitment missing from its
+        listing as PM-deleted — a time window here would resurrect or
+        duplicate out-of-window promises.  Untagged events are skipped.
+        """
+        by_oid: dict = {}
+        page_token = None
+        while True:
+            resp = _gcal_execute(self.service.events().list(
+                calendarId=calendar_id,
+                showDeleted=False,
+                maxResults=2500,
+                pageToken=page_token,
+            ))
+            for ev in resp.get("items", []):
+                oid = (ev.get("extendedProperties", {})
+                       .get("private", {})
+                       .get("okpm_occupancy_id"))
+                if oid:
+                    by_oid.setdefault(str(oid), []).append(ev)
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+        return by_oid
+
     # ── Commitment-specific operations ────────────────────────────────────────
 
     def convert_to_commitment(
@@ -192,12 +222,13 @@ class GoogleCalendarManager:
         source_type: str,
         outstanding: float,
         source_status: str = "",
-    ) -> str:
+    ) -> dict:
         """
         Convert an existing movable event (kickstart or late) into a commitment
         event in-place.  Changes okpm_event_type to 'commitment', keeps the
         original colour/emoji, and adds the PM template above the divider.
-        Returns event_id (unchanged).
+        Returns the body written to the event (the event_id is unchanged) —
+        submit mode records it as the event's post-conversion state.
         """
         pm_template = (
             "PROMISED: [fill in, e.g. $500 or 'full balance']\n"
@@ -216,7 +247,7 @@ class GoogleCalendarManager:
                 f"(source: {source_type}, outstanding: ${outstanding:,.2f})")
         except HttpError as e:
             log.error(f"  Failed to convert event {event_id}: {e}")
-        return event_id
+        return body
 
     def update_commitment_event(
         self,
