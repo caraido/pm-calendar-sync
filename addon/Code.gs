@@ -31,13 +31,21 @@ var POLL_BUDGET_MS   = 22000; // stay well under the ~30s add-on callback cap
 // ── Entry points ────────────────────────────────────────────────────────────
 
 function onHomepage(e) {
-  var status;
   try {
-    status = lastRunLine_(cfg_());
+    var cfg  = cfg_();
+    var last = latestManualRun_(cfg);
+    if (last && last.status !== 'completed') {
+      // A manual run is still going: show the status card with ONLY the
+      // Refresh button, so it can't be dispatched again — even after the
+      // panel is closed and reopened.
+      return runningCard_('', last.id,
+                          new Date(last.created_at).getTime(),
+                          pretty_(last.status));
+    }
+    return homeCard_(lastRunLine_(last));
   } catch (err) {
-    status = '⚠️ ' + err.message;
+    return homeCard_('⚠️ ' + err.message);
   }
-  return homeCard_(status);
 }
 
 function onSubmit(e) { return safeAction_('submit'); }
@@ -47,7 +55,7 @@ function onRefresh(e) {
   try {
     var p         = (e && e.parameters) || {};
     var cfg       = cfg_();
-    var mode      = p.mode || '?';
+    var mode      = p.mode || '';
     var startedMs = Number(p.startedMs || Date.now());
     var runId     = p.runId ? Number(p.runId) : 0;
     var deadline  = Date.now() + POLL_BUDGET_MS;
@@ -187,17 +195,20 @@ function pollUntil_(cfg, runId, deadlineMs) {
   return run;
 }
 
-function lastRunLine_(cfg) {
+function latestManualRun_(cfg) {
   var data = gh_(cfg, '/repos/' + cfg.owner + '/' + cfg.repo +
                       '/actions/runs?event=workflow_dispatch&per_page=1');
-  var r = (data.workflow_runs || [])[0];
-  if (!r) return 'No manual runs yet.';
-  var mark = r.status !== 'completed' ? '⏳'
-           : r.conclusion === 'success' ? '✅' : '❌';
-  var when = Utilities.formatDate(new Date(r.created_at),
+  return (data.workflow_runs || [])[0] || null;
+}
+
+function lastRunLine_(run) {
+  if (!run) return 'No manual runs yet.';
+  var mark = run.status !== 'completed' ? '⏳'
+           : run.conclusion === 'success' ? '✅' : '❌';
+  var when = Utilities.formatDate(new Date(run.created_at),
                                   Session.getScriptTimeZone(), 'MMM d, HH:mm');
   return 'Last manual run: ' + mark + ' ' +
-         pretty_(r.status === 'completed' ? r.conclusion : r.status) +
+         pretty_(run.status === 'completed' ? run.conclusion : run.status) +
          ' · ' + when;
 }
 
@@ -214,15 +225,21 @@ function actionButtons_() {
       .setOnClickAction(CardService.newAction().setFunctionName('onUpdate')));
 }
 
-function baseCard_(statusHtml, extraWidgets) {
+function baseCard_(statusHtml, opts) {
+  opts = opts || {};
   var section = CardService.newCardSection()
     .addWidget(CardService.newTextParagraph().setText(statusHtml));
-  (extraWidgets || []).forEach(function (w) { section.addWidget(w); });
-  section.addWidget(actionButtons_());
-  section.addWidget(CardService.newTextParagraph().setText(
-    '<i>Submit consolidates dragged promises from cached balances.<br>' +
-    'Update re-syncs only units whose money changed.<br>' +
-    'The hourly full sweep corrects anything missed.</i>'));
+  (opts.widgets || []).forEach(function (w) { section.addWidget(w); });
+  // Submit/Update (and their explainer) show on the idle / done / error
+  // cards, but NOT while a run is in progress — that card carries only the
+  // Refresh button so a run can't be dispatched on top of itself.
+  if (opts.showActions !== false) {
+    section.addWidget(actionButtons_());
+    section.addWidget(CardService.newTextParagraph().setText(
+      '<i>Submit consolidates dragged promises from cached balances.<br>' +
+      'Update re-syncs only units whose money changed.<br>' +
+      'The hourly full sweep corrects anything missed.</i>'));
+  }
   return CardService.newCardBuilder()
     .setHeader(CardService.newCardHeader()
       .setTitle('OKPM Calendar Sync')
@@ -232,7 +249,7 @@ function baseCard_(statusHtml, extraWidgets) {
 }
 
 function homeCard_(statusLine) {
-  return baseCard_(statusLine || ' ');
+  return baseCard_(statusLine || ' ', {});
 }
 
 function runningCard_(mode, runId, startedMs, statusText) {
@@ -248,32 +265,22 @@ function runningCard_(mode, runId, startedMs, statusText) {
         mode: mode,
         startedMs: String(startedMs)
       }));
-  var widgets = [refresh];
-  if (runId) widgets.push(openRunButton_(runId));
+  var label = mode ? pretty_(mode) : 'Sync';
   return baseCard_(
-    '⏳ <b>' + pretty_(mode) + '</b>: ' + statusText +
+    '⏳ <b>' + label + '</b>: ' + statusText +
     ' (since ' + since + ').<br>Press <b>Refresh status</b> to check again.',
-    widgets);
+    { widgets: [refresh], showActions: false });
 }
 
 function resultCard_(mode, run) {
-  var ok   = run.conclusion === 'success';
-  var mark = ok ? '✅ Done' : '❌ ' + pretty_(run.conclusion || 'failed');
-  return baseCard_('<b>' + pretty_(mode) + '</b>: ' + mark + '.',
-                   [openRunButton_(run.id)]);
+  var ok    = run.conclusion === 'success';
+  var mark  = ok ? '✅ Done' : '❌ ' + pretty_(run.conclusion || 'failed');
+  var label = mode ? pretty_(mode) : 'Sync';
+  return baseCard_('<b>' + label + '</b>: ' + mark + '.', {});
 }
 
 function errorCard_(err) {
-  return baseCard_('⚠️ ' + String(err && err.message || err));
-}
-
-function openRunButton_(runId) {
-  var cfg = cfg_();
-  return CardService.newTextButton()
-    .setText('Open run in GitHub')
-    .setOpenLink(CardService.newOpenLink().setUrl(
-      'https://github.com/' + cfg.owner + '/' + cfg.repo +
-      '/actions/runs/' + runId));
+  return baseCard_('⚠️ ' + String(err && err.message || err), {});
 }
 
 // ── Small helpers ───────────────────────────────────────────────────────────

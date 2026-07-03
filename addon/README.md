@@ -15,8 +15,10 @@ and the hourly full sweep corrects anything missed.
 
 Workspace add-on callbacks must return within ~30 s, so a press dispatches,
 polls for up to ~22 s, and — if the run is still going — shows a status card
-with a **Refresh status** button (each press polls again). While a press is
-processing, the card is blocked, which is what greys the buttons.
+with **only** a **Refresh status** button; Submit/Update are hidden until the
+run finishes, so a run can't be started on top of one already going (this
+holds even if the panel is closed and reopened). While a press is processing
+the card is also blocked. When the run completes the buttons return.
 
 Mobile Calendar clients don't support Workspace add-ons — desktop web only.
 
