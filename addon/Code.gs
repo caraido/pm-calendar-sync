@@ -1,0 +1,290 @@
+/**
+ * OKPM Sync — Google Calendar sidebar add-on (desktop web client).
+ *
+ * Two buttons that dispatch the pm-calendar-sync GitHub Actions workflow:
+ *   Submit (~1 min)  — RUN_MODE=submit : consolidate dragged promises
+ *   Update (~2 mins) — RUN_MODE=update : refresh changed balances/payments
+ *
+ * Data-integrity note: these buttons are a UX layer ONLY.  The workflow's
+ * concurrency group serializes every run server-side, so a double click, a
+ * hung card, or a lost poll can never corrupt state — worst case is one
+ * coalesced extra run and the hourly full sweep as backstop.
+ *
+ * Workspace add-on callbacks must return a card within ~30 seconds, so each
+ * button press dispatches, then polls for up to ~22s; if the run is still
+ * going, it returns a status card with a "Refresh status" button (each press
+ * polls again).  CardService blocks per press, which is what greys the
+ * buttons while processing.
+ *
+ * Script Properties (Project Settings → Script Properties):
+ *   GITHUB_PAT   fine-grained PAT for the repo, permission Actions: R/W
+ *   GH_OWNER     e.g. "caraido"
+ *   GH_REPO      e.g. "pm-calendar-sync"
+ *   GH_WORKFLOW  optional, default "sync.yml"
+ *   GH_REF       optional, default "main"
+ */
+
+var GITHUB_API       = 'https://api.github.com';
+var POLL_INTERVAL_MS = 5000;
+var POLL_BUDGET_MS   = 22000; // stay well under the ~30s add-on callback cap
+
+// ── Entry points ────────────────────────────────────────────────────────────
+
+function onHomepage(e) {
+  var status;
+  try {
+    status = lastRunLine_(cfg_());
+  } catch (err) {
+    status = '⚠️ ' + err.message;
+  }
+  return homeCard_(status);
+}
+
+function onSubmit(e) { return safeAction_('submit'); }
+function onUpdate(e) { return safeAction_('update'); }
+
+function onRefresh(e) {
+  try {
+    var p         = (e && e.parameters) || {};
+    var cfg       = cfg_();
+    var mode      = p.mode || '?';
+    var startedMs = Number(p.startedMs || Date.now());
+    var runId     = p.runId ? Number(p.runId) : 0;
+    var deadline  = Date.now() + POLL_BUDGET_MS;
+
+    if (!runId) { // dispatched but the run was not visible yet — find it now
+      var found = findRun_(cfg, startedMs);
+      while (!found && Date.now() + 2000 < deadline) {
+        Utilities.sleep(2000);
+        found = findRun_(cfg, startedMs);
+      }
+      if (!found) {
+        return nav_(runningCard_(mode, 0, startedMs,
+                                 'Queued — run not visible yet'));
+      }
+      runId = found.id;
+    }
+
+    var run = pollUntil_(cfg, runId, deadline);
+    if (run && run.status === 'completed') return nav_(resultCard_(mode, run));
+    return nav_(runningCard_(mode, runId, startedMs,
+                             run ? pretty_(run.status) : 'Running'));
+  } catch (err) {
+    return nav_(errorCard_(err));
+  }
+}
+
+// ── Button flow ─────────────────────────────────────────────────────────────
+
+function safeAction_(mode) {
+  try {
+    return nav_(dispatchAndPoll_(mode));
+  } catch (err) {
+    return nav_(errorCard_(err));
+  }
+}
+
+function dispatchAndPoll_(mode) {
+  var cfg       = cfg_();
+  var startedMs = Date.now();
+  var deadline  = startedMs + POLL_BUDGET_MS;
+
+  dispatch_(cfg, mode); // HTTP 204, returns no run id
+
+  // Locate the run this dispatch created: newest workflow_dispatch run of
+  // our workflow created at/after dispatch time (small skew allowance).
+  var run = null;
+  while (!run && Date.now() + 2000 < deadline) {
+    Utilities.sleep(2000);
+    run = findRun_(cfg, startedMs);
+  }
+  if (!run) return runningCard_(mode, 0, startedMs, 'Queued');
+
+  run = pollUntil_(cfg, run.id, deadline);
+  if (run && run.status === 'completed') return resultCard_(mode, run);
+  return runningCard_(mode, run ? run.id : 0, startedMs,
+                      run ? pretty_(run.status) : 'Queued');
+}
+
+// ── GitHub API ──────────────────────────────────────────────────────────────
+
+function cfg_() {
+  var p   = PropertiesService.getScriptProperties();
+  var cfg = {
+    pat:      p.getProperty('GITHUB_PAT'),
+    owner:    p.getProperty('GH_OWNER'),
+    repo:     p.getProperty('GH_REPO'),
+    workflow: p.getProperty('GH_WORKFLOW') || 'sync.yml',
+    ref:      p.getProperty('GH_REF') || 'main'
+  };
+  if (!cfg.pat || !cfg.owner || !cfg.repo) {
+    throw new Error('Set Script Properties GITHUB_PAT / GH_OWNER / GH_REPO ' +
+                    '(see addon/README.md).');
+  }
+  return cfg;
+}
+
+function ghHeaders_(cfg) {
+  return {
+    Authorization: 'Bearer ' + cfg.pat,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+}
+
+function gh_(cfg, path) {
+  var resp = UrlFetchApp.fetch(GITHUB_API + path, {
+    headers: ghHeaders_(cfg),
+    muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() >= 300) {
+    throw new Error('GitHub HTTP ' + resp.getResponseCode() + ' on ' + path);
+  }
+  return JSON.parse(resp.getContentText());
+}
+
+function dispatch_(cfg, mode) {
+  var url  = GITHUB_API + '/repos/' + cfg.owner + '/' + cfg.repo +
+             '/actions/workflows/' + cfg.workflow + '/dispatches';
+  var resp = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: ghHeaders_(cfg),
+    payload: JSON.stringify({ ref: cfg.ref, inputs: { mode: mode } }),
+    muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() !== 204) {
+    throw new Error('Dispatch failed: HTTP ' + resp.getResponseCode() +
+                    ' — ' + resp.getContentText().slice(0, 200));
+  }
+}
+
+function findRun_(cfg, sinceMs) {
+  var data = gh_(cfg, '/repos/' + cfg.owner + '/' + cfg.repo +
+                      '/actions/runs?event=workflow_dispatch&per_page=10');
+  var runs = data.workflow_runs || [];
+  for (var i = 0; i < runs.length; i++) { // newest first
+    var r = runs[i];
+    if (r.path && r.path.indexOf(cfg.workflow) === -1) continue;
+    // 15s skew allowance between our clock and GitHub's created_at.
+    if (new Date(r.created_at).getTime() >= sinceMs - 15000) return r;
+  }
+  return null;
+}
+
+function getRun_(cfg, runId) {
+  return gh_(cfg, '/repos/' + cfg.owner + '/' + cfg.repo +
+                  '/actions/runs/' + runId);
+}
+
+function pollUntil_(cfg, runId, deadlineMs) {
+  var run = getRun_(cfg, runId);
+  while (run && run.status !== 'completed' &&
+         Date.now() + POLL_INTERVAL_MS < deadlineMs) {
+    Utilities.sleep(POLL_INTERVAL_MS);
+    run = getRun_(cfg, runId);
+  }
+  return run;
+}
+
+function lastRunLine_(cfg) {
+  var data = gh_(cfg, '/repos/' + cfg.owner + '/' + cfg.repo +
+                      '/actions/runs?event=workflow_dispatch&per_page=1');
+  var r = (data.workflow_runs || [])[0];
+  if (!r) return 'No manual runs yet.';
+  var mark = r.status !== 'completed' ? '⏳'
+           : r.conclusion === 'success' ? '✅' : '❌';
+  var when = Utilities.formatDate(new Date(r.created_at),
+                                  Session.getScriptTimeZone(), 'MMM d, HH:mm');
+  return 'Last manual run: ' + mark + ' ' +
+         pretty_(r.status === 'completed' ? r.conclusion : r.status) +
+         ' · ' + when;
+}
+
+// ── Cards ───────────────────────────────────────────────────────────────────
+
+function actionButtons_() {
+  return CardService.newButtonSet()
+    .addButton(CardService.newTextButton()
+      .setText('Submit (~1 min)')
+      .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
+      .setOnClickAction(CardService.newAction().setFunctionName('onSubmit')))
+    .addButton(CardService.newTextButton()
+      .setText('Update (~2 mins)')
+      .setOnClickAction(CardService.newAction().setFunctionName('onUpdate')));
+}
+
+function baseCard_(statusHtml, extraWidgets) {
+  var section = CardService.newCardSection()
+    .addWidget(CardService.newTextParagraph().setText(statusHtml));
+  (extraWidgets || []).forEach(function (w) { section.addWidget(w); });
+  section.addWidget(actionButtons_());
+  section.addWidget(CardService.newTextParagraph().setText(
+    '<i>Submit consolidates dragged promises from cached balances.<br>' +
+    'Update re-syncs only units whose money changed.<br>' +
+    'The hourly full sweep corrects anything missed.</i>'));
+  return CardService.newCardBuilder()
+    .setHeader(CardService.newCardHeader()
+      .setTitle('OKPM Calendar Sync')
+      .setSubtitle('AppFolio → owner calendars'))
+    .addSection(section)
+    .build();
+}
+
+function homeCard_(statusLine) {
+  return baseCard_(statusLine || ' ');
+}
+
+function runningCard_(mode, runId, startedMs, statusText) {
+  var since = Utilities.formatDate(new Date(startedMs),
+                                   Session.getScriptTimeZone(), 'HH:mm:ss');
+  var refresh = CardService.newTextButton()
+    .setText('Refresh status')
+    .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
+    .setOnClickAction(CardService.newAction()
+      .setFunctionName('onRefresh')
+      .setParameters({
+        runId: String(runId || ''),
+        mode: mode,
+        startedMs: String(startedMs)
+      }));
+  var widgets = [refresh];
+  if (runId) widgets.push(openRunButton_(runId));
+  return baseCard_(
+    '⏳ <b>' + pretty_(mode) + '</b>: ' + statusText +
+    ' (since ' + since + ').<br>Press <b>Refresh status</b> to check again.',
+    widgets);
+}
+
+function resultCard_(mode, run) {
+  var ok   = run.conclusion === 'success';
+  var mark = ok ? '✅ Done' : '❌ ' + pretty_(run.conclusion || 'failed');
+  return baseCard_('<b>' + pretty_(mode) + '</b>: ' + mark + '.',
+                   [openRunButton_(run.id)]);
+}
+
+function errorCard_(err) {
+  return baseCard_('⚠️ ' + String(err && err.message || err));
+}
+
+function openRunButton_(runId) {
+  var cfg = cfg_();
+  return CardService.newTextButton()
+    .setText('Open run in GitHub')
+    .setOpenLink(CardService.newOpenLink().setUrl(
+      'https://github.com/' + cfg.owner + '/' + cfg.repo +
+      '/actions/runs/' + runId));
+}
+
+// ── Small helpers ───────────────────────────────────────────────────────────
+
+function nav_(card) {
+  return CardService.newActionResponseBuilder()
+    .setNavigation(CardService.newNavigation().updateCard(card))
+    .build();
+}
+
+function pretty_(s) {
+  s = String(s || '');
+  return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
+}

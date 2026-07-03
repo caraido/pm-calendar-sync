@@ -1,0 +1,23 @@
+{
+  "timeZone": "America/Chicago",
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/calendar.addons.execute"
+  ],
+  "addOns": {
+    "common": {
+      "name": "OKPM Sync",
+      "logoUrl": "https://www.gstatic.com/images/icons/material/system/1x/sync_black_24dp.png",
+      "homepageTrigger": {
+        "runFunction": "onHomepage"
+      }
+    },
+    "calendar": {
+      "homepageTrigger": {
+        "runFunction": "onHomepage"
+      }
+    }
+  }
+}
