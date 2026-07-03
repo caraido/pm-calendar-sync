@@ -20,7 +20,22 @@
       "PowerShell(python smoke_test.py 2>&1)",
       "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; python smoke_test.py 2>&1 | Select-Object -Last 40)",
       "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\e7469429-67b0-411f-ad40-0f6adf6cd632\\\\scratchpad\\\\test_mirror.py\")",
-      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; $env:PYTHONPATH=\"D:\\\\Repos\\\\pm-calendar-sync\"; python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\e7469429-67b0-411f-ad40-0f6adf6cd632\\\\scratchpad\\\\test_mirror.py\")"
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; $env:PYTHONPATH=\"D:\\\\Repos\\\\pm-calendar-sync\"; python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\e7469429-67b0-411f-ad40-0f6adf6cd632\\\\scratchpad\\\\test_mirror.py\")",
+      "Bash(python -c \"import yaml, sys; yaml.safe_load\\(open\\('.github/workflows/sync.yml', encoding='utf-8'\\)\\); print\\('YAML OK'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(python -m py_compile pm_calendar_sync/cache.py pm_calendar_sync/state.py pm_calendar_sync/calendar_manager.py pm_calendar_sync/orchestrator.py smoke_test.py)",
+      "Bash(PYTHONUTF8=1 python smoke_test.py)",
+      "Bash(git rm *)",
+      "Bash(python -m py_compile sync.py pm_calendar_sync/__main__.py smoke_test.py)",
+      "Bash(python -m py_compile pm_calendar_sync/transforms.py pm_calendar_sync/orchestrator.py smoke_test.py)",
+      "Bash(python -m py_compile pm_calendar_sync/orchestrator.py pm_calendar_sync/state.py smoke_test.py)",
+      "Bash(command -v node)",
+      "Bash(cp addon/Code.gs __TRACKED_VAR__/code_check.js)",
+      "Bash(cp addon/Code.gs /tmp/code_check.js)",
+      "Bash(node --check /tmp/code_check.js)",
+      "Bash(python -c \"import json; json.load\\(open\\('addon/appsscript.json', encoding='utf-8'\\)\\); print\\('appsscript.json OK'\\)\")",
+      "Bash([ -f \"$FILE\" ])"
     ]
   }
 }
