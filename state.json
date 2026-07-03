@@ -169,7 +169,16 @@
       }
     ],
     "88@8": [],
-    "2@10": [],
+    "2@10": [
+      {
+        "event_id": "855c1vu3j2q6a2od9e78iv5368",
+        "anchor_date": "2026-07-09",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "calendar_id": "22346d4b396b8fb87d63283f7a80f8f79c204d9aef736ff9713889fd68a5bbb2@group.calendar.google.com",
+        "covers_rent_month": "2026-07"
+      }
+    ],
     "66@4": [
       {
         "event_id": "opjobr7d7vd71ljfc9si2tv70k",
@@ -180,7 +189,16 @@
         "covers_rent_month": "2026-07"
       }
     ],
-    "2@9": [],
+    "2@9": [
+      {
+        "event_id": "fta1nd8st7od2jvkjpqbupc9n8",
+        "anchor_date": "2026-07-09",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "calendar_id": "842223e523f839e0c276aa5f16aa27f4a56bf2d5a354738d5fcb53465c8481a2@group.calendar.google.com",
+        "covers_rent_month": "2026-07"
+      }
+    ],
     "113@4": [
       {
         "event_id": "hmi11q9u008pi4bvvha0muusng",
@@ -333,6 +351,26 @@
         "source_type": "status",
         "origin_month": "2026-07",
         "calendar_id": "db48f8b75648d8ca1b2d5dcf73ffc124413ea38e6908fde35d5af79a73f6ce3e@group.calendar.google.com",
+        "covers_rent_month": "2026-07"
+      }
+    ],
+    "2@11": [
+      {
+        "event_id": "1eb9fop81rd0vmv43ssbttukjc",
+        "anchor_date": "2026-07-09",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "calendar_id": "db48f8b75648d8ca1b2d5dcf73ffc124413ea38e6908fde35d5af79a73f6ce3e@group.calendar.google.com",
+        "covers_rent_month": "2026-07"
+      }
+    ],
+    "58@4": [
+      {
+        "event_id": "cjhansaav8bkqikkklh4cla9q4",
+        "anchor_date": "2026-07-08",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "calendar_id": "d86bad25d4b5d330502326695d329649671b975b2ee5dd591b84209e0e135215@group.calendar.google.com",
         "covers_rent_month": "2026-07"
       }
     ]
@@ -2574,12 +2612,12 @@
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1200.0,
     "calendar_id": "842223e523f839e0c276aa5f16aa27f4a56bf2d5a354738d5fcb53465c8481a2@group.calendar.google.com",
-    "status_event_id": "fta1nd8st7od2jvkjpqbupc9n8",
+    "status_event_id": null,
     "status_event_date": "2026-07-01",
     "late_event_id": null,
     "payment_event_ids": [],
     "payment_event_dates": [],
-    "last_updated": "2026-07-03T19:39:09.648117"
+    "last_updated": "2026-07-03T20:33:38.546889"
   },
   "2@9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14408,12 +14446,12 @@
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1250.0,
     "calendar_id": "d86bad25d4b5d330502326695d329649671b975b2ee5dd591b84209e0e135215@group.calendar.google.com",
-    "status_event_id": "cjhansaav8bkqikkklh4cla9q4",
+    "status_event_id": null,
     "status_event_date": "2026-07-01",
     "late_event_id": null,
     "payment_event_ids": [],
     "payment_event_dates": [],
-    "last_updated": "2026-07-03T19:41:03.871740"
+    "last_updated": "2026-07-03T20:33:54.118131"
   },
   "58@4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
