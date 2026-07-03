@@ -92,6 +92,43 @@ def build_payment_map(ledger_rows: list[dict]) -> dict:
     return payments
 
 
+def diff_rent_roll(cached_rows: Optional[list[dict]], fresh_rows: list[dict],
+                   eps: float = 0.005) -> set:
+    """
+    Bare occupancy_ids (str) whose money moved since the cached snapshot —
+    the unit scope for update mode.  Only status=="Current" rows compared.
+
+    Changed = |past_due delta| > eps, rent changed (> eps), or the oid is
+    absent from the snapshot (new lease).  cached_rows=None → every fresh
+    Current oid (bootstrap: no baseline yet).
+
+    Values are float-coerced the same way _make_unit coerces them, so None /
+    string variance in the raw report can never false-positive.
+    """
+    def _f(v) -> float:
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    fresh_current = [r for r in fresh_rows if r.get("status") == "Current"]
+    if cached_rows is None:
+        return {str(r.get("occupancy_id")) for r in fresh_current}
+
+    old = {str(r.get("occupancy_id")): r
+           for r in cached_rows if r.get("status") == "Current"}
+    changed = set()
+    for r in fresh_current:
+        oid  = str(r.get("occupancy_id"))
+        prev = old.get(oid)
+        if prev is None:
+            changed.add(oid)  # new lease (or newly Current)
+        elif (abs(_f(r.get("past_due")) - _f(prev.get("past_due"))) > eps
+              or abs(_f(r.get("rent")) - _f(prev.get("rent"))) > eps):
+            changed.add(oid)
+    return changed
+
+
 def compute_running_balances(sorted_payments: list[dict], current_past_due: float) -> list[float]:
     balances = []
     for i, p in enumerate(sorted_payments):

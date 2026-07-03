@@ -15,8 +15,8 @@ from .status import (
 )
 from .transforms import (
     normalize_tenant_name, build_owner_property_map, build_tenant_info_map,
-    build_payment_map, compute_running_balances, format_address,
-    unit_label, owner_display_name, _next_day,
+    build_payment_map, compute_running_balances, diff_rent_roll,
+    format_address, unit_label, owner_display_name, _next_day,
 )
 from .appfolio import AppFolioClient
 from .calendar_manager import GoogleCalendarManager, _gcal_execute
@@ -207,6 +207,82 @@ class SyncOrchestrator:
                 oid = str(row.get("occupancy_id"))
                 self._owners_by_oid.setdefault(oid, []).append(
                     (owner_id, calendar_id))
+
+    # ── Update mode (money-diff fast path) ────────────────────────────────────
+
+    def run_update(self):
+        """
+        Manual fast path: re-sync ONLY units whose money moved since the last
+        rent_roll snapshot (past_due delta > ½¢, rent change, or new lease).
+
+        Pulls rent_roll + the current-month ledger fresh — so payment markers,
+        balances and greying come out exactly as a full sweep would for those
+        units — but reads directories from cache and skips ACL work.  Redraws
+        driven by the calendar advancing rather than money moving (month
+        rollover shifting placeholders, a due date passing) are deliberately
+        NOT handled here; the hourly full sweep owns those.
+        """
+        log.info("=== OKPM sync starting (mode: update) ===")
+        today      = datetime.now(ZoneInfo(TIMEZONE)).date()
+        this_month = today.strftime("%Y-%m")
+        due_date   = date(today.year, today.month, RENT_DUE_DAY)
+        log.info(f"  Timezone: {TIMEZONE}, local date: {today}")
+
+        owners, tenants = self._load_directories("update")
+        log.info("Fetching rent_roll...")
+        rent_roll = self.af.get_rent_roll()
+        log.info("Fetching tenant_ledger (current month)...")
+        ledger = self.af.get_tenant_ledger_month(
+            today.replace(day=1).isoformat(), today.isoformat())
+
+        snap      = cache.load_json(cache.RENT_ROLL_FILE)
+        snap_rows = snap.get("rows") if snap else None
+        if not isinstance(snap_rows, list):
+            snap_rows = None
+            log.warning("  No usable rent_roll snapshot — treating ALL units as changed")
+        changed = diff_rent_roll(snap_rows, rent_roll)
+        log.info(f"  {len(changed)} unit(s) with money changes since last snapshot")
+
+        prop_to_owner = build_owner_property_map(owners)
+        tenant_info   = build_tenant_info_map(tenants)
+        payment_map   = build_payment_map(ledger)
+        active        = [r for r in rent_roll if r.get("status") == "Current"]
+
+        # Group + resolve for ALL active rows, not just changed ones: the
+        # co-owner map must be complete for _mirror_commitment_to_siblings.
+        owner_rows = self._group_rows_by_owner(active, prop_to_owner)
+        owner_meta = self._resolve_owner_calendars(owner_rows, use_cache=True)
+        self._build_owners_by_oid(owner_rows, owner_meta)
+
+        synced = 0
+        for owner_id, rows_and_owners in owner_rows.items():
+            owner_name, owner_email, calendar_id = owner_meta[owner_id]
+            # ACL only for a calendar created this very run (brand-new owner).
+            if calendar_id in self.gcal.created_calendar_ids:
+                self.gcal.ensure_pm_access(calendar_id)
+                if owner_email:
+                    self.gcal.share_with_owner(calendar_id, owner_email)
+            scoped = [(row, own) for row, own in rows_and_owners
+                      if str(row.get("occupancy_id")) in changed]
+            if not scoped:
+                continue
+            log.info(f"Owner: {owner_name} ({len(scoped)} changed unit(s))")
+            for row, _ in scoped:
+                try:
+                    self._sync_unit(
+                        row, calendar_id, due_date, today, this_month,
+                        tenant_info, payment_map, owner_id=owner_id,
+                    )
+                    synced += 1
+                except Exception as exc:
+                    oid = row.get("occupancy_id", "?")
+                    log.error(f"  FAILED unit {oid}: {exc}", exc_info=True)
+
+        # Even a zero-change run advances the snapshot: the baseline must
+        # always reflect the last examined rent_roll.
+        self._save_rent_roll_snapshot(rent_roll)
+        self.state.save()
+        log.info(f"=== Update complete: {synced} unit sync(s) ===")
 
     # ── Helpers  (unchanged) ─────────────────────────────────────────────────
 

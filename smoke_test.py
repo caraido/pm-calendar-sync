@@ -148,6 +148,35 @@ check("update -> run_update", calls[2] == ("run_update",))
 check("submit -> run_submit", calls[3] == ("run_submit",))
 check("unknown mode falls back to run('full')", calls[4] == ("run", "full"))
 
+print("\n=== 8. update-mode money diff (diff_rent_roll) ===")
+check("run_update method exists", hasattr(orch, "run_update"))
+cached = [
+    {"occupancy_id": 1, "status": "Current", "past_due": 100.0, "rent": 950},
+    {"occupancy_id": 2, "status": "Current", "past_due": "0",   "rent": 1200},
+    {"occupancy_id": 3, "status": "Current", "past_due": None,  "rent": 800},
+    {"occupancy_id": 9, "status": "Notice",  "past_due": 50.0,  "rent": 700},
+]
+fresh = [
+    {"occupancy_id": 1, "status": "Current", "past_due": 100.004, "rent": 950},   # within eps
+    {"occupancy_id": 2, "status": "Current", "past_due": 600.0,   "rent": 1200},  # money moved
+    {"occupancy_id": 3, "status": "Current", "past_due": 0,       "rent": 850},   # rent changed
+    {"occupancy_id": 4, "status": "Current", "past_due": 0.0,     "rent": 1000},  # new lease
+    {"occupancy_id": 9, "status": "Notice",  "past_due": 999.0,   "rent": 700},   # non-Current
+]
+d = transforms.diff_rent_roll(cached, fresh)
+check("delta within eps ignored", "1" not in d)
+check("past_due change flagged", "2" in d)
+check("rent change flagged", "3" in d)
+check("new lease flagged", "4" in d)
+check("non-Current rows ignored", "9" not in d)
+check("no snapshot -> all Current oids",
+      transforms.diff_rent_roll(None, fresh) == {"1", "2", "3", "4"})
+check("None/str value coercion (None == 0 == '0')",
+      transforms.diff_rent_roll(
+          [{"occupancy_id": 3, "status": "Current", "past_due": None, "rent": "800"}],
+          [{"occupancy_id": 3, "status": "Current", "past_due": "0",  "rent": 800.0}],
+      ) == set())
+
 print()
 if failures:
     print(f"❌ {len(failures)} check(s) FAILED: {failures}")
