@@ -48,6 +48,10 @@ class GoogleCalendarManager:
             json.loads(GOOGLE_SA_JSON), scopes=GOOGLE_SCOPES)
         self.service = build("calendar", "v3", credentials=creds)
         self._cal_cache: dict = {}
+        # Calendar ids inserted during THIS process — the orchestrator uses
+        # this to run ACL sharing for brand-new calendars even in run modes
+        # that otherwise skip the per-owner ACL refresh.
+        self.created_calendar_ids: set = set()
 
     # ── Calendar management ──────────────────────────────────────────────────
 
@@ -88,6 +92,7 @@ class GoogleCalendarManager:
             "timeZone": "America/Chicago",
         }).execute()
         log.info(f"Created calendar: {summary}")
+        self.created_calendar_ids.add(cal["id"])
         # PM gets owner so the calendar appears under 'My calendars'
         if PM_EMAIL:
             self._share(cal["id"], PM_EMAIL, role="owner", notify=False)

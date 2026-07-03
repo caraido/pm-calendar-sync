@@ -56,7 +56,7 @@ jobs:
         run: |
           git config user.name "okpm-sync-bot"
           git config user.email "bot@okpm.local"
-          git add state.json
+          git add state.json cache/
           if git diff --cached --quiet; then
             echo "No state changes — skipping commit/push."
             exit 0

@@ -21,6 +21,7 @@ from .transforms import (
 from .appfolio import AppFolioClient
 from .calendar_manager import GoogleCalendarManager, _gcal_execute
 from .state import StateManager
+from . import cache
 
 
 class SyncOrchestrator:
@@ -34,10 +35,21 @@ class SyncOrchestrator:
         # mirror a promise created on one owner's calendar onto the co-owners'.
         self._owners_by_oid: dict = {}
 
-    # ── Top-level run  (unchanged) ────────────────────────────────────────────
+    # ── Top-level run (full sweep — the sole authority for correctness) ──────
 
-    def run(self):
-        log.info("=== OKPM sync starting ===")
+    def run(self, mode: str = "full_nightly"):
+        """
+        Full convergent sweep over ALL active units.
+
+        mode="full_nightly" (default — what plain `SyncOrchestrator().run()`
+        does): pulls the owner/tenant directories live (refreshing their
+        cache) and refreshes calendar ACLs — identical to the historical
+        behaviour, plus cache/`_calendars` writes.
+
+        mode="full": directories come from cache/ (live-pull fallback) and
+        per-owner ACL calls are skipped — the hourly backstop sweep.
+        """
+        log.info(f"=== OKPM sync starting (mode: {mode}) ===")
         today      = datetime.now(ZoneInfo(TIMEZONE)).date()
         this_month = today.strftime("%Y-%m")
         due_date   = date(today.year, today.month, RENT_DUE_DAY)
@@ -45,10 +57,7 @@ class SyncOrchestrator:
 
         log.info("Fetching rent_roll...")
         rent_roll = self.af.get_rent_roll()
-        log.info("Fetching owner_directory...")
-        owners = self.af.get_owner_directory()
-        log.info("Fetching tenant_directory...")
-        tenants = self.af.get_tenant_directory()
+        owners, tenants = self._load_directories(mode)
         log.info("Fetching tenant_ledger (current month)...")
         ledger = self.af.get_tenant_ledger_month(
             today.replace(day=1).isoformat(), today.isoformat())
@@ -68,6 +77,75 @@ class SyncOrchestrator:
                 status_counts[s] = status_counts.get(s, 0) + 1
             log.info(f"  Skipped {len(non_current)} non-Current leases: {status_counts}")
 
+        owner_rows = self._group_rows_by_owner(active, prop_to_owner)
+        owner_meta = self._resolve_owner_calendars(
+            owner_rows, use_cache=(mode != "full_nightly"))
+        self._build_owners_by_oid(owner_rows, owner_meta)
+
+        for owner_id, rows_and_owners in owner_rows.items():
+            owner_name, owner_email, calendar_id = owner_meta[owner_id]
+            log.info(f"Owner: {owner_name} ({len(rows_and_owners)} units)")
+            # ACL is refreshed nightly; other modes skip it (one acl.list per
+            # owner per run) except for a calendar created this very run.
+            if mode == "full_nightly" or calendar_id in self.gcal.created_calendar_ids:
+                self.gcal.ensure_pm_access(calendar_id)
+                if owner_email:
+                    self.gcal.share_with_owner(calendar_id, owner_email)
+            for row, _ in rows_and_owners:
+                try:
+                    self._sync_unit(
+                        row, calendar_id, due_date, today, this_month,
+                        tenant_info, payment_map, owner_id=owner_id,
+                    )
+                except Exception as exc:
+                    oid = row.get("occupancy_id", "?")
+                    log.error(f"  FAILED unit {oid}: {exc}", exc_info=True)
+
+        # Snapshot is written AFTER the sweep so a crashed run never advances
+        # the update-mode diff baseline past what was actually applied.  (A
+        # per-unit failure caught above still advances it — the next sweep
+        # retries that unit anyway.)
+        self._save_rent_roll_snapshot(rent_roll)
+        self.state.save()
+        log.info("=== Sync complete ===")
+
+    # ── Run-mode data plumbing ────────────────────────────────────────────────
+
+    def _load_directories(self, mode: str) -> tuple:
+        """Owner + tenant directory rows.
+
+        full_nightly pulls live and refreshes cache/directories.json; every
+        other mode reads the cache and only falls back to a live pull (also
+        re-writing the cache) when it is missing or corrupt.
+        """
+        if mode != "full_nightly":
+            cached = cache.load_json(cache.DIRECTORIES_FILE)
+            if cached is not None and "owners" in cached and "tenants" in cached:
+                log.info(
+                    "Using cached directories "
+                    f"(refreshed {cached.get('refreshed_at', '?')})")
+                return cached["owners"], cached["tenants"]
+        log.info("Fetching owner_directory...")
+        owners = self.af.get_owner_directory()
+        log.info("Fetching tenant_directory...")
+        tenants = self.af.get_tenant_directory()
+        cache.save_json(cache.DIRECTORIES_FILE, {
+            "refreshed_at": datetime.utcnow().isoformat(),
+            "owners":       owners,
+            "tenants":      tenants,
+        })
+        return owners, tenants
+
+    def _save_rent_roll_snapshot(self, rent_roll: list):
+        """Persist the raw rent_roll rows — the diff baseline for update mode
+        and the balance source for submit mode."""
+        cache.save_json(cache.RENT_ROLL_FILE, {
+            "refreshed_at": datetime.utcnow().isoformat(),
+            "rows":         rent_roll,
+        })
+
+    def _group_rows_by_owner(self, active: list, prop_to_owner: dict) -> dict:
+        """owner_id → [(rent_roll row, owner dict), ...] for every active lease."""
         owner_rows: dict = {}
         for row in active:
             pid = row.get("property_id")
@@ -89,20 +167,39 @@ class SyncOrchestrator:
                     f"  UNMAPPED: property_id={pid!r} "
                     f"({row.get('property_name','?')}, "
                     f"tenant={row.get('tenant_name','?')}) — no owner found, skipping")
+        return owner_rows
 
-        # ── Resolve every owner's calendar up front ───────────────────────────
-        # A co-owned unit appears on multiple owner calendars.  Resolving all
-        # calendars before the sync loop lets each unit know its sibling
-        # calendars, so a promise dragged on one owner's calendar can be
-        # mirrored onto the co-owners' calendars in the same run.
-        owner_meta: dict = {}   # owner_id → (owner_name, owner_email, calendar_id)
+    def _resolve_owner_calendars(self, owner_rows: dict, use_cache: bool) -> dict:
+        """Resolve every owner's calendar up front.
+
+        A co-owned unit appears on multiple owner calendars.  Resolving all
+        calendars before the sync loop lets each unit know its sibling
+        calendars, so a promise dragged on one owner's calendar can be
+        mirrored onto the co-owners' calendars in the same run.
+
+        use_cache=True consults state's `_calendars` map first, skipping the
+        calendarList() pagination for known owners; a miss falls through to a
+        live resolve (creating + sharing the calendar if needed).  The nightly
+        sweep passes use_cache=False — re-resolving live IS the map refresh,
+        healing renames/recreates.  Returns
+        owner_id → (owner_name, owner_email, calendar_id).
+        """
+        owner_meta: dict = {}
         for owner_id, rows_and_owners in owner_rows.items():
             owner       = rows_and_owners[0][1]
             owner_name  = owner_display_name(owner)
             owner_email = (owner.get("email") or "").strip()
-            calendar_id = self.gcal.get_or_create_calendar(owner_name)
+            calendar_id = self.state.get_calendar_id(owner_id) if use_cache else None
+            if not calendar_id:
+                calendar_id = self.gcal.get_or_create_calendar(owner_name)
+            self.state.set_calendar_id(owner_id, calendar_id)
             owner_meta[owner_id] = (owner_name, owner_email, calendar_id)
+        return owner_meta
 
+    def _build_owners_by_oid(self, owner_rows: dict, owner_meta: dict):
+        """Populate self._owners_by_oid (bare oid → [(owner_id, calendar_id)]).
+        Required by _mirror_commitment_to_siblings — every run mode that can
+        create or discover commitments must call this."""
         self._owners_by_oid = {}
         for owner_id, rows_and_owners in owner_rows.items():
             calendar_id = owner_meta[owner_id][2]
@@ -110,25 +207,6 @@ class SyncOrchestrator:
                 oid = str(row.get("occupancy_id"))
                 self._owners_by_oid.setdefault(oid, []).append(
                     (owner_id, calendar_id))
-
-        for owner_id, rows_and_owners in owner_rows.items():
-            owner_name, owner_email, calendar_id = owner_meta[owner_id]
-            log.info(f"Owner: {owner_name} ({len(rows_and_owners)} units)")
-            self.gcal.ensure_pm_access(calendar_id)
-            if owner_email:
-                self.gcal.share_with_owner(calendar_id, owner_email)
-            for row, _ in rows_and_owners:
-                try:
-                    self._sync_unit(
-                        row, calendar_id, due_date, today, this_month,
-                        tenant_info, payment_map, owner_id=owner_id,
-                    )
-                except Exception as exc:
-                    oid = row.get("occupancy_id", "?")
-                    log.error(f"  FAILED unit {oid}: {exc}", exc_info=True)
-
-        self.state.save()
-        log.info("=== Sync complete ===")
 
     # ── Helpers  (unchanged) ─────────────────────────────────────────────────
 

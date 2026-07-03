@@ -93,6 +93,39 @@ for label, enc in [("plain utf-8", "utf-8"), ("utf-8+BOM", "utf-8-sig"), ("utf-1
     check(f"state read: {label}", ok)
     os.unlink(tmp)
 
+print("\n=== 6. Cache layer (cache.py) + state _calendars map ===")
+from pm_calendar_sync import cache as pkg_cache
+
+with tempfile.TemporaryDirectory() as td:
+    p = Path(td) / "sub" / "test.json"
+    payload = {"refreshed_at": "2026-07-02T00:00:00",
+               "rows": [{"occupancy_id": 1, "tenant": "Dôe, Jañe 🔴"}]}
+    pkg_cache.save_json(p, payload)
+    check("cache round-trip (creates parent dirs)", pkg_cache.load_json(p) == payload)
+    check("atomic write leaves no .tmp behind", not p.with_suffix(".tmp").exists())
+    check("missing file -> None", pkg_cache.load_json(Path(td) / "nope.json") is None)
+    bad = Path(td) / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    check("corrupt file -> None", pkg_cache.load_json(bad) is None)
+    lst = Path(td) / "list.json"
+    lst.write_text("[1, 2]", encoding="utf-8")
+    check("non-dict payload -> None", pkg_cache.load_json(lst) is None)
+    bom = Path(td) / "bom.json"
+    bom.write_text(json.dumps(payload), encoding="utf-16")
+    check("utf-16 BOM cache read", pkg_cache.load_json(bom) == payload)
+
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {}}, f)
+    tmp = f.name
+with mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    sm = state.StateManager()
+check("_calendars auto-created on load", sm.data.get("_calendars") == {})
+sm.set_calendar_id(42, "cal_abc")
+check("get/set_calendar_id round-trip (int key coerced)",
+      sm.get_calendar_id("42") == "cal_abc")
+os.unlink(tmp)
+
 print()
 if failures:
     print(f"❌ {len(failures)} check(s) FAILED: {failures}")

@@ -32,6 +32,12 @@ class StateManager:
         },
         ...   # one entry per split (copy-pasted events)
       ]
+
+    Top-level calendar-id map  (cache for fast modes):
+      state.data["_calendars"][owner_id] = calendar_id
+      Written whenever a calendar is resolved; read by non-nightly modes to
+      skip the calendarList() pagination.  The nightly full sweep re-resolves
+      every calendar live and rewrites the map (heals renames/recreates).
     """
 
     def __init__(self):
@@ -50,9 +56,11 @@ class StateManager:
             else:
                 text = raw.decode("utf-8")            # plain UTF-8
             self.data = json.loads(text) if text.strip() else {}
-        # Ensure commitment registry exists
+        # Ensure commitment registry and calendar-id map exist
         if "_commitments" not in self.data:
             self.data["_commitments"] = {}
+        if "_calendars" not in self.data:
+            self.data["_calendars"] = {}
 
     def _key(self, oid: str, month: str) -> str:
         return f"{oid}_{month}"
@@ -66,6 +74,14 @@ class StateManager:
 
     def save(self):
         self.path.write_text(json.dumps(self.data, indent=2), encoding="utf-8")
+
+    # ── Calendar-id map ───────────────────────────────────────────────────────
+
+    def get_calendar_id(self, owner_id) -> Optional[str]:
+        return self.data["_calendars"].get(str(owner_id))
+
+    def set_calendar_id(self, owner_id, calendar_id: str):
+        self.data["_calendars"][str(owner_id)] = calendar_id
 
     # ── Commitment helpers ────────────────────────────────────────────────────
 
