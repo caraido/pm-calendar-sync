@@ -214,15 +214,24 @@ function lastRunLine_(run) {
 
 // ── Cards ───────────────────────────────────────────────────────────────────
 
-function actionButtons_() {
-  return CardService.newButtonSet()
-    .addButton(CardService.newTextButton()
-      .setText('Submit (~1 min)')
+function oneButton_(text, fn) {
+  // Each button gets its own ButtonSet (its own row); both are FILLED and
+  // given equal-length labels so they render the same width.  CardService
+  // exposes no width / height / padding control, so this even, solid pair is
+  // the most balanced and prominent look the platform allows.
+  return CardService.newButtonSet().addButton(
+    CardService.newTextButton()
+      .setText(text)
       .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
-      .setOnClickAction(CardService.newAction().setFunctionName('onSubmit')))
-    .addButton(CardService.newTextButton()
-      .setText('Update (~2 mins)')
-      .setOnClickAction(CardService.newAction().setFunctionName('onUpdate')));
+      .setOnClickAction(CardService.newAction().setFunctionName(fn)));
+}
+
+function actionWidgets_() {
+  return [
+    oneButton_('Submit (~1 min)', 'onSubmit'),
+    CardService.newTextParagraph().setText(' '),  // spacer → more separation
+    oneButton_('Update (~2 min)', 'onUpdate'),
+  ];
 }
 
 function baseCard_(statusHtml, opts) {
@@ -234,11 +243,18 @@ function baseCard_(statusHtml, opts) {
   // cards, but NOT while a run is in progress — that card carries only the
   // Refresh button so a run can't be dispatched on top of itself.
   if (opts.showActions !== false) {
-    section.addWidget(actionButtons_());
+    actionWidgets_().forEach(function (w) { section.addWidget(w); });
     section.addWidget(CardService.newTextParagraph().setText(
-      '<i>Submit consolidates dragged promises from cached balances.<br>' +
-      'Update re-syncs only units whose money changed.<br>' +
-      'The hourly full sweep corrects anything missed.</i>'));
+      '<b>What these do</b><br>' +
+      '• <b>Submit</b> (~1 min) — saves the promise dates you dragged onto the calendars<br>' +
+      '• <b>Update</b> (~2 min) — pulls the latest balances and payments for units that changed<br>' +
+      '<br>' +
+      '<b>Checking the result</b><br>' +
+      'After you press a button it runs on the server (about a minute). Then either:<br>' +
+      '• press the <b>Refresh status</b> button that appears, or<br>' +
+      '• close and reopen this panel — it always shows the latest run<br>' +
+      '<br>' +
+      '<i>The automatic hourly sync catches anything missed, so nothing here can break the calendars.</i>'));
   }
   return CardService.newCardBuilder()
     .setHeader(CardService.newCardHeader()
@@ -267,16 +283,25 @@ function runningCard_(mode, runId, startedMs, statusText) {
       }));
   var label = mode ? pretty_(mode) : 'Sync';
   return baseCard_(
-    '⏳ <b>' + label + '</b>: ' + statusText +
-    ' (since ' + since + ').<br>Press <b>Refresh status</b> to check again.',
+    '⏳ <b>' + label + ' is running</b> (started ' + since + ').<br>' +
+    'Usually done within a minute or two.<br>' +
+    '<br>' +
+    'To check on it:<br>' +
+    '• press <b>Refresh status</b> below, or<br>' +
+    '• close this panel and reopen it shortly<br>' +
+    '<br>' +
+    '<i>No need to keep it open or keep clicking — reopening always shows ' +
+    'the current status.</i>',
     { widgets: [refresh], showActions: false });
 }
 
 function resultCard_(mode, run) {
-  var ok    = run.conclusion === 'success';
-  var mark  = ok ? '✅ Done' : '❌ ' + pretty_(run.conclusion || 'failed');
   var label = mode ? pretty_(mode) : 'Sync';
-  return baseCard_('<b>' + label + '</b>: ' + mark + '.', {});
+  var text  = run.conclusion === 'success'
+    ? '✅ <b>' + label + ' finished</b> — your changes are saved to the calendars.'
+    : '❌ <b>' + label + ' did not finish cleanly.</b> Try again in a minute — ' +
+      'the hourly sync will still catch it up.';
+  return baseCard_(text, {});
 }
 
 function errorCard_(err) {

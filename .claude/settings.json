@@ -36,7 +36,9 @@
       "Bash(node --check /tmp/code_check.js)",
       "Bash(python -c \"import json; json.load\\(open\\('addon/appsscript.json', encoding='utf-8'\\)\\); print\\('appsscript.json OK'\\)\")",
       "Bash([ -f \"$FILE\" ])",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(python -m py_compile pm_calendar_sync/*.py smoke_test.py)",
+      "Bash(python -m py_compile pm_calendar_sync/*.py sync.py smoke_test.py)"
     ]
   }
 }
