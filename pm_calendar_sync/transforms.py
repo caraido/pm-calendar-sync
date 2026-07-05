@@ -3,7 +3,7 @@ import re
 from datetime import date, timedelta
 from typing import Optional
 
-from .config import LATE_GRACE_DAYS
+from .config import COMMITMENT_DIVIDER, LATE_GRACE_DAYS
 
 
 _MONTH_NAMES = {
@@ -36,6 +36,55 @@ def _shorten_desc(desc: str) -> str:
     desc = re.sub(r'Credit Card Payment \(Reference (#[\w-]+)\)', r'Credit Card (\1)', desc)
     desc = re.sub(r'Payment \(Reference #(\w+)\)\s*', r'\1 - ', desc)
     return desc[:80].strip(" -")
+
+
+# Reverse of the Source display map in calendar_manager._build_commitment_event.
+# Raw source keys pass through so an unedited auto section always round-trips.
+_SOURCE_DISPLAY_TO_TYPE = {
+    "Kickstart (future rent)": "kickstart",
+    "Preview/late (arrears)":  "late",
+    "Status event (dragged)":  "status",
+    "Payment event (dragged)": "payment",
+    "kickstart": "kickstart",
+    "late":      "late",
+    "status":    "status",
+    "payment":   "payment",
+}
+
+
+def parse_commitment_auto_section(description: str) -> Optional[dict]:
+    """
+    Best-effort parse of a commitment event body — used to ADOPT PM
+    copy-paste copies, which lose their okpm extended properties (the
+    Calendar UI does not copy extendedProperties.private).
+
+    Returns None when COMMITMENT_DIVIDER is absent; else
+      pm_notes      text above the divider (PM-editable, preserved verbatim)
+      tenant        normalized tenant from the auto section's 'Tenant:' line
+                    (None when the line is missing/mangled)
+      source_type   mapped from the 'Source:' line; defaults to "status" —
+                    promise-typed semantics (≥1-promise, resolve-on-paid,
+                    covers the current month), matching the dominant origin
+                    of split copies (a dragged status promise)
+      auto_section  the raw text below the divider (for address checks)
+    """
+    if COMMITMENT_DIVIDER not in (description or ""):
+        return None
+    pm_notes, auto_section = description.split(COMMITMENT_DIVIDER, 1)
+    tenant = None
+    m = re.search(r"^Tenant:\s+(.+)$", auto_section, re.M)
+    if m:
+        tenant = normalize_tenant_name(m.group(1).strip())
+    source_type = "status"
+    m = re.search(r"^Source:\s+(.+)$", auto_section, re.M)
+    if m:
+        source_type = _SOURCE_DISPLAY_TO_TYPE.get(m.group(1).strip(), "status")
+    return {
+        "pm_notes":     pm_notes.rstrip(),
+        "tenant":       tenant,
+        "source_type":  source_type,
+        "auto_section": auto_section,
+    }
 
 
 def build_owner_property_map(owners: list[dict]) -> dict:

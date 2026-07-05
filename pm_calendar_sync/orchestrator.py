@@ -16,7 +16,8 @@ from .status import (
 from .transforms import (
     normalize_tenant_name, build_owner_property_map, build_tenant_info_map,
     build_payment_map, compute_running_balances, diff_rent_roll,
-    format_address, unit_label, owner_display_name, _next_day,
+    format_address, parse_commitment_auto_section, unit_label,
+    owner_display_name, _next_day,
 )
 from .appfolio import AppFolioClient
 from .calendar_manager import GoogleCalendarManager, _gcal_execute
@@ -96,6 +97,15 @@ class SyncOrchestrator:
                 self.gcal.ensure_pm_access(calendar_id)
                 if owner_email:
                     self.gcal.share_with_owner(calendar_id, owner_email)
+            # Adopt PM copy-paste commitment copies BEFORE the unit loop so
+            # this run's commitment pass treats them as tracked promises.
+            try:
+                self._adopt_untagged_commitments(
+                    rows_and_owners, owner_id, calendar_id,
+                    tenant_info, payment_map, today)
+            except Exception as exc:
+                log.error(f"  FAILED adoption scan for {owner_name}: {exc}",
+                          exc_info=True)
             for row, _ in rows_and_owners:
                 try:
                     self._sync_unit(
@@ -340,6 +350,17 @@ class SyncOrchestrator:
                 if owner_email:
                     self.gcal.share_with_owner(calendar_id, owner_email)
             events_by_oid = self.gcal.list_all_events(calendar_id)
+            # Adopt PM copy-paste commitment copies.  Uses the same q= scan
+            # as the full sweep (list_all_events deliberately skips untagged
+            # events); adopted ids land in _fresh_commitments so this run's
+            # commitment pass sees them despite the pre-adoption listing.
+            try:
+                self._adopt_untagged_commitments(
+                    rows_and_owners, owner_id, calendar_id,
+                    tenant_info, {}, today)
+            except Exception as exc:
+                log.error(f"  FAILED adoption scan for {owner_name}: {exc}",
+                          exc_info=True)
             for row, _ in rows_and_owners:
                 oid  = str(row.get("occupancy_id"))
                 soid = f"{oid}@{owner_id}"
@@ -682,6 +703,112 @@ class SyncOrchestrator:
             log.info(
                 f"  {oid}: mirrored {source} promise on {anchor} to co-owner "
                 f"calendar {cal_id}")
+
+    def _adopt_untagged_commitments(
+        self, rows_and_owners: list, owner_id, calendar_id: str,
+        tenant_info: dict, payment_map: dict, today: date,
+    ) -> int:
+        """
+        Adopt PM copy-paste commitment copies (split plans).  The Calendar UI
+        drops extendedProperties.private on copy, so copies are invisible to
+        every okpm_* locator — never updated, never resolved, frozen at the
+        copied description.  This scan finds them (divider text, no okpm
+        tag), attributes each to a unit via the auto section's Tenant line
+        (skipping — never guessing — on ambiguity), rebuilds the body in
+        place (which restores the okpm tags), and registers + mirrors the
+        promise exactly like a discovered split copy.  Runs BEFORE the
+        per-unit loop so the same run's commitment pass treats the adoptee
+        as a tracked promise.  Returns the number adopted.
+        """
+        copies = self.gcal.find_untagged_commitment_copies(calendar_id)
+        if not copies:
+            return 0
+        adopted     = 0
+        today_month = today.strftime("%Y-%m")
+        for ev in copies:
+            parsed = parse_commitment_auto_section(ev.get("description") or "")
+            if not parsed or not parsed["tenant"]:
+                log.warning(
+                    f"  Untagged commitment copy {ev.get('id')} on "
+                    f"{calendar_id}: auto section unparseable — skipping")
+                continue
+            matches = [row for row, _ in rows_and_owners
+                       if normalize_tenant_name(row.get("tenant", ""))
+                       == parsed["tenant"]]
+            if len(matches) > 1:
+                # Same tenant name on multiple units — require the address
+                # (and unit label, when present) to appear in the copy.
+                matches = [row for row in matches
+                           if format_address(row) in parsed["auto_section"]
+                           and (not unit_label(row)
+                                or unit_label(row) in parsed["auto_section"])]
+            if len(matches) != 1:
+                log.warning(
+                    f"  Untagged commitment copy {ev.get('id')}: tenant "
+                    f"{parsed['tenant']!r} matched {len(matches)} unit(s) on "
+                    f"this calendar — skipping (never guess)")
+                continue
+            row  = matches[0]
+            oid  = str(row.get("occupancy_id"))
+            soid = f"{oid}@{owner_id}"
+            unit = self._make_unit(row, tenant_info, payment_map)
+
+            start  = ev.get("start", {})
+            anchor = start.get("date") or start.get("dateTime", "")[:10]
+            if not anchor:
+                log.warning(
+                    f"  Untagged commitment copy {ev.get('id')}: "
+                    f"no start date — skipping")
+                continue
+            source_type = parsed["source_type"]
+            # covers_rent_month: byte-identical rules to the split-copy
+            # discovery loop in _process_commitments.
+            covers = (
+                anchor[:7] if (source_type == "late" and anchor[:7] > today_month)
+                else anchor[:7] if source_type == "kickstart"
+                else today_month if source_type in ("status", "payment")
+                else None
+            )
+            # Same display computation as _mirror_commitment_to_siblings.
+            breakdown = None
+            if source_type in ("status", "payment", "late"):
+                outstanding, breakdown = self._promise_outstanding(
+                    anchor[:7], unit, today)
+                disp = classify_status(unit["rent"], unit["past_due"])
+            else:
+                outstanding = unit["past_due"] + (
+                    unit["rent"] if (covers and covers > today_month) else 0.0)
+                disp = ""
+            new_body = self.gcal._build_commitment_event(
+                unit, anchor, source_type, max(0.0, outstanding),
+                pm_notes=parsed["pm_notes"], source_status=disp,
+                breakdown=breakdown)
+            # Tag FIRST: registering an id the okpm listing cannot see would
+            # make _process_commitments read it as PM-deleted and the
+            # ≥1-promise rule would spawn a duplicate promise.
+            try:
+                _gcal_execute(self.gcal.service.events().update(
+                    calendarId=calendar_id, eventId=ev["id"], body=new_body))
+            except HttpError as e:
+                log.error(
+                    f"  {oid}: failed to adopt commitment copy {ev['id']}: {e}")
+                continue
+            _commit = {
+                "event_id":          ev["id"],
+                "anchor_date":       anchor,
+                "source_type":       source_type,
+                "origin_month":      anchor[:7],
+                "calendar_id":       calendar_id,
+                "covers_rent_month": covers,
+            }
+            self._fresh_commitments[ev["id"]] = {**new_body, "id": ev["id"]}
+            self.state.add_commitment(soid, _commit)
+            self._mirror_commitment_to_siblings(oid, _commit, unit, today)
+            adopted += 1
+            log.info(
+                f"  {oid}: adopted untagged commitment copy {ev['id']} "
+                f"(anchor {anchor}, source {source_type})")
+        return adopted
 
     def _make_unit(self, row: dict, tenant_info: dict, payment_map: dict) -> dict:
         oid      = str(row["occupancy_id"])

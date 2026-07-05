@@ -211,6 +211,36 @@ class GoogleCalendarManager:
                 break
         return by_oid
 
+    def find_untagged_commitment_copies(self, calendar_id: str) -> list[dict]:
+        """
+        PM copy-pasted commitment copies.  The Calendar UI strips
+        extendedProperties.private on copy, so every okpm_* locator is blind
+        to them and they freeze (never updated, never resolved).  One q=
+        free-text search per calendar ("AUTO-SYNCED" is a substring of
+        COMMITMENT_DIVIDER — live-validated), then a client-side filter:
+        divider present in the description AND okpm_occupancy_id absent.
+        Adoption re-tags the copies, so they self-exclude from the next scan
+        (idempotent by construction).
+        """
+        copies, page_token = [], None
+        while True:
+            resp = _gcal_execute(self.service.events().list(
+                calendarId=calendar_id,
+                q="AUTO-SYNCED",
+                showDeleted=False,
+                maxResults=250,
+                pageToken=page_token,
+            ))
+            for ev in resp.get("items", []):
+                desc  = ev.get("description") or ""
+                props = ev.get("extendedProperties", {}).get("private", {})
+                if COMMITMENT_DIVIDER in desc and not props.get("okpm_occupancy_id"):
+                    copies.append(ev)
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+        return copies
+
     # ── Commitment-specific operations ────────────────────────────────────────
 
     def convert_to_commitment(

@@ -333,6 +333,104 @@ check("submit: promised month's placeholder absorbed",
       dele.call_args == mock.call("cal", "ph8")
       and orch3.state.get("77@5", "2026-08").get("rent_event_id") is None)
 
+print("\n=== 11. Bug-1 fix: commitment auto-section parser ===")
+unit_fx = {
+    "occupancy_id": "99", "property_name": "31 West 112th Place",
+    "address": "31 West 112Th Place, Chicago, IL, 60628", "unit_label": "Unit 2",
+    "tenant": "Burdine, Tyquita", "additional_tenants": "",
+    "rent": 1400.0, "past_due": 700.0, "amount_paid": 0.0, "payments": [],
+    "phone": "N/A", "late_fee_desc": "N/A", "grace_days": 5,
+    "lease_from": "2025-11-15", "lease_to": "2026-11-30",
+}
+for src in ("status", "payment", "kickstart", "late"):
+    body = orch.gcal._build_commitment_event(
+        unit_fx, "2026-07-03", src, 700.0, pm_notes="PROMISED: $700")
+    parsed = transforms.parse_commitment_auto_section(body["description"])
+    check(f"parser round-trips source_type {src!r}",
+          parsed is not None and parsed["source_type"] == src
+          and parsed["tenant"] == "Tyquita Burdine"
+          and parsed["pm_notes"] == "PROMISED: $700")
+check("no divider -> None",
+      transforms.parse_commitment_auto_section("hello world") is None)
+mangled = body["description"].replace("Source:", "Sauce:")
+check("mangled Source line -> default 'status'",
+      transforms.parse_commitment_auto_section(mangled)["source_type"] == "status")
+no_tenant = body["description"].replace("Tenant:", "Tenannt:")
+check("missing Tenant line -> tenant None",
+      transforms.parse_commitment_auto_section(no_tenant)["tenant"] is None)
+
+print("\n=== 12. Bug-1 fix: adoption of untagged PM copies ===")
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {}}, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch4 = SyncOrchestrator()
+os.unlink(tmp)
+
+# The q-scan's client-side filter: tagged / untagged-with-divider / plain.
+divider_desc = orch4.gcal._build_commitment_event(
+    unit_fx, "2026-07-03", "status", 1400.0,
+    pm_notes="PROMISED: full balance")["description"]
+pages = [{"items": [
+    {"id": "t1", "description": divider_desc,
+     "extendedProperties": {"private": {"okpm_occupancy_id": "99"}}},
+    {"id": "u1", "description": divider_desc, "start": {"date": "2026-07-03"}},
+    {"id": "u2", "description": "AUTO-SYNCED mention but no divider"},
+]}]
+orch4.gcal.service.events.return_value.list.return_value.execute.side_effect = pages
+found = orch4.gcal.find_untagged_commitment_copies("calA")
+check("q-scan keeps only untagged divider events",
+      [e["id"] for e in found] == ["u1"])
+
+row_fx = {"occupancy_id": 99, "tenant": "Burdine, Tyquita",
+          "additional_tenants": "", "rent": "1400.00", "past_due": "700.00",
+          "status": "Current", "property_name": "31 West 112th Place",
+          "unit": "2", "property_street": "31 West 112Th Place",
+          "property_city": "Chicago", "property_state": "IL",
+          "property_zip": "60628", "lease_from": "2025-11-15",
+          "lease_to": "2026-11-30"}
+copy_ev = {"id": "copy1", "start": {"date": "2026-07-03"},
+           "description": divider_desc}   # no extendedProperties (UI copy)
+upd = orch4.gcal.service.events.return_value.update
+with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
+                       return_value=[copy_ev]), \
+     mock.patch.object(orch4, "_mirror_commitment_to_siblings") as mir:
+    n = orch4._adopt_untagged_commitments(
+        [(row_fx, {"owner_id": 9})], 9, "calA", {}, {}, _date(2026, 7, 4))
+body_sent = upd.call_args.kwargs["body"]
+check("adoption re-tags the event in place",
+      n == 1 and upd.called
+      and body_sent["extendedProperties"]["private"]["okpm_event_type"] == "commitment"
+      and body_sent["extendedProperties"]["private"]["okpm_occupancy_id"] == "99")
+comms = orch4.state.get_commitments("99@9")
+check("adoption registers the promise (covers current month)",
+      len(comms) == 1 and comms[0]["event_id"] == "copy1"
+      and comms[0]["anchor_date"] == "2026-07-03"
+      and comms[0]["covers_rent_month"] == "2026-07")
+check("adoption patches _fresh_commitments and mirrors",
+      "copy1" in orch4._fresh_commitments and mir.called)
+check("PM notes preserved through adoption",
+      body_sent["description"].startswith("PROMISED: full balance"))
+
+upd.reset_mock()
+other_row = {**row_fx, "occupancy_id": 98, "tenant": "Else, Someone"}
+with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
+                       return_value=[copy_ev]):
+    n2 = orch4._adopt_untagged_commitments(
+        [(other_row, {})], 9, "calA", {}, {}, _date(2026, 7, 4))
+check("unmatched tenant -> skipped, no writes", n2 == 0 and not upd.called)
+
+twin = {**row_fx, "occupancy_id": 98}   # same tenant, same address/unit
+with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
+                       return_value=[copy_ev]):
+    n3 = orch4._adopt_untagged_commitments(
+        [(row_fx, {}), (twin, {})], 9, "calA", {}, {}, _date(2026, 7, 4))
+check("ambiguous tenant match -> skipped, no writes",
+      n3 == 0 and not upd.called)
+
 print()
 if failures:
     print(f"❌ {len(failures)} check(s) FAILED: {failures}")
