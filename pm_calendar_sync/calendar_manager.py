@@ -1,5 +1,6 @@
 """Google Calendar manager: calendar/event CRUD and event builders."""
 import json
+import re
 import time
 from datetime import date, timedelta
 from typing import Optional
@@ -348,21 +349,39 @@ class GoogleCalendarManager:
                           note_line: str, retag_idx: bool = False):
         """
         Repaint an event whose payment was later reversed: red, ' NSF' title
-        tag, reversal note appended.  Idempotent (no-op when already flipped
-        with this note).  retag_idx moves okpm_payment_idx aside
-        (idx → 'nsf<idx>') so _find_payment_event's exact-index matching can
-        never collide with a future payment at that position.
+        tag, reversal note appended.  The Status: line is rewritten to
+        '🔴 REVERSED / NSF' — it reads as a current verdict, so leaving
+        '✅ Paid' inside a red NSF event would contradict the reversal — and
+        the historical Received/Balance lines are stamped '(before reversal)'
+        (their numbers were true when written; June's running balances are
+        not reconstructable, so they stay visible but time-stamped).
+        Idempotent (no-op when already fully flipped).  retag_idx moves
+        okpm_payment_idx aside (idx → 'nsf<idx>') so _find_payment_event's
+        exact-index matching can never collide with a future payment at that
+        position.
         """
-        summary = event_body.get("summary") or ""
-        desc    = event_body.get("description") or ""
+        summary   = event_body.get("summary") or ""
+        desc      = event_body.get("description") or ""
+        status_ok = not re.search(r"^Status:(?!.*REVERSED).*$", desc, re.M)
         if (event_body.get("colorId") == COLOR_UNPAID
-                and " NSF" in summary and note_line in desc):
+                and " NSF" in summary and note_line in desc and status_ok):
             return
         parts = summary.split(" · ", 1)
         if len(parts) == 2:
             summary = "🔴 · " + parts[1]
         if " NSF" not in summary:
             summary += " NSF"
+        lines = []
+        for line in desc.splitlines():
+            s = line.strip()
+            if s.startswith("Status:") and "REVERSED" not in line:
+                line = "Status:       🔴 REVERSED / NSF"
+            elif (s.startswith(("Received in", "Balance after this payment:",
+                                "Balance:"))
+                    and "(before reversal)" not in line):
+                line = line + "  (before reversal)"
+            lines.append(line)
+        desc = "\n".join(lines)
         if note_line not in desc:
             desc = (desc + "\n" if desc else "") + note_line
         event_body["summary"]     = summary

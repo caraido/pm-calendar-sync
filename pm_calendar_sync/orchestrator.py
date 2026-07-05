@@ -1843,18 +1843,26 @@ class SyncOrchestrator:
         def _key(rec):
             return rec.get("ref") or f"{rec.get('date')}:{float(rec.get('amount') or 0):.2f}"
 
+        # Markers are versioned: v=2 wrote the full flip (Status line
+        # rewritten, balance lines stamped).  Older markers are treated as
+        # pending once more so events flipped by earlier code get a single
+        # self-healing retouch — every mutation on that path is idempotent,
+        # then the marker upgrades and the reversal is skipped for good.
         applied_keys = set()
         for mo in months:
             entry = self.state.get(soid, mo)
             if entry and entry.get("calendar_id") == calendar_id:
                 for r in entry.get("nsf_reversals_applied") or []:
-                    applied_keys.add(r.get("key"))
+                    if r.get("v") == 2:
+                        applied_keys.add(r.get("key"))
 
         def _mark(month, rec, extra_event_id=None):
             entry = self.state.get(soid, month) or {}
-            marks = list(entry.get("nsf_reversals_applied") or [])
+            marks = [m for m in (entry.get("nsf_reversals_applied") or [])
+                     if m.get("key") != _key(rec)]
             marks.append({"key": _key(rec), "ref": rec.get("ref"),
-                          "date": rec.get("date"), "amount": rec.get("amount")})
+                          "date": rec.get("date"), "amount": rec.get("amount"),
+                          "v": 2})
             new_entry = {**entry, "nsf_reversals_applied": marks}
             if extra_event_id:
                 ids = list(entry.get("nsf_event_ids") or [])

@@ -20,11 +20,14 @@ class StateManager:
                                of the month's payments (index 0 = the one
                                absorbed into the status event); NSF-reversal
                                reconciliation matches against these
-      nsf_reversals_applied, — [{key, ref, date, amount}] reversals already
-                               applied to this soid's month (per-calendar
-                               idempotence markers; the month's own status
-                               is deliberately left as written — the marker
-                               and event notes are the honest annotation)
+      nsf_reversals_applied, — [{key, ref, date, amount, v}] reversals
+                               already applied to this soid's month
+                               (per-calendar idempotence markers; v=2 means
+                               the full flip incl. Status-line rewrite —
+                               older markers trigger one retouch pass; the
+                               month's own status is deliberately left as
+                               written, the marker and event notes are the
+                               honest annotation)
       nsf_event_ids,         — payment events flipped to NSF display after
                                their ledger row vanished (no longer
                                positionally tracked in payment_event_ids)
