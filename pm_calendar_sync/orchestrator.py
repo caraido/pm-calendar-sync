@@ -1,4 +1,5 @@
 """Sync orchestration: the per-run loop and per-unit / commitment logic."""
+import re
 from datetime import date, timedelta, datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -15,9 +16,9 @@ from .status import (
 )
 from .transforms import (
     normalize_tenant_name, build_owner_property_map, build_tenant_info_map,
-    build_payment_map, compute_running_balances, diff_rent_roll,
-    format_address, parse_commitment_auto_section, unit_label,
-    owner_display_name, _next_day,
+    build_payment_map, build_reversal_map, compute_running_balances,
+    diff_rent_roll, format_address, parse_commitment_auto_section,
+    unit_label, owner_display_name, _next_day,
 )
 from .appfolio import AppFolioClient
 from .calendar_manager import GoogleCalendarManager, _gcal_execute
@@ -71,8 +72,12 @@ class SyncOrchestrator:
         prop_to_owner = build_owner_property_map(owners)
         tenant_info   = build_tenant_info_map(tenants)
         payment_map   = build_payment_map(ledger)
+        reversal_map  = build_reversal_map(ledger)
         active        = [r for r in rent_roll if r.get("status") == "Current"]
         log.info(f"  {len(active)} active leases, {len(payment_map)} with payments this month")
+        if reversal_map:
+            log.info(f"  {sum(len(v) for v in reversal_map.values())} NSF/negative "
+                     f"reversal row(s) in the ledger")
 
         # ── Diagnostic: detect non-Current leases that might be missing ───
         non_current = [r for r in rent_roll if r.get("status") != "Current"]
@@ -111,6 +116,7 @@ class SyncOrchestrator:
                     self._sync_unit(
                         row, calendar_id, due_date, today, this_month,
                         tenant_info, payment_map, owner_id=owner_id,
+                        reversal_map=reversal_map,
                     )
                 except Exception as exc:
                     oid = row.get("occupancy_id", "?")
@@ -261,6 +267,7 @@ class SyncOrchestrator:
         prop_to_owner = build_owner_property_map(owners)
         tenant_info   = build_tenant_info_map(tenants)
         payment_map   = build_payment_map(ledger)
+        reversal_map  = build_reversal_map(ledger)
         active        = [r for r in rent_roll if r.get("status") == "Current"]
 
         # Group + resolve for ALL active rows, not just changed ones: the
@@ -287,6 +294,7 @@ class SyncOrchestrator:
                     self._sync_unit(
                         row, calendar_id, due_date, today, this_month,
                         tenant_info, payment_map, owner_id=owner_id,
+                        reversal_map=reversal_map,
                     )
                     synced += 1
                 except Exception as exc:
@@ -1060,6 +1068,7 @@ class SyncOrchestrator:
         self, row: dict, calendar_id: str, due_date: date,
         today: date, this_month: str, tenant_info: dict, payment_map: dict,
         owner_id: str = "",
+        reversal_map: Optional[dict] = None,
     ):
         unit     = self._make_unit(row, tenant_info, payment_map)
         oid      = unit["occupancy_id"]   # bare — for Google Calendar
@@ -1097,6 +1106,18 @@ class SyncOrchestrator:
         # Distrust state written for a DIFFERENT calendar.
         if prior and prior.get("calendar_id") != calendar_id:
             prior = None
+
+        # Captured BEFORE the current-month state overwrite below: surplus
+        # payment-event ids (their ledger rows vanished — reversed payments
+        # usually disappear from the pull) and the stored payment records
+        # are what the NSF-reversal pass matches against.
+        prior_payment_ids = list(prior.get("payment_event_ids") or []) if prior else []
+        prior_payments    = list(prior.get("payments") or []) if prior else []
+        # Reversals already applied to THIS month (carried through rewrites);
+        # their notes re-render onto the status event on every rebuild.
+        carried_reversals = list(prior.get("nsf_reversals_applied") or []) if prior else []
+        carried_nsf_ids   = list(prior.get("nsf_event_ids") or []) if prior else []
+        reversal_notes    = [self._format_reversal_note(r) for r in carried_reversals]
 
         # ── Load commitment state ─────────────────────────────────────────────
         # Migrate any bare-oid commitment entries to this owner-scoped key,
@@ -1208,6 +1229,7 @@ class SyncOrchestrator:
                 balances[0] if balances else None,
                 total_payments=len(sorted_payments),
                 month_fully_paid=month_fully_paid,
+                reversal_notes=reversal_notes,
             )
             existing_id = (
                 prior_status_id or
@@ -1227,6 +1249,7 @@ class SyncOrchestrator:
                 balances[0] if balances else None,
                 total_payments=len(sorted_payments),
                 month_fully_paid=month_fully_paid,
+                reversal_notes=reversal_notes,
             )
             # Search the calendar first to avoid creating duplicates
             existing_id = self.gcal._find_status_event(calendar_id, oid, this_month)
@@ -1249,6 +1272,7 @@ class SyncOrchestrator:
                     first_pay,
                     balances[0] if balances else None,
                     total_payments=len(sorted_payments),
+                    reversal_notes=reversal_notes,
                 )
                 # Search the calendar first to avoid creating duplicates
                 existing_id = self.gcal._find_status_event(
@@ -1308,7 +1332,33 @@ class SyncOrchestrator:
             # Index-aligned with payment_event_ids.  Submit mode has no ledger,
             # so payment-drag detection reads canonical dates from here.
             "payment_event_dates": [p["date"] for p in sorted_payments[1:]],
+            # All of this month's payments (index 0 = the one absorbed into
+            # the status event) — next month's NSF-reversal reconciliation
+            # matches against these without any event fetches.
+            "payments": [
+                {"date": p["date"], "amount": p["amount"],
+                 "is_nsf": p["is_nsf"], "description": p["description"]}
+                for p in sorted_payments
+            ],
+            "nsf_reversals_applied": carried_reversals,
+            "nsf_event_ids":         carried_nsf_ids,
         })
+
+        # ── NSF reversal reconciliation (current + previous 2 months) ────────
+        # Reversals arrive as negative-credit ledger rows; the affected
+        # month may already be rolled over.  Runs after the current-month
+        # rebuild (so flips/notes are not overwritten) and never touches the
+        # future-months section below.
+        if reversal_map:
+            try:
+                self._apply_nsf_reversals(
+                    soid, calendar_id, unit, today, this_month, reversal_map,
+                    surplus_payment_ids=prior_payment_ids[len(payment_event_ids):],
+                    prior_payments=prior_payments,
+                )
+            except Exception as exc:
+                log.error(f"  {oid}: NSF reversal pass failed: {exc}",
+                          exc_info=True)
 
         # ── B. Future months ──────────────────────────────────────────────────
         future_unit = {**unit, "past_due": 0.0, "amount_paid": 0.0, "payments": []}
@@ -1726,3 +1776,218 @@ class SyncOrchestrator:
                 log.error(f"  {bare_oid}: failed to recreate last promise: {e}")
 
         self.state.set_commitments(soid, surviving)
+
+    # ── NSF reversal reconciliation ───────────────────────────────────────────
+
+    @staticmethod
+    def _format_reversal_note(rec: dict) -> str:
+        try:
+            d = date.fromisoformat(rec.get("date") or "").strftime("%b %d, %Y")
+        except ValueError:
+            d = rec.get("date") or "?"
+        amt = float(rec.get("amount") or 0)
+        return f"⚠️ ${amt:,.2f} payment REVERSED (NSF) on {d}"
+
+    @staticmethod
+    def _reversal_matches_text(rec: dict, text: str) -> bool:
+        """Does this reversal refer to the payment described by text (an
+        event body)?  Ref-token match (boundary-guarded so #1A4A can never
+        match #1A4A-5A70) when the reversal carries one; else an exact
+        Amount-line match."""
+        ref = rec.get("ref")
+        if ref:
+            return re.search(rf"#{re.escape(ref)}(?![\w-])", text) is not None
+        amt = float(rec.get("amount") or 0)
+        return re.search(
+            rf"^Amount:\s+\${re.escape(f'{amt:,.2f}')}$", text, re.M) is not None
+
+    def _apply_nsf_reversals(
+        self, soid: str, calendar_id: str, unit: dict, today: date,
+        this_month: str, reversal_map: dict,
+        surplus_payment_ids: list, prior_payments: list,
+    ):
+        """
+        Attribute negative-credit reversal rows (NSF bounces) to this unit's
+        events and redraw the affected month — current or one of the previous
+        two.  Runs per soid: each co-owner calendar flips its OWN event
+        copies, and the idempotence markers (nsf_reversals_applied) live in
+        that soid's month entries, so every reversal is applied exactly once
+        per calendar.  Unmatched reversals warn and retry each run until a
+        62-day age-out (the ledger's ~current-month window usually ages them
+        out sooner).  Dollar lines inside prior-month events are left as
+        written (they were true at the time); the appended note carries the
+        correction.
+        """
+        # Tenant match, exactly like _make_unit's payment lookup.
+        records = reversal_map.get(normalize_tenant_name(unit["tenant"]), [])
+        if not records:
+            for name in (unit.get("additional_tenants") or "").split(","):
+                name_norm = normalize_tenant_name(name.strip())
+                if name_norm and name_norm in reversal_map:
+                    records = reversal_map[name_norm]
+                    break
+        if not records:
+            return
+
+        oid = soid.split("@")[0] if "@" in soid else soid
+
+        # Months searched: current + previous two.
+        months = [this_month]
+        y, m = int(this_month[:4]), int(this_month[5:7])
+        for _ in range(2):
+            m -= 1
+            if m == 0:
+                y, m = y - 1, 12
+            months.append(f"{y:04d}-{m:02d}")
+
+        def _key(rec):
+            return rec.get("ref") or f"{rec.get('date')}:{float(rec.get('amount') or 0):.2f}"
+
+        applied_keys = set()
+        for mo in months:
+            entry = self.state.get(soid, mo)
+            if entry and entry.get("calendar_id") == calendar_id:
+                for r in entry.get("nsf_reversals_applied") or []:
+                    applied_keys.add(r.get("key"))
+
+        def _mark(month, rec, extra_event_id=None):
+            entry = self.state.get(soid, month) or {}
+            marks = list(entry.get("nsf_reversals_applied") or [])
+            marks.append({"key": _key(rec), "ref": rec.get("ref"),
+                          "date": rec.get("date"), "amount": rec.get("amount")})
+            new_entry = {**entry, "nsf_reversals_applied": marks}
+            if extra_event_id:
+                ids = list(entry.get("nsf_event_ids") or [])
+                if extra_event_id not in ids:
+                    ids.append(extra_event_id)
+                new_entry["nsf_event_ids"] = ids
+            self.state.set(soid, month, new_entry)
+            applied_keys.add(_key(rec))
+
+        pending = []
+        for rec in records:
+            try:
+                too_old = (date.fromisoformat(rec.get("date") or "")
+                           < today - timedelta(days=62))
+            except ValueError:
+                log.debug(f"  {oid}: reversal with bad date "
+                          f"{rec.get('date')!r} — ignoring")
+                continue
+            if not too_old and _key(rec) not in applied_keys:
+                pending.append(rec)
+        if not pending:
+            return
+
+        # ── Current month: flip/delete surplus events; note vanished rows ──
+        cur_entry = self.state.get(soid, this_month) or {}
+        for ev_id in surplus_payment_ids:
+            body = self.gcal.get_event(calendar_id, ev_id)
+            if not body:
+                continue
+            desc = body.get("description") or ""
+            matched = next((r for r in pending
+                            if self._reversal_matches_text(r, desc)), None)
+            if matched:
+                self.gcal.flip_event_to_nsf(
+                    calendar_id, body, self._format_reversal_note(matched),
+                    retag_idx=True)
+                _mark(this_month, matched, extra_event_id=ev_id)
+                pending.remove(matched)
+                log.info(f"  {oid}: flipped reversed payment event {ev_id} to NSF")
+            else:
+                # A vanished ledger row with no matching reversal left a
+                # positionally-duplicated stale event — remove it (the next
+                # sweep recreates it if the row ever returns).
+                self.gcal.delete_event(calendar_id, ev_id)
+                log.warning(
+                    f"  {oid}: deleted stale surplus payment event {ev_id} "
+                    f"(ledger row vanished, no reversal match)")
+
+        still = []
+        for rec in pending:
+            hit = None
+            ref = rec.get("ref")
+            if ref:
+                for p in prior_payments:
+                    if re.search(rf"#{re.escape(ref)}(?![\w-])",
+                                 p.get("description") or ""):
+                        hit = p
+                        break
+            else:
+                amt_matches = [
+                    p for p in prior_payments
+                    if not p.get("is_nsf")
+                    and abs(float(p.get("amount") or 0)
+                            - float(rec.get("amount") or 0)) < 0.005]
+                if len(amt_matches) == 1:
+                    hit = amt_matches[0]
+            if hit is not None:
+                # The month's figures were already rebuilt truthfully (the
+                # past_due jump fired data_changed); PATCH the note on now —
+                # future rebuilds re-render it from the carried marker.
+                sid = cur_entry.get("status_event_id")
+                if sid:
+                    body = self.gcal.get_event(calendar_id, sid)
+                    if body:
+                        self.gcal.append_description_note(
+                            calendar_id, body, self._format_reversal_note(rec))
+                _mark(this_month, rec)
+                log.info(f"  {oid}: recorded NSF reversal of a vanished "
+                         f"current-month payment ({_key(rec)})")
+            else:
+                still.append(rec)
+        pending = still
+
+        # ── Previous months ────────────────────────────────────────────────
+        for mo in months[1:]:
+            if not pending:
+                break
+            entry = self.state.get(soid, mo)
+            if not entry or entry.get("calendar_id") != calendar_id:
+                continue
+            candidates = []
+            if entry.get("status_event_id"):
+                candidates.append(entry["status_event_id"])
+            candidates.extend(entry.get("payment_event_ids") or [])
+            if not candidates:
+                continue
+            bodies = {}
+            for ev_id in candidates:
+                b = self.gcal.get_event(calendar_id, ev_id)
+                if b:
+                    bodies[ev_id] = b
+            still = []
+            for rec in pending:
+                matches = [ev_id for ev_id, b in bodies.items()
+                           if self._reversal_matches_text(
+                               rec, b.get("description") or "")]
+                if rec.get("ref") is None and len(matches) > 1:
+                    log.warning(
+                        f"  {oid}: reversal ({_key(rec)}) matches multiple "
+                        f"events in {mo} by amount — ambiguous, skipping")
+                    still.append(rec)
+                    continue
+                if not matches:
+                    still.append(rec)
+                    continue
+                ev_id = matches[0]
+                note  = self._format_reversal_note(rec)
+                self.gcal.flip_event_to_nsf(calendar_id, bodies[ev_id], note)
+                log.info(f"  {oid}: flipped {mo} event {ev_id} to NSF (reversal)")
+                # The month is no longer settled — un-grey its muted events.
+                for other_id, ob in bodies.items():
+                    if other_id != ev_id:
+                        self.gcal.unmute_event_to_own_status(calendar_id, ob)
+                # Explain on the month's status event when it wasn't the one.
+                sid = entry.get("status_event_id")
+                if sid and sid != ev_id and sid in bodies:
+                    self.gcal.append_description_note(
+                        calendar_id, bodies[sid],
+                        note + " — month no longer settled")
+                _mark(mo, rec)
+            pending = still
+
+        for rec in pending:
+            log.warning(
+                f"  {oid}: NSF reversal ({_key(rec)}) has no matching payment "
+                f"event in {months} — will retry until it ages out")

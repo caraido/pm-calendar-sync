@@ -141,6 +141,47 @@ def build_payment_map(ledger_rows: list[dict]) -> dict:
     return payments
 
 
+def build_reversal_map(ledger_rows: list[dict]) -> dict:
+    """
+    payer(normalized) → [reversal records] for NEGATIVE-credit ledger rows.
+
+    NSF reversals arrive as separate rows with credit < 0 (live example:
+    description 'NSF reversal receipt for Reference #1A4A-5A70',
+    credit "-1530.00", dated on the BOUNCE day, not the payment day) —
+    build_payment_map's `amount <= 0` gate discards them, which is exactly
+    why reversed payments used to vanish without a trace.  Record shape:
+      {date, amount (positive), ref (token after '#', or None), description}
+    Non-NSF negative adjustments are collected too — they simply never match
+    one of our payment events and age out silently.
+    """
+    reversals: dict = {}
+    for row in ledger_rows:
+        try:
+            amount = float(row.get("credit") or 0)
+        except (TypeError, ValueError):
+            continue
+        if amount >= 0:
+            continue
+        desc  = (row.get("description") or "").strip()
+        m     = re.search(r"#([\w-]+)", desc)
+        payer = normalize_tenant_name(row.get("payer") or "Unknown")
+        reversals.setdefault(payer, []).append({
+            "date":        row.get("date", ""),
+            "amount":      abs(amount),
+            "ref":         m.group(1) if m else None,
+            "description": desc,
+        })
+    return reversals
+
+
+def parse_status_line(description: str) -> str:
+    """The event's own 'Status:' line value ('' when absent) — used to
+    un-grey settled-muted events back to their true colors after a
+    reversal breaks the month's settlement."""
+    m = re.search(r"^Status:\s+(.+)$", description or "", re.M)
+    return m.group(1).strip() if m else ""
+
+
 def diff_rent_roll(cached_rows: Optional[list[dict]], fresh_rows: list[dict],
                    eps: float = 0.005) -> set:
     """

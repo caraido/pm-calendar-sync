@@ -16,9 +16,10 @@ from .config import (
 )
 from .status import (
     classify_status, payment_status, color_for_status, emoji_for_status,
-    STATUS_PARTIAL, STATUS_UNPAID, STATUS_SETTLED,
+    STATUS_PAID, STATUS_PREPAID, STATUS_PARTIAL, STATUS_UNPAID,
+    STATUS_LATE, STATUS_SETTLED,
 )
-from .transforms import normalize_tenant_name, _next_day
+from .transforms import normalize_tenant_name, parse_status_line, _next_day
 
 
 def _gcal_execute(request, retries: int = GCAL_RETRY_ATTEMPTS,
@@ -341,6 +342,94 @@ class GoogleCalendarManager:
         except HttpError as e:
             log.error(f"  Failed to revert event {event_id}: {e}")
 
+    # ── NSF reversal mutations (prior-month reconciliation) ──────────────────
+
+    def flip_event_to_nsf(self, calendar_id: str, event_body: dict,
+                          note_line: str, retag_idx: bool = False):
+        """
+        Repaint an event whose payment was later reversed: red, ' NSF' title
+        tag, reversal note appended.  Idempotent (no-op when already flipped
+        with this note).  retag_idx moves okpm_payment_idx aside
+        (idx → 'nsf<idx>') so _find_payment_event's exact-index matching can
+        never collide with a future payment at that position.
+        """
+        summary = event_body.get("summary") or ""
+        desc    = event_body.get("description") or ""
+        if (event_body.get("colorId") == COLOR_UNPAID
+                and " NSF" in summary and note_line in desc):
+            return
+        parts = summary.split(" · ", 1)
+        if len(parts) == 2:
+            summary = "🔴 · " + parts[1]
+        if " NSF" not in summary:
+            summary += " NSF"
+        if note_line not in desc:
+            desc = (desc + "\n" if desc else "") + note_line
+        event_body["summary"]     = summary
+        event_body["description"] = desc
+        event_body["colorId"]     = COLOR_UNPAID
+        if retag_idx:
+            props = (event_body.setdefault("extendedProperties", {})
+                     .setdefault("private", {}))
+            idx = props.get("okpm_payment_idx")
+            if idx is not None and not str(idx).startswith("nsf"):
+                props["okpm_payment_idx"] = f"nsf{idx}"
+            props["okpm_nsf"] = "1"
+        try:
+            _gcal_execute(self.service.events().update(
+                calendarId=calendar_id, eventId=event_body["id"],
+                body=event_body))
+        except HttpError as e:
+            log.error(f"  Failed to flip event {event_body.get('id')} to NSF: {e}")
+
+    def unmute_event_to_own_status(self, calendar_id: str, event_body: dict):
+        """
+        Un-grey a settled-muted event after its month's settlement broke
+        (a payment was reversed).  NSF markers take precedence (red — the
+        body's own 'Status:' line reads 🟡 for NSF payments, which would be
+        wrong); else the event's own Status line decides; unparseable /
+        unknown → left grey with a log line.
+        """
+        if event_body.get("colorId") != COLOR_SETTLED:
+            return
+        summary = event_body.get("summary") or ""
+        desc    = event_body.get("description") or ""
+        if " NSF" in summary or "REVERSED" in desc:
+            color, emoji = COLOR_UNPAID, "🔴"
+        else:
+            status = parse_status_line(desc)
+            if status not in (STATUS_PAID, STATUS_PREPAID, STATUS_PARTIAL,
+                              STATUS_UNPAID, STATUS_LATE):
+                log.warning(
+                    f"  Cannot un-grey event {event_body.get('id')}: "
+                    f"unrecognized Status line {status!r} — leaving muted")
+                return
+            color, emoji = color_for_status(status), emoji_for_status(status)
+        parts = summary.split(" · ", 1)
+        if len(parts) == 2:
+            event_body["summary"] = f"{emoji} · " + parts[1]
+        event_body["colorId"] = color
+        try:
+            _gcal_execute(self.service.events().update(
+                calendarId=calendar_id, eventId=event_body["id"],
+                body=event_body))
+        except HttpError as e:
+            log.error(f"  Failed to un-grey event {event_body.get('id')}: {e}")
+
+    def append_description_note(self, calendar_id: str, event_body: dict,
+                                note_line: str):
+        """Append a note line to an event's description (idempotent)."""
+        desc = event_body.get("description") or ""
+        if note_line in desc:
+            return
+        event_body["description"] = (desc + "\n" if desc else "") + note_line
+        try:
+            _gcal_execute(self.service.events().update(
+                calendarId=calendar_id, eventId=event_body["id"],
+                body=event_body))
+        except HttpError as e:
+            log.error(f"  Failed to append note to {event_body.get('id')}: {e}")
+
     # ── Event builders ────────────────────────────────────────────────────────
 
     def _build_commitment_event(
@@ -440,14 +529,23 @@ class GoogleCalendarManager:
         balance_after_first: Optional[float] = None,
         total_payments: int = 0,
         month_fully_paid: bool = False,
+        reversal_notes: Optional[list] = None,
     ) -> dict:
         emoji        = emoji_for_status(event_status)
-        # Once the month is fully paid, mute an earlier/partial headline event to
-        # grey so attention stays on units that still owe. A single payment that
-        # settles the month has event_status Paid (green) and prepaid has Prepaid
-        # (pink) — neither is Partial/Unpaid, so neither is muted here.
         title_color  = color_for_status(event_status)
-        if month_fully_paid and event_status in (STATUS_PARTIAL, STATUS_UNPAID):
+        # An NSF first payment reads red — nothing was effectively received —
+        # matching the explicit override in _build_additional_payment_event.
+        # (event_status comes from payment_status, which never returns
+        # Unpaid, so without this an NSF first payment rendered yellow.)
+        if first_payment and first_payment.get("is_nsf"):
+            emoji, title_color = "🔴", COLOR_UNPAID
+        # Once the month is fully paid, mute an earlier partial/NSF headline
+        # event to grey so attention stays on units that still owe. A single
+        # payment that settles the month has event_status Paid (green) and
+        # prepaid has Prepaid (pink) — neither is muted here.
+        if month_fully_paid and (
+                event_status in (STATUS_PARTIAL, STATUS_UNPAID)
+                or (first_payment and first_payment.get("is_nsf"))):
             emoji       = emoji_for_status(STATUS_SETTLED)
             title_color = COLOR_SETTLED
         unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
@@ -531,6 +629,9 @@ class GoogleCalendarManager:
                 "─" * 40,
                 "No payments received yet.",
             ]
+
+        if reversal_notes:
+            desc += ["─" * 40] + [str(n) for n in reversal_notes]
 
         desc += [
             "─" * 40,

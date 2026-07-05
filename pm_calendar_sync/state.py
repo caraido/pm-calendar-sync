@@ -16,6 +16,18 @@ class StateManager:
       payment_event_dates,   — index-aligned canonical dates for
                                payment_event_ids; submit-mode payment-drag
                                detection reads them (no ledger there)
+      payments,              — [{date, amount, is_nsf, description}] for ALL
+                               of the month's payments (index 0 = the one
+                               absorbed into the status event); NSF-reversal
+                               reconciliation matches against these
+      nsf_reversals_applied, — [{key, ref, date, amount}] reversals already
+                               applied to this soid's month (per-calendar
+                               idempotence markers; the month's own status
+                               is deliberately left as written — the marker
+                               and event notes are the honest annotation)
+      nsf_event_ids,         — payment events flipped to NSF display after
+                               their ledger row vanished (no longer
+                               positionally tracked in payment_event_ids)
       last_updated
 
     Future-month entries additionally use:

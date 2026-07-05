@@ -431,6 +431,168 @@ with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
 check("ambiguous tenant match -> skipped, no writes",
       n3 == 0 and not upd.called)
 
+print("\n=== 13. Bug-2 fix: build_reversal_map ===")
+ledger_fx = [
+    {"payer": "Darden, Sanquia", "credit": "-1530.00", "date": "2026-07-01",
+     "description": "NSF reversal receipt for Reference #1A4A-5A70"},
+    {"payer": "Doe, Jon", "credit": "-25.00", "date": "2026-07-02",
+     "description": "Balance adjustment"},
+    {"payer": "Doe, Jon", "credit": "500.00", "date": "2026-07-02",
+     "description": "ACH Payment (Reference #AAAA-BBBB)"},
+    {"payer": "X", "credit": None, "date": "2026-07-03", "description": "noise"},
+]
+rmap = transforms.build_reversal_map(ledger_fx)
+check("negative row with ref parsed",
+      rmap.get("Sanquia Darden") == [{
+          "date": "2026-07-01", "amount": 1530.0, "ref": "1A4A-5A70",
+          "description": "NSF reversal receipt for Reference #1A4A-5A70"}])
+check("negative row without ref -> ref None",
+      rmap.get("Jon Doe") and rmap["Jon Doe"][0]["ref"] is None
+      and rmap["Jon Doe"][0]["amount"] == 25.0)
+check("positive / null rows excluded", len(rmap.get("Jon Doe", [])) == 1
+      and "X" not in rmap)
+pmap = transforms.build_payment_map(ledger_fx)
+check("payment_map unchanged (positives only, keyword is_nsf intact)",
+      list(pmap) == ["Jon Doe"] and pmap["Jon Doe"][0]["amount"] == 500.0)
+
+print("\n=== 14. Bug-2 fix: first-payment NSF renders red ===")
+nsf_pay = {"date": "2026-06-04", "amount": 1400.0, "is_nsf": True,
+           "description": "ACH (#REF1)", "intended_month": None}
+b = orch.gcal._build_status_event(unit_fx, status.STATUS_PARTIAL,
+                                  _date(2026, 6, 4), nsf_pay, 1400.0,
+                                  total_payments=1)
+check("NSF first payment -> red + NSF tag",
+      b["colorId"] == "11" and b["summary"].startswith("🔴")
+      and " NSF" in b["summary"])
+b2 = orch.gcal._build_status_event(unit_fx, status.STATUS_PARTIAL,
+                                   _date(2026, 6, 4), nsf_pay, 0.0,
+                                   total_payments=2, month_fully_paid=True)
+check("settled month -> muting wins over NSF red", b2["colorId"] == "8")
+ok_pay = {**nsf_pay, "is_nsf": False}
+b3 = orch.gcal._build_status_event(unit_fx, status.STATUS_PARTIAL,
+                                   _date(2026, 6, 4), ok_pay, 700.0,
+                                   total_payments=1)
+check("non-NSF first payment unchanged (yellow)", b3["colorId"] == "5")
+b4 = orch.gcal._build_status_event(
+    unit_fx, status.STATUS_UNPAID, _date(2026, 7, 1),
+    reversal_notes=["⚠️ $1,530.00 payment REVERSED (NSF) on Jul 01, 2026"])
+check("reversal notes rendered on the status event",
+      "REVERSED (NSF) on Jul 01, 2026" in b4["description"])
+
+print("\n=== 15. Bug-2 fix: prior-month NSF reconciliation ===")
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({
+        "_commitments": {},
+        "85@10_2026-06": {"status": "✅ Paid", "past_due": 0.0,
+                          "calendar_id": "calA", "status_event_id": "st6",
+                          "status_event_date": "2026-06-05",
+                          "late_event_id": None,
+                          "payment_event_ids": ["p61", "p62"]},
+        "85@10_2026-07": {"status": "🔴 Unpaid", "past_due": 3030.0,
+                          "calendar_id": "calA", "status_event_id": "st7",
+                          "status_event_date": "2026-07-01",
+                          "late_event_id": None, "payment_event_ids": []},
+    }, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch5 = SyncOrchestrator()
+os.unlink(tmp)
+
+bodies = {
+    "st6": {"id": "st6", "colorId": "8",
+            "summary": "⚪ · Sanquia Darden · Unit 2 · 7736 South Greenwood Avenue · $500 paid",
+            "description": "Payment 1 of 3\nStatus:       🟡 Partial"},
+    "p61": {"id": "p61", "colorId": "8",
+            "summary": "⚪ · Sanquia Darden · Unit 2 · 7736 South Greenwood Avenue · $500",
+            "description": "Method:       ACH (#OTHER-REF)\nAmount:       $500.00\nStatus:       🟡 Partial"},
+    "p62": {"id": "p62", "colorId": "2",
+            "summary": "✅ · Sanquia Darden · Unit 2 · 7736 South Greenwood Avenue · $1,530",
+            "description": "Method:       ACH (#1A4A-5A70)\nAmount:       $1,530.00\nStatus:       ✅ Paid"},
+}
+unit85 = {"occupancy_id": "85", "tenant": "Darden, Sanquia",
+          "additional_tenants": "", "rent": 1500.0, "past_due": 3030.0}
+rmap85 = {"Sanquia Darden": [
+    {"date": "2026-07-01", "amount": 1530.0, "ref": "1A4A-5A70",
+     "description": "NSF reversal receipt for Reference #1A4A-5A70"},
+    {"date": "2026-07-01", "amount": 99.0, "ref": "1A4A",
+     "description": "bogus prefix ref must not match"},
+]}
+upd5 = orch5.gcal.service.events.return_value.update
+with mock.patch.object(orch5.gcal, "get_event",
+                       side_effect=lambda cal, eid: bodies.get(eid)):
+    orch5._apply_nsf_reversals("85@10", "calA", unit85, _date(2026, 7, 4),
+                               "2026-07", rmap85,
+                               surplus_payment_ids=[], prior_payments=[])
+    first_pass_updates = upd5.call_count
+    check("reversed payment event flipped red + NSF + note",
+          bodies["p62"]["colorId"] == "11"
+          and bodies["p62"]["summary"].startswith("🔴")
+          and " NSF" in bodies["p62"]["summary"]
+          and "REVERSED (NSF)" in bodies["p62"]["description"])
+    check("month's muted events un-greyed to their own status",
+          bodies["p61"]["colorId"] == "5" and bodies["st6"]["colorId"] == "5")
+    check("status event notes the broken settlement",
+          "month no longer settled" in bodies["st6"]["description"])
+    june = orch5.state.get("85@10", "2026-06")
+    check("idempotence marker recorded on the June entry",
+          [r["key"] for r in june["nsf_reversals_applied"]] == ["1A4A-5A70"])
+    check("prefix ref '#1A4A' did NOT match '#1A4A-5A70'",
+          all(r["key"] != "1A4A" for r in june["nsf_reversals_applied"]))
+    orch5._apply_nsf_reversals("85@10", "calA", unit85, _date(2026, 7, 4),
+                               "2026-07", rmap85,
+                               surplus_payment_ids=[], prior_payments=[])
+    check("second pass is a no-op (markers honored)",
+          upd5.call_count == first_pass_updates)
+
+print("\n=== 16. Bug-2 fix: current-month vanished-row handling ===")
+bodies7 = {
+    "p71": {"id": "p71", "colorId": "2",
+            "summary": "✅ · Sanquia Darden · Unit 2 · 7736 South Greenwood Avenue · $800",
+            "description": "Method:       ACH (#CCCC-DDDD)\nAmount:       $800.00\nStatus:       ✅ Paid",
+            "extendedProperties": {"private": {"okpm_payment_idx": "1"}}},
+    "p72": {"id": "p72", "colorId": "2",
+            "summary": "✅ · Sanquia Darden · Unit 2 · 7736 South Greenwood Avenue · $300",
+            "description": "Method:       ACH (#GGGG-HHHH)\nAmount:       $300.00\nStatus:       ✅ Paid"},
+    "st7": {"id": "st7", "colorId": "11",
+            "summary": "🔴 · Sanquia Darden · Unit 2 · 7736 South Greenwood Avenue · $3,030 due",
+            "description": "No payments received yet.\nStatus:       🔴 Unpaid"},
+}
+rmap7 = {"Sanquia Darden": [
+    {"date": "2026-07-02", "amount": 800.0, "ref": "CCCC-DDDD",
+     "description": "NSF reversal receipt for Reference #CCCC-DDDD"},
+    {"date": "2026-07-02", "amount": 650.0, "ref": "EEEE-FFFF",
+     "description": "NSF reversal receipt for Reference #EEEE-FFFF"},
+    {"date": "2026-04-01", "amount": 111.0, "ref": "OLD1-OLD1",
+     "description": "NSF reversal receipt for Reference #OLD1-OLD1"},
+]}
+prior_pays = [{"date": "2026-07-02", "amount": 650.0, "is_nsf": False,
+               "description": "ACH (#EEEE-FFFF)"}]
+with mock.patch.object(orch5.gcal, "get_event",
+                       side_effect=lambda cal, eid: bodies7.get(eid)), \
+     mock.patch.object(orch5.gcal, "delete_event") as dele5:
+    orch5._apply_nsf_reversals("85@10", "calA", unit85, _date(2026, 7, 4),
+                               "2026-07", rmap7,
+                               surplus_payment_ids=["p71", "p72"],
+                               prior_payments=prior_pays)
+check("matching surplus event flipped + idx retagged",
+      bodies7["p71"]["colorId"] == "11"
+      and bodies7["p71"]["extendedProperties"]["private"]["okpm_payment_idx"] == "nsf1"
+      and bodies7["p71"]["extendedProperties"]["private"]["okpm_nsf"] == "1")
+check("non-matching surplus event deleted (positional duplicate)",
+      dele5.call_args == mock.call("calA", "p72"))
+july = orch5.state.get("85@10", "2026-07")
+check("flipped event recorded in nsf_event_ids + marker",
+      july.get("nsf_event_ids") == ["p71"]
+      and "CCCC-DDDD" in [r["key"] for r in july["nsf_reversals_applied"]])
+check("vanished single payment matched via stored payments -> noted",
+      "EEEE-FFFF" in [r["key"] for r in july["nsf_reversals_applied"]]
+      and "REVERSED (NSF)" in bodies7["st7"]["description"])
+check("62-day-old reversal ignored (no marker)",
+      "OLD1-OLD1" not in [r["key"] for r in july["nsf_reversals_applied"]])
+
 print()
 if failures:
     print(f"❌ {len(failures)} check(s) FAILED: {failures}")
