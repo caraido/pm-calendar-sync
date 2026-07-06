@@ -329,16 +329,7 @@
       }
     ],
     "52@4": [],
-    "114@4": [
-      {
-        "event_id": "ihhk7sqa3li1gf9ilarc2gsups",
-        "anchor_date": "2026-07-05",
-        "source_type": "status",
-        "origin_month": "2026-07",
-        "calendar_id": "d86bad25d4b5d330502326695d329649671b975b2ee5dd591b84209e0e135215@group.calendar.google.com",
-        "covers_rent_month": "2026-07"
-      }
-    ],
+    "114@4": [],
     "111@4": [],
     "77@9": [
       {
@@ -15739,18 +15730,25 @@
     "last_updated": "2026-07-01T03:52:07.297584"
   },
   "114@4_2026-07": {
-    "status": "\ud83d\udd34 Unpaid",
-    "past_due": 1500.0,
+    "status": "\u2705 Paid",
+    "past_due": 0.0,
     "calendar_id": "d86bad25d4b5d330502326695d329649671b975b2ee5dd591b84209e0e135215@group.calendar.google.com",
-    "status_event_id": null,
-    "status_event_date": "2026-07-01",
+    "status_event_id": "54qemhghmvmq4g68s1l89gou5o",
+    "status_event_date": "2026-07-05",
     "late_event_id": null,
     "payment_event_ids": [],
     "payment_event_dates": [],
-    "payments": [],
+    "payments": [
+      {
+        "date": "2026-07-05",
+        "amount": 1500.0,
+        "is_nsf": false,
+        "description": "Credit Card (#1945-0600)"
+      }
+    ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-06T01:59:57.281702"
+    "last_updated": "2026-07-06T03:03:59.026913"
   },
   "115@4_2026-06": {
     "status": "\u2705 Paid",
