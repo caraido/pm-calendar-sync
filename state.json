@@ -147,7 +147,7 @@
     "18@6": [
       {
         "event_id": "09j45o2na17gib0abth3b75ars",
-        "anchor_date": "2026-07-06",
+        "anchor_date": "2026-07-07",
         "source_type": "status",
         "origin_month": "2026-07",
         "calendar_id": "a0b13d9105b9b2b3041443e756951d0ff63a62da5dd772f6d7596b31113feccf@group.calendar.google.com",
@@ -420,7 +420,7 @@
     "7@1": [
       {
         "event_id": "qhvn3fid5fr1s55sret9tmnt9s",
-        "anchor_date": "2026-07-06",
+        "anchor_date": "2026-07-07",
         "source_type": "status",
         "origin_month": "2026-07",
         "calendar_id": "5f369979aa8696290e1b6a28c29c3d2a0ea85cfdb5122e884e89adc757316575@group.calendar.google.com",
@@ -9106,7 +9106,7 @@
   },
   "7@1_2026-07": {
     "status": "\ud83d\udd34 Unpaid",
-    "past_due": 1730.0,
+    "past_due": 1700.0,
     "calendar_id": "5f369979aa8696290e1b6a28c29c3d2a0ea85cfdb5122e884e89adc757316575@group.calendar.google.com",
     "status_event_id": null,
     "status_event_date": "2026-07-01",
@@ -9116,7 +9116,7 @@
     "payments": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-07T13:11:59.922861"
+    "last_updated": "2026-07-07T15:13:47.922191"
   },
   "7@1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9218,7 +9218,7 @@
   },
   "10@1_2026-07": {
     "status": "\ud83d\udd34 Unpaid",
-    "past_due": 1730.0,
+    "past_due": 1700.0,
     "calendar_id": "5f369979aa8696290e1b6a28c29c3d2a0ea85cfdb5122e884e89adc757316575@group.calendar.google.com",
     "status_event_id": null,
     "status_event_date": "2026-07-01",
@@ -9228,7 +9228,7 @@
     "payments": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-07T13:12:01.525684"
+    "last_updated": "2026-07-07T15:13:49.532522"
   },
   "10@1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -16496,24 +16496,42 @@
   },
   "18@6_2026-07": {
     "status": "\ud83d\udfe1 Partial",
-    "past_due": 809.0,
+    "past_due": 159.0,
     "calendar_id": "a0b13d9105b9b2b3041443e756951d0ff63a62da5dd772f6d7596b31113feccf@group.calendar.google.com",
     "status_event_id": "hh8du3e95ff47k2mqe1pbueo6c",
     "status_event_date": "2026-07-01",
     "late_event_id": null,
-    "payment_event_ids": [],
-    "payment_event_dates": [],
+    "payment_event_ids": [
+      "d5rolo99v3nbohd39na684bmuo",
+      "523pfnt8n6n96cuemb41v27ac8"
+    ],
+    "payment_event_dates": [
+      "2026-07-07",
+      "2026-07-07"
+    ],
     "payments": [
       {
         "date": "2026-07-01",
         "amount": 1491.0,
         "is_nsf": false,
         "description": "Payment July Rent"
+      },
+      {
+        "date": "2026-07-07",
+        "amount": 350.0,
+        "is_nsf": false,
+        "description": "Credit Card (#6157-24E0)"
+      },
+      {
+        "date": "2026-07-07",
+        "amount": 300.0,
+        "is_nsf": false,
+        "description": "Credit Card (#CDF5-6560)"
       }
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-07T13:14:01.677408"
+    "last_updated": "2026-07-07T15:13:55.340151"
   },
   "18@6_2026-08": {
     "status": "\ud83d\udfe1 Partial",
