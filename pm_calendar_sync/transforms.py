@@ -277,6 +277,153 @@ def compute_running_balances(sorted_payments: list[dict], current_past_due: floa
     return balances
 
 
+def group_payments_by_day(sorted_payments: list[dict]) -> list[dict]:
+    """
+    Collapse same-day payments into display "day-groups" — the calendar
+    renders one event per group.  Input must already be sorted by
+    (date, -amount) and filtered to the month being rendered.
+
+    Each group duck-types as a payment ({date, amount, is_nsf, description,
+    intended_month}) plus "rows" (its member ledger rows, in input order), so
+    the event builders and compute_running_balances take groups unchanged:
+    the balance after a group equals the balance after its last member row.
+    Non-NSF rows sharing a date merge into one group (amount = sum); every
+    NSF row stays a singleton group — a bounced payment is its own red
+    event, never blended into money actually received.
+    """
+    groups: list[dict] = []
+    merged_by_date: dict[str, dict] = {}
+    for p in sorted_payments:
+        if p.get("is_nsf"):
+            groups.append({**p, "rows": [p]})
+            continue
+        g = merged_by_date.get(p["date"])
+        if g is None:
+            g = {**p, "rows": [p]}
+            merged_by_date[p["date"]] = g
+            groups.append(g)
+        else:
+            g["rows"].append(p)
+            g["amount"] += p["amount"]
+            g["description"] = f"{len(g['rows'])} same-day payments"
+            if not g.get("intended_month"):
+                g["intended_month"] = p.get("intended_month")
+    return groups
+
+
+def _payment_row_key(p: dict) -> tuple:
+    """Identity of a ledger row for settled-baseline matching.  is_nsf is
+    part of the key on purpose: a settled row that reappears NSF-flagged
+    must read as 'settled row gone' (baseline broken → collapse revert)."""
+    try:
+        amt = round(float(p.get("amount") or 0), 2)
+    except (TypeError, ValueError):
+        amt = 0.0
+    return (p.get("date"), amt, p.get("description"), bool(p.get("is_nsf")))
+
+
+def split_settled_rows(live_payments: list[dict],
+                       settled_rows: list[dict]) -> tuple[list[dict], int]:
+    """
+    Partition the live ledger rows against the settled-baseline snapshot.
+    Returns (fresh_rows, missing): fresh_rows = live rows with one occurrence
+    removed per matching settled row (multiset subtraction, order kept);
+    missing = how many settled rows no longer appear live (vanished from the
+    pull, or reappeared with a different amount / NSF flag).
+    """
+    remaining: dict = {}
+    for p in settled_rows:
+        k = _payment_row_key(p)
+        remaining[k] = remaining.get(k, 0) + 1
+    fresh = []
+    for p in live_payments:
+        k = _payment_row_key(p)
+        if remaining.get(k):
+            remaining[k] -= 1
+        else:
+            fresh.append(p)
+    return fresh, sum(remaining.values())
+
+
+def resolve_collapse_transition(prior: Optional[dict],
+                                live_payments: list[dict],
+                                past_due: float) -> dict:
+    """
+    Settled-month collapse state machine (pure; current month only).
+
+    Month-entry fields consumed: collapse_state (None/absent = expanded,
+    "collapsed", "frozen", "reactivated"), settled_rows (the ledger-row
+    snapshot retired into description history at collapse; legacy fallback:
+    payments[:collapse_baseline]).
+
+    Transition table (pd = live past_due, baseline = the settled snapshot):
+      any        pd <= 0                          → COLLAPSED  (snapshot := all live rows)
+      expanded   pd > 0                           → expanded
+      c/f/r      pd > 0, a settled row vanished
+                 or bounced (NSF)                 → expanded   (REVERT — NSF un-collapse)
+      c/f        pd > 0, baseline intact, no new
+                 rows                             → FROZEN     (post-settle charge: hands off)
+      c/f/r      pd > 0, baseline intact, new
+                 rows                             → REACTIVATED (fresh tracking over new rows)
+      collapsed with an EMPTY baseline (pure-prepaid month) + a new payment
+                 → plain expanded (nothing settled to retire into history).
+
+    Returns {state, settled_rows, fresh, transitioned, reverted}:
+      settled_rows — snapshot to persist (list of live row dicts);
+      fresh        — live rows outside the snapshot (reactivated tracking);
+      transitioned — state or snapshot size changed (forces an event rebuild);
+      reverted     — a collapse was undone this run (baseline broken).
+    """
+    prior = prior or {}
+    prior_state = prior.get("collapse_state")
+    if prior_state not in ("collapsed", "frozen", "reactivated"):
+        prior_state = None
+    settled_rows = list(prior.get("settled_rows") or [])
+    if not settled_rows and prior.get("collapse_baseline"):
+        try:
+            n = int(prior.get("collapse_baseline") or 0)
+        except (TypeError, ValueError):
+            n = 0
+        settled_rows = list((prior.get("payments") or [])[:n])
+    prior_size = len(settled_rows) if prior_state else 0
+
+    def _result(state, snapshot, fresh, reverted):
+        return {
+            "state":        state,
+            "settled_rows": snapshot,
+            "fresh":        fresh,
+            "transitioned": (state != prior_state
+                             or len(snapshot) != prior_size),
+            "reverted":     reverted,
+        }
+
+    if past_due <= 0:
+        return _result("collapsed", list(live_payments), [], False)
+
+    if prior_state is None:
+        return _result(None, [], list(live_payments), False)
+
+    fresh, missing = split_settled_rows(live_payments, settled_rows)
+    if settled_rows and missing:
+        # A settled row vanished or bounced → the settlement was fiction;
+        # re-expand (the NSF machinery paints the bounced payment red).
+        return _result(None, [], list(live_payments), True)
+    if not settled_rows:
+        # Pure-prepaid collapse (no payments this month).  A charge alone
+        # freezes the pink/green event; any payment means there is nothing
+        # settled to retire — plain expanded tracking.
+        if fresh:
+            return _result(None, [], list(live_payments), False)
+        return _result("frozen", [], [], False)
+    if fresh:
+        return _result("reactivated", settled_rows, fresh, False)
+    # No fresh rows: a plain charge freezes, and a REACTIVATED month whose
+    # fresh rows all vanished (bounced without a reversal record yet, or a
+    # ledger anomaly) returns to the frozen settled display — one canonical
+    # state, so every consumer (rebuild, cleanup, reversal pass) agrees.
+    return _result("frozen", settled_rows, [], False)
+
+
 def format_address(row: dict) -> str:
     return ", ".join(p for p in [
         row.get("property_street",""), row.get("property_city",""),

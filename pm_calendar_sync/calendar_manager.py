@@ -18,7 +18,7 @@ from .config import (
 from .status import (
     classify_status, payment_status, color_for_status, emoji_for_status,
     STATUS_PAID, STATUS_PREPAID, STATUS_PARTIAL, STATUS_UNPAID,
-    STATUS_LATE, STATUS_SETTLED,
+    STATUS_LATE,
 )
 from .transforms import normalize_tenant_name, parse_status_line, _next_day
 
@@ -41,6 +41,39 @@ def _gcal_execute(request, retries: int = GCAL_RETRY_ATTEMPTS,
                 time.sleep(delay)
             else:
                 raise
+
+
+_PROMISE_SOURCE_LABEL = {
+    "status":    "Status",
+    "payment":   "Payment",
+    "late":      "Late",
+    "kickstart": "Kickstart",
+}
+
+
+def _promise_history_lines(promise_history: list) -> list[str]:
+    """Render persisted promise-history records (see StateManager docstring)
+    as description lines for the settled/status event."""
+    lines = ["Promise history:"]
+    for rec in promise_history:
+        anchor = rec.get("anchor_date") or "?"
+        try:
+            anchor = date.fromisoformat(anchor).strftime("%b %d, %Y")
+        except ValueError:
+            pass
+        src = _PROMISE_SOURCE_LABEL.get(
+            rec.get("source_type") or "",
+            (rec.get("source_type") or "?").title())
+        verdict = ("KEPT (payment received that day)"
+                   if rec.get("outcome") == "kept"
+                   else "RESOLVED (balance cleared)")
+        lines.append(f"• {src} promise for {anchor} — {verdict}")
+    return lines
+
+
+def _payment_rows(payment_or_group: dict) -> list[dict]:
+    """Member ledger rows of a day-group; a bare payment is its own row."""
+    return payment_or_group.get("rows") or [payment_or_group]
 
 
 class GoogleCalendarManager:
@@ -519,6 +552,11 @@ class GoogleCalendarManager:
         body's own 'Status:' line reads 🟡 for NSF payments, which would be
         wrong); else the event's own Status line decides; unparseable /
         unknown → left grey with a log line.
+
+        LEGACY-MONTHS ONLY since the settled-collapse deploy: new months
+        never render grey (a fully-paid month collapses to one event
+        instead), so this now serves only pre-deploy months whose grey
+        events are frozen history.
         """
         if event_body.get("colorId") != COLOR_SETTLED:
             return
@@ -658,9 +696,18 @@ class GoogleCalendarManager:
         first_payment: Optional[dict] = None,
         balance_after_first: Optional[float] = None,
         total_payments: int = 0,
-        month_fully_paid: bool = False,
         reversal_notes: Optional[list] = None,
+        promise_history: Optional[list] = None,
+        settled_prefix: Optional[dict] = None,
     ) -> dict:
+        """
+        first_payment is the month's first DAY-GROUP (all payments on the
+        first payment date, absorbed into this event); total_payments counts
+        day-groups.  A fully-paid month uses _build_settled_month_event
+        instead — the old grey muting is gone.  settled_prefix renders the
+        "previously settled" section on a REACTIVATED month (a charge after
+        settlement being paid down): {count, total, settled_on, rows}.
+        """
         emoji        = emoji_for_status(event_status)
         title_color  = color_for_status(event_status)
         # An NSF first payment reads red — nothing was effectively received —
@@ -669,15 +716,6 @@ class GoogleCalendarManager:
         # Unpaid, so without this an NSF first payment rendered yellow.)
         if first_payment and first_payment.get("is_nsf"):
             emoji, title_color = "🔴", COLOR_UNPAID
-        # Once the month is fully paid, mute an earlier partial/NSF headline
-        # event to grey so attention stays on units that still owe. A single
-        # payment that settles the month has event_status Paid (green) and
-        # prepaid has Prepaid (pink) — neither is muted here.
-        if month_fully_paid and (
-                event_status in (STATUS_PARTIAL, STATUS_UNPAID)
-                or (first_payment and first_payment.get("is_nsf"))):
-            emoji       = emoji_for_status(STATUS_SETTLED)
-            title_color = COLOR_SETTLED
         unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
         tenant_short = normalize_tenant_name(unit['tenant'])
         tenant_full  = normalize_tenant_name(unit['tenant'])
@@ -715,28 +753,50 @@ class GoogleCalendarManager:
             f"Monthly Rent: ${unit['rent']:,.2f}",
         ]
 
+        # REACTIVATED month: the settled payments live on as history text
+        # only — the fresh tracking below covers just the new balance.
+        if settled_prefix and settled_prefix.get("count"):
+            settled_on = settled_prefix.get("settled_on") or ""
+            try:
+                settled_on = date.fromisoformat(settled_on).strftime("%b %d, %Y")
+            except ValueError:
+                pass
+            desc += [
+                "─" * 40,
+                (f"Previously settled {settled_on}: "
+                 f"${settled_prefix['total']:,.2f} across "
+                 f"{settled_prefix['count']} payment(s)"),
+            ]
+            desc += self._payment_history_blocks(settled_prefix.get("rows") or [])
+            desc.append("A charge posted after settlement — tracking below "
+                        "covers the new balance only.")
+
         if first_payment:
-            try: pay_display = date.fromisoformat(first_payment['date']).strftime('%b %d, %Y')
-            except: pay_display = first_payment['date']
+            rows = _payment_rows(first_payment)
             try: month_label = date.fromisoformat(first_payment['date']).strftime('%B')
             except: month_label = 'this month'
-            nsf_note      = "  ⚠️ REVERSED / NSF" if first_payment['is_nsf'] else ""
-            intended       = first_payment.get('intended_month')
             bal            = balance_after_first if balance_after_first is not None else unit['past_due']
             remaining      = max(0.0, bal)
             has_credit_now = bal < 0
-            desc += [
-                "─" * 40,
-                f"Payment {1} of {total_payments}",
-                f"Date:         {pay_display}",
-                f"Method:       {first_payment['description']}{nsf_note}",
-                f"Amount:       ${first_payment['amount']:,.2f}",
-            ]
-            if intended:
-                desc.append(
-                    f"              ⚠️ Applies to "
-                    f"{date(intended[0],intended[1],1).strftime('%B %Y')} charges"
-                )
+            header = f"Payment {1} of {total_payments}"
+            if len(rows) > 1:
+                header += f"  ({len(rows)} same-day payments)"
+            desc += ["─" * 40, header]
+            for r in rows:
+                try: pay_display = date.fromisoformat(r['date']).strftime('%b %d, %Y')
+                except: pay_display = r['date']
+                nsf_note = "  ⚠️ REVERSED / NSF" if r.get('is_nsf') else ""
+                desc += [
+                    f"Date:         {pay_display}",
+                    f"Method:       {r['description']}{nsf_note}",
+                    f"Amount:       ${r['amount']:,.2f}",
+                ]
+                intended = r.get('intended_month')
+                if intended:
+                    desc.append(
+                        f"              ⚠️ Applies to "
+                        f"{date(intended[0],intended[1],1).strftime('%B %Y')} charges"
+                    )
             credit_suffix = (
                 f"  (+ ${abs(bal):,.2f} credit toward next month)" if has_credit_now else ""
             )
@@ -759,6 +819,9 @@ class GoogleCalendarManager:
                 "─" * 40,
                 "No payments received yet.",
             ]
+
+        if promise_history:
+            desc += ["─" * 40] + _promise_history_lines(promise_history)
 
         if reversal_notes:
             desc += ["─" * 40] + [str(n) for n in reversal_notes]
@@ -789,16 +852,19 @@ class GoogleCalendarManager:
         self, unit: dict, payment: dict,
         payment_num: int, total_payments: int,
         running_balance: float, month_received: float,
-        month_fully_paid: bool = False,
     ) -> dict:
+        """payment is a DAY-GROUP (all of one date's payments as one event;
+        NSF rows always arrive as singleton groups); payment_num /
+        total_payments count day-groups.  A fully-paid month has no payment
+        events at all (see _build_settled_month_event) — the old grey muting
+        is gone."""
         pay_date   = payment["date"]
+        rows       = _payment_rows(payment)
         # This event represents a received payment → payment_status keeps it
         # 🟡 Partial (never 🔴) while any balance remains.  (NSF and intended-
         # month cases below override the colour explicitly.)
         pay_status = payment_status(unit['rent'], running_balance)
         pay_emoji  = emoji_for_status(pay_status)
-        try: pay_display = date.fromisoformat(pay_date).strftime("%b %d, %Y")
-        except: pay_display = pay_date
         try: month_label = date.fromisoformat(pay_date).strftime("%B")
         except: month_label = "this month"
 
@@ -812,36 +878,34 @@ class GoogleCalendarManager:
         else:
             emoji, color, tag = pay_emoji, color_for_status(pay_status), ""
 
-        # Once the month is fully paid, mute earlier or failed (NSF) payments to
-        # grey so the PM's attention stays on units that still owe.  The settling
-        # payment (balance 0 → Paid/green) and any prepaid/credit payment (Prepaid/
-        # pink) leave running_balance <= 0, so pay_status is not Partial and they
-        # keep their colour — marking exactly when the tenant paid in full.
-        if month_fully_paid and (payment['is_nsf'] or pay_status == STATUS_PARTIAL):
-            emoji, color = emoji_for_status(STATUS_SETTLED), COLOR_SETTLED
-
         title = (
             f"{emoji} · {tenant_full} · "
             f"{unit_part}{unit['property_name']} · "
             f"${payment['amount']:,.0f}{tag}"
         )
 
-        nsf_note    = "  ⚠️ REVERSED / NSF" if payment['is_nsf'] else ""
-        intended    = payment.get('intended_month')
         bal_display = max(0.0, running_balance)
         has_credit  = running_balance < 0
 
-        desc = [
-            f"Payment {payment_num} of {total_payments} in {month_label}",
-            f"Date:         {pay_display}",
-            f"Method:       {payment['description']}{nsf_note}",
-            f"Amount:       ${payment['amount']:,.2f}",
-        ]
-        if intended:
-            desc.append(
-                f"              ⚠️ Applies to "
-                f"{date(intended[0],intended[1],1).strftime('%B %Y')} charges"
-            )
+        header = f"Payment {payment_num} of {total_payments} in {month_label}"
+        if len(rows) > 1:
+            header += f"  ({len(rows)} same-day payments)"
+        desc = [header]
+        for r in rows:
+            try: pay_display = date.fromisoformat(r['date']).strftime("%b %d, %Y")
+            except: pay_display = r['date']
+            nsf_note = "  ⚠️ REVERSED / NSF" if r.get('is_nsf') else ""
+            desc += [
+                f"Date:         {pay_display}",
+                f"Method:       {r['description']}{nsf_note}",
+                f"Amount:       ${r['amount']:,.2f}",
+            ]
+            intended = r.get('intended_month')
+            if intended:
+                desc.append(
+                    f"              ⚠️ Applies to "
+                    f"{date(intended[0],intended[1],1).strftime('%B %Y')} charges"
+                )
         desc += [
             "─" * 40,
             f"Received in {month_label}: ${month_received:,.2f}",
@@ -867,6 +931,180 @@ class GoogleCalendarManager:
                 "okpm_month":         pay_date[:7],
                 "okpm_event_type":    "payment",
                 "okpm_payment_idx":   str(payment_num - 1),
+            }},
+        }
+
+    @staticmethod
+    def _payment_history_blocks(rows: list[dict]) -> list[str]:
+        """Column-0 Date/Method/Amount blocks for retired (settled) payment
+        rows.  The exact 'Amount:       $X' format is load-bearing: NSF
+        reversal matching greps these lines (see _reversal_matches_text)."""
+        lines: list[str] = []
+        total = len(rows)
+        for i, r in enumerate(rows, start=1):
+            try:
+                pay_display = date.fromisoformat(r.get("date") or "").strftime("%b %d, %Y")
+            except ValueError:
+                pay_display = r.get("date") or "?"
+            nsf_note = "  ⚠️ REVERSED / NSF" if r.get("is_nsf") else ""
+            lines += [
+                f"Payment {i} of {total}",
+                f"Date:         {pay_display}",
+                f"Method:       {r.get('description','')}{nsf_note}",
+                f"Amount:       ${float(r.get('amount') or 0):,.2f}",
+            ]
+        return lines
+
+    def _build_settled_month_event(
+        self, unit: dict, anchor_date: date, day_groups: list,
+        promise_history: Optional[list] = None,
+        reversal_notes: Optional[list] = None,
+        settled_on: Optional[str] = None,
+    ) -> dict:
+        """
+        The ONE event a fully-paid month collapses to: green (balance 0) or
+        pink (credit) on the LAST payment date, with the whole payment and
+        promise history itemised in the description — the individual payment
+        events are deleted.  Keeps okpm_event_type="status" so every finder
+        and self-heal path treats it as the month's status event.  unit's
+        past_due/amount_paid must describe the settled snapshot (a FROZEN
+        rebuild passes the stored settled_past_due, not the live balance).
+        """
+        event_status = classify_status(unit["rent"], unit["past_due"])
+        emoji        = emoji_for_status(event_status)
+        color        = color_for_status(event_status)
+        unit_part    = f"{unit['unit_label']} · " if unit['unit_label'] else ""
+        tenant_short = normalize_tenant_name(unit['tenant'])
+        tenants      = tenant_short
+        if unit.get('additional_tenants'):
+            tenants += f", {normalize_tenant_name(unit['additional_tenants'])}"
+
+        rows        = [r for g in day_groups for r in _payment_rows(g)]
+        month_total = sum(r["amount"] for r in rows if not r.get("is_nsf"))
+        has_credit  = unit["past_due"] < 0
+        month_label = anchor_date.strftime("%B")
+
+        if rows:
+            title_tail = f"${month_total:,.0f} paid"
+        else:
+            # Pure-prepaid month: nothing arrived this month, the credit
+            # already covers it — same "$0 due" shape as the plain builder.
+            title_tail = "$0 due"
+        title = (
+            f"{emoji} · {tenant_short} · "
+            f"{unit_part}{unit['property_name']} · {title_tail}"
+        )
+
+        settled_display = settled_on or ""
+        try:
+            settled_display = date.fromisoformat(settled_display).strftime("%b %d, %Y")
+        except ValueError:
+            pass
+
+        due_date_this_month = date(anchor_date.year, anchor_date.month, RENT_DUE_DAY)
+        late_after = (
+            due_date_this_month + timedelta(days=unit.get('grace_days', LATE_GRACE_DAYS))
+        ).strftime('%b %d, %Y')
+
+        credit_suffix = (
+            f"  (+ ${abs(unit['past_due']):,.2f} credit toward next month)"
+            if has_credit else ""
+        )
+        desc = [
+            f"Tenant(s):    {tenants}",
+            (f"{unit['unit_label']}  |  " if unit['unit_label'] else "") + unit['address'],
+            f"Phone:        {unit['phone']}",
+            "─" * 40,
+            f"Monthly Rent: ${unit['rent']:,.2f}",
+            f"Received in {month_label}: ${month_total:,.2f}",
+            f"Balance:      $0.00{credit_suffix}",
+            f"Status:       {event_status}",
+        ]
+        if settled_display:
+            desc.append(f"Settled:      {settled_display}")
+        if rows:
+            desc += ["─" * 40,
+                     f"Payment history ({len(rows)} payment(s), consolidated):"]
+            desc += self._payment_history_blocks(rows)
+        if promise_history:
+            desc += ["─" * 40] + _promise_history_lines(promise_history)
+        if reversal_notes:
+            desc += ["─" * 40] + [str(n) for n in reversal_notes]
+        desc += [
+            "─" * 40,
+            f"Late Fee:     {unit.get('late_fee_desc','N/A')}",
+            f"Late After:   {late_after}",
+            f"Lease:        {unit['lease_from']} → {unit['lease_to']}",
+        ]
+
+        return {
+            "summary":     title,
+            "location":    unit['address'],
+            "description": "\n".join(desc),
+            "start":       {"date": anchor_date.isoformat()},
+            "end":         {"date": _next_day(anchor_date.isoformat())},
+            "colorId":     color,
+            "extendedProperties": {"private": {
+                "okpm_occupancy_id": str(unit['occupancy_id']),
+                "okpm_month":        anchor_date.strftime("%Y-%m"),
+                "okpm_event_type":   "status",
+            }},
+        }
+
+    def _build_nsf_ghost_event(
+        self, unit: dict, stored_row: dict, note_line: str, month: str,
+    ) -> dict:
+        """
+        Reconstructed red event for a bounced payment whose positive ledger
+        row VANISHED from the pull (typical for NSF) after the month had
+        already collapsed — without it, a reverted collapse would show no
+        trace of the failed payment.  Honesty convention: no Received/Balance
+        lines (running balances at that moment are not reconstructable), and
+        the description says the event was rebuilt from sync records.
+        okpm_payment_idx="nsfg" is non-numeric on purpose: it can never
+        collide with _find_payment_event's exact-index lookups.
+        """
+        pay_date = stored_row.get("date") or f"{month}-01"
+        try:
+            pay_display = date.fromisoformat(pay_date).strftime("%b %d, %Y")
+        except ValueError:
+            pay_display, pay_date = pay_date, f"{month}-01"
+        amount      = float(stored_row.get("amount") or 0)
+        tenant_full = normalize_tenant_name(unit['tenant'])
+        unit_part   = f"{unit['unit_label']} · " if unit['unit_label'] else ""
+        title = (
+            f"🔴 · {tenant_full} · "
+            f"{unit_part}{unit['property_name']} · "
+            f"${amount:,.0f} NSF"
+        )
+        desc = [
+            "Reversed payment (NSF)",
+            f"Date:         {pay_display}",
+            f"Method:       {stored_row.get('description','')}  ⚠️ REVERSED / NSF",
+            f"Amount:       ${amount:,.2f}",
+            "Status:       🔴 REVERSED / NSF",
+            note_line,
+            "─" * 40,
+            "Reconstructed from sync records after the ledger row was "
+            "reversed; see the status event for the month's balance.",
+            "─" * 40,
+            f"Tenant:       {tenant_full}",
+            (f"{unit['unit_label']}  |  " if unit['unit_label'] else "") + unit['address'],
+            f"Phone:        {unit['phone']}",
+        ]
+        return {
+            "summary":     title,
+            "location":    unit['address'],
+            "description": "\n".join(desc),
+            "start":       {"date": pay_date},
+            "end":         {"date": _next_day(pay_date)},
+            "colorId":     COLOR_UNPAID,
+            "extendedProperties": {"private": {
+                "okpm_occupancy_id":  str(unit['occupancy_id']),
+                "okpm_month":         month,
+                "okpm_event_type":    "payment",
+                "okpm_payment_idx":   "nsfg",
+                "okpm_nsf":           "1",
             }},
         }
 
@@ -968,6 +1206,32 @@ class GoogleCalendarManager:
         ))
         items = result.get("items", [])
         return items[0]["id"] if items else None
+
+    def find_month_payment_events(
+        self, calendar_id: str, occupancy_id: str, month: str,
+    ) -> list[dict]:
+        """All of a unit's payment-typed events for one month, FULL bodies —
+        numeric-idx markers, nsf-retagged flips, and "nsfg" ghosts alike.
+        Feeds the surplus cleanup so strays are discoverable even when state
+        lost their ids (deep-clean runs only; not part of the hourly path)."""
+        search_oid = (occupancy_id.split("@")[0]
+                      if "@" in occupancy_id else occupancy_id)
+        items, page_token = [], None
+        while True:
+            resp = _gcal_execute(self.service.events().list(
+                calendarId=calendar_id,
+                privateExtendedProperty=[
+                    f"okpm_occupancy_id={search_oid}",
+                    f"okpm_month={month}",
+                    "okpm_event_type=payment",
+                ],
+                maxResults=250, pageToken=page_token,
+            ))
+            items.extend(resp.get("items", []))
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+        return items
 
     def _update_or_create(
         self, calendar_id: str, event_id: Optional[str], body: dict,

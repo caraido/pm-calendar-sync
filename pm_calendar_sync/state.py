@@ -9,18 +9,39 @@ from .config import STATE_FILE, log
 
 class StateManager:
     """
-    Per occupancy+month  (existing keys unchanged):
+    Per occupancy+month  (fmt=2 — day-groups + settled collapse):
+      fmt,                   — 2; any other value marks a pre-collapse entry
+                               and forces one regroup+collapse rebuild
       status, past_due,
       status_event_id, status_event_date,
       late_event_id,
-      payment_event_ids,
+      payment_event_ids,     — one id per DAY-GROUP (same-day payments render
+                               as a single event), index 1+ of the groups
       payment_event_dates,   — index-aligned canonical dates for
                                payment_event_ids; submit-mode payment-drag
                                detection reads them (no ledger there)
       payments,              — [{date, amount, is_nsf, description}] for ALL
-                               of the month's payments (index 0 = the one
-                               absorbed into the status event); NSF-reversal
-                               reconciliation matches against these
+                               of the month's payments, one entry per LEDGER
+                               ROW (never grouped); NSF-reversal
+                               reconciliation and the settled-baseline
+                               integrity checks match against these
+      collapse_state,        — None/absent = expanded | "collapsed" |
+                               "frozen" | "reactivated" (settled-month
+                               collapse; transforms.resolve_collapse_transition
+                               owns the transitions)
+      collapse_baseline,     — number of settled rows retired into the
+                               settled event's description history
+      settled_rows,          — snapshot of those rows (same shape as
+                               payments); baseline-integrity checks compare
+                               them against the live pull
+      settled_past_due,      — past_due at (re-)collapse (0 or the credit)
+      settled_on,            — ISO date the month (re-)settled
+      promise_history,       — [{event_id, anchor_date, source_type,
+                               origin_month, covers_rent_month,
+                               outcome: "kept"|"resolved", recorded}] —
+                               kept = absorbed by a same-day payment,
+                               resolved = balance cleared; rendered as the
+                               settled event's "Promise history" section
       nsf_reversals_applied, — [{key, ref, date, amount, v}] reversals
                                already applied to this soid's month
                                (per-calendar idempotence markers; v=2 means
@@ -29,9 +50,10 @@ class StateManager:
                                month's own status is deliberately left as
                                written, the marker and event notes are the
                                honest annotation)
-      nsf_event_ids,         — payment events flipped to NSF display after
-                               their ledger row vanished (no longer
-                               positionally tracked in payment_event_ids)
+      nsf_event_ids,         — payment events flipped to NSF display (or
+                               reconstructed "ghost" events) after their
+                               ledger row vanished; cleared when a month
+                               collapses (their events are consolidated)
       last_updated
 
     Future-month entries additionally use:
@@ -39,11 +61,11 @@ class StateManager:
       is_commitment     — True when the placeholder was converted to a commitment
 
     Top-level commitment registry  (new in v2):
-      state.data["_commitments"][oid] = [
+      state.data["_commitments"][soid] = [
         {
           event_id        : str,   Google Calendar event ID
           anchor_date     : str,   ISO date where PM anchored the event
-          source_type     : str,   "kickstart" | "late"
+          source_type     : str,   "status" | "payment" | "late" | "kickstart"
           origin_month    : str,   YYYY-MM of the original event's month
           covers_rent_month: str|None  YYYY-MM if commitment crosses into a
                                        future month and pre-loads that rent

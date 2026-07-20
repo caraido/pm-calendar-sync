@@ -20,11 +20,17 @@ from .transforms import (
     build_payment_map, build_reversal_map, compute_running_balances,
     diff_rent_roll, format_address, parse_commitment_auto_section,
     unit_label, group_scope_key, group_display_name, _next_day,
+    group_payments_by_day, resolve_collapse_transition,
 )
 from .appfolio import AppFolioClient
 from .calendar_manager import GoogleCalendarManager, _gcal_execute
 from .state import StateManager
 from . import cache
+
+# Month-entry format version.  fmt=2 = day-grouped payment events +
+# settled-month collapse fields; an entry with any other value gets exactly
+# one forced rebuild (regroup + collapse) and is stamped fmt=2.
+STATE_FMT = 2
 
 
 class SyncOrchestrator:
@@ -43,6 +49,11 @@ class SyncOrchestrator:
         # without the patch a commitment born after the listing would read as
         # PM-deleted and the ≥1-promise rule would spawn duplicates.
         self._fresh_commitments: dict = {}
+        # Promise outcomes (kept / resolved) recorded DURING this run,
+        # (soid, month) → [records].  _sync_unit's state rewrite merges its
+        # own key; the run-tail flush persists whatever remains (submit mode
+        # has no state rewrite).
+        self._pending_promise_history: dict = {}
 
     # ── Top-level run (full sweep — the sole authority for correctness) ──────
 
@@ -124,6 +135,7 @@ class SyncOrchestrator:
                         row, calendar_id, due_date, today, this_month,
                         tenant_info, payment_map, scope_key=scope_key,
                         reversal_map=reversal_map,
+                        deep_clean=(mode == "full_nightly"),
                     )
                 except Exception as exc:
                     oid = row.get("occupancy_id", "?")
@@ -134,6 +146,7 @@ class SyncOrchestrator:
         # per-unit failure caught above still advances it — the next sweep
         # retries that unit anyway.)
         self._save_rent_roll_snapshot(rent_roll)
+        self._flush_pending_promise_history()
         self.state.save()
         log.info("=== Sync complete ===")
 
@@ -540,6 +553,7 @@ class SyncOrchestrator:
         # Even a zero-change run advances the snapshot: the baseline must
         # always reflect the last examined rent_roll.
         self._save_rent_roll_snapshot(rent_roll)
+        self._flush_pending_promise_history()
         self.state.save()
         log.info(f"=== Update complete: {synced} unit sync(s) ===")
 
@@ -566,6 +580,7 @@ class SyncOrchestrator:
         this_month = today.strftime("%Y-%m")
         log.info(f"  Timezone: {TIMEZONE}, local date: {today}")
         self._fresh_commitments = {}
+        self._pending_promise_history = {}
 
         snap = cache.load_json(cache.RENT_ROLL_FILE)
         rows = snap.get("rows") if snap else None
@@ -628,6 +643,7 @@ class SyncOrchestrator:
                 except Exception as exc:
                     log.error(f"  FAILED unit {oid}: {exc}", exc_info=True)
 
+        self._flush_pending_promise_history()
         self.state.save()
         log.info("=== Submit complete ===")
 
@@ -1309,6 +1325,7 @@ class SyncOrchestrator:
         today: date, this_month: str, tenant_info: dict, payment_map: dict,
         scope_key: str = "",
         reversal_map: Optional[dict] = None,
+        deep_clean: bool = False,
     ):
         unit     = self._make_unit(row, tenant_info, payment_map)
         oid      = unit["occupancy_id"]   # bare — for Google Calendar
@@ -1316,10 +1333,6 @@ class SyncOrchestrator:
         rent     = unit["rent"]
         past_due = unit["past_due"]
         status   = classify_status(rent, past_due)
-        # When the month is settled (balance 0) or in credit (< 0), earlier and
-        # failed payment events are recoloured grey to cut visual noise; the
-        # settling (green) and prepaid (pink) events stay coloured.
-        month_fully_paid = past_due <= 0
 
         try:
             lease_end = date.fromisoformat(unit["lease_to"])
@@ -1340,8 +1353,7 @@ class SyncOrchestrator:
         unit["amount_paid"] = sum(
             p["amount"] for p in sorted_payments if not p["is_nsf"])
 
-        balances        = compute_running_balances(sorted_payments, past_due)
-        prior           = self.state.get(soid, this_month)
+        prior = self.state.get(soid, this_month)
 
         # Distrust state written for a DIFFERENT calendar.
         if prior and prior.get("calendar_id") != calendar_id:
@@ -1358,6 +1370,59 @@ class SyncOrchestrator:
         carried_reversals = list(prior.get("nsf_reversals_applied") or []) if prior else []
         carried_nsf_ids   = list(prior.get("nsf_event_ids") or []) if prior else []
         reversal_notes    = [self._format_reversal_note(r) for r in carried_reversals]
+        carried_promise_history = (
+            list(prior.get("promise_history") or []) if prior else [])
+
+        # ── Settled-month collapse state machine ─────────────────────────────
+        # A fully-paid month renders as ONE green/pink event on the last
+        # payment date (payment + promise history live in its description);
+        # the per-payment events are deleted by the cleanup pass below.  All
+        # display below runs on same-day GROUPS (one event per payment
+        # date), while state `payments` stays per ledger row.
+        day_groups  = group_payments_by_day(sorted_payments)
+        fmt_migrate = bool(prior) and prior.get("fmt") != STATE_FMT
+        collapse    = resolve_collapse_transition(prior, sorted_payments, past_due)
+        collapsed   = collapse["state"] == "collapsed"
+        frozen      = collapse["state"] == "frozen"
+        reactivated = collapse["state"] == "reactivated"
+        if collapse["reverted"]:
+            log.info(
+                f"  {oid}: settled collapse REVERTED — a settled payment "
+                f"vanished or bounced; re-expanding {this_month}")
+        if reactivated:
+            render_groups = group_payments_by_day(collapse["fresh"])
+        elif collapsed or frozen:
+            render_groups = []
+        else:
+            render_groups = day_groups
+        balances = compute_running_balances(render_groups, past_due)
+
+        # settled_on: stamped at (re-)collapse, carried while settled.
+        if collapsed:
+            if (prior and prior.get("collapse_state") in ("collapsed", "frozen")
+                    and prior.get("settled_on")):
+                settled_on = prior["settled_on"]
+            else:
+                settled_on = today.isoformat()
+            settled_past_due = past_due
+        elif frozen or reactivated:
+            settled_on       = prior.get("settled_on") if prior else None
+            settled_past_due = prior.get("settled_past_due") if prior else None
+        else:
+            settled_on = settled_past_due = None
+
+        # REACTIVATED: the settled payments render as description history on
+        # the fresh-cycle status event, never as events again.
+        settled_prefix = None
+        if reactivated:
+            srows = collapse["settled_rows"]
+            settled_prefix = {
+                "count":      len(srows),
+                "total":      sum(r["amount"] for r in srows
+                                  if not r.get("is_nsf")),
+                "settled_on": settled_on or "",
+                "rows":       srows,
+            }
 
         # ── Load commitment state ─────────────────────────────────────────────
         # Migrate any bare-oid commitment entries to this owner-scoped key,
@@ -1373,12 +1438,63 @@ class SyncOrchestrator:
             if c.get("covers_rent_month")
         }
 
+        # One unbounded commitment listing per unit (moved up from
+        # _process_commitments — same call, same volume) so the projection
+        # below and the absorption pass reason from the SAME live anchors;
+        # registry anchors are only the fallback for already-gone events.
+        live_commitments = self.gcal.find_all_events_by_type(
+            calendar_id, oid, "commitment")
+        live_anchor_by_id = {}
+        for _ev in live_commitments:
+            _start = _ev.get("start", {})
+            live_anchor_by_id[_ev["id"]] = (
+                _start.get("date") or _start.get("dateTime", "")[:10])
+
+        # Promise outcomes visible to THIS run's event descriptions:
+        # history already persisted + a stateless projection of what this
+        # run's commitment pass will record (it runs after the status-event
+        # build, so without the projection a settled month would list its
+        # resolved promises one run late).  Only payments dated today or
+        # earlier count — a post-dated ledger row hasn't "kept" anything yet.
+        promise_payment_dates = {
+            p["date"] for p in sorted_payments
+            if not p.get("is_nsf") and p["date"] <= today.isoformat()}
+        projected_history = self._merge_promise_history(
+            carried_promise_history,
+            self._project_promise_outcomes(
+                commitments, calendar_id, promise_payment_dates, past_due,
+                live_anchor_by_id=live_anchor_by_id))
+
         # ── Status event date ─────────────────────────────────────────────────
-        if sorted_payments:
-            status_event_date = date.fromisoformat(sorted_payments[0]["date"])
+        if collapsed:
+            # Settled: the single event sits on the LAST payment date (the
+            # 1st for a pure-prepaid month with no payments this month).
+            if day_groups:
+                status_event_date = max(
+                    date.fromisoformat(day_groups[-1]["date"]), due_date)
+            else:
+                status_event_date = due_date
+            first_pay    = None
+            event_status = status          # classify_status → Paid / Prepaid
+        elif frozen:
+            # Post-settle charge: hands off the settled event entirely.  The
+            # anchor derives from the settled snapshot (== the stored anchor
+            # on steady frozen runs, so date_changed stays False; after a
+            # reactivated cycle whose fresh rows vanished it re-derives the
+            # LAST SETTLED payment date the settled body belongs on).
+            srows = collapse["settled_rows"]
+            if srows:
+                status_event_date = max(
+                    date.fromisoformat(srows[-1]["date"]), due_date)
+            else:
+                status_event_date = due_date
+            first_pay    = None
+            event_status = status
+        elif render_groups:
+            status_event_date = date.fromisoformat(render_groups[0]["date"])
             # Safety clamp: never place the event before this month's due date
             status_event_date = max(status_event_date, due_date)
-            first_pay         = sorted_payments[0]
+            first_pay         = render_groups[0]
             # A payment was received this month → use payment_status so the event
             # reads 🟡 Partial (never 🔴) as long as any balance remains, even
             # when the tenant is one+ months in arrears.
@@ -1435,12 +1551,12 @@ class SyncOrchestrator:
             and prior["past_due"] == past_due
         )
         new_payments  = (
-            len(sorted_payments) > (
+            len(render_groups) > (
                 len(prior.get("payment_event_ids", [])) +
                 (1 if (prior_status_id
                        and prior_status_date != due_date.isoformat()) else 0)
             )
-            if prior else bool(sorted_payments)
+            if prior else bool(render_groups)
         )
 
         # ── Detect dragged status event → commitment (retire & replace) ───────
@@ -1457,40 +1573,93 @@ class SyncOrchestrator:
                 suppress_kickstart = True
                 prior = {**prior, "status_event_id": None}
 
+        def _status_body() -> dict:
+            """The month's status-event body for the current collapse state.
+            Every build/recovery path below goes through here so a settled
+            month can never be resurrected in its expanded form."""
+            if collapsed:
+                return self.gcal._build_settled_month_event(
+                    unit, status_event_date, day_groups,
+                    promise_history=projected_history,
+                    reversal_notes=reversal_notes,
+                    settled_on=settled_on)
+            if frozen:
+                # Rebuild the settled snapshot, not the live balance — the
+                # post-settle charge stays invisible on this month.
+                stored = collapse["settled_rows"]
+                frozen_unit = {
+                    **unit,
+                    "past_due":    float(settled_past_due or 0.0),
+                    "amount_paid": sum(r["amount"] for r in stored
+                                       if not r.get("is_nsf")),
+                }
+                return self.gcal._build_settled_month_event(
+                    frozen_unit, status_event_date,
+                    group_payments_by_day(stored),
+                    promise_history=projected_history,
+                    reversal_notes=reversal_notes,
+                    settled_on=settled_on)
+            return self.gcal._build_status_event(
+                unit, event_status, status_event_date,
+                first_pay,
+                balances[0] if balances else None,
+                total_payments=len(render_groups),
+                reversal_notes=reversal_notes,
+                promise_history=projected_history,
+                settled_prefix=settled_prefix,
+            )
+
         # ── Build / update status event ───────────────────────────────────────
         if suppress_kickstart:
             # Commitment anchors this month; no status event on the 1st
             status_event_id = None
             log.info(f"  {oid}: status event suppressed (commitment anchors {this_month})")
-        elif FORCE_REFRESH or date_changed or data_changed:
-            body = self.gcal._build_status_event(
-                unit, event_status, status_event_date,
-                first_pay,
-                balances[0] if balances else None,
-                total_payments=len(sorted_payments),
-                month_fully_paid=month_fully_paid,
-                reversal_notes=reversal_notes,
-            )
+        elif frozen and not FORCE_REFRESH:
+            # Post-settle charge and no new payment: the settled event is
+            # untouchable (the charge surfaces in next month's due amount).
+            # Two exceptions: the event vanished from the calendar (self-
+            # heal), or the month just left a REACTIVATED cycle whose fresh
+            # rows all vanished — the live event still shows the stale fresh
+            # tracking, so restore the settled body in place.
+            status_event_id = prior_status_id
+            left_reactivated = bool(
+                prior and prior.get("collapse_state") == "reactivated")
+            if left_reactivated and status_event_id:
+                status_event_id = self.gcal._update_or_create(
+                    calendar_id, status_event_id, _status_body())
+                log.info(
+                    f"  {oid}: fresh-cycle rows vanished — restored the "
+                    f"settled event body on {status_event_date}")
+            elif not (status_event_id
+                      and self.gcal.get_event(calendar_id, status_event_id)):
+                existing_id = self.gcal._find_status_event(
+                    calendar_id, oid, this_month)
+                status_event_id = self.gcal._update_or_create(
+                    calendar_id, existing_id, _status_body())
+                log.warning(
+                    f"  {oid}: frozen settled event was missing — recreated "
+                    f"from stored records on {status_event_date}")
+            else:
+                log.info(f"  {oid}: month frozen (charge after settlement) — "
+                         f"settled event left untouched")
+        elif (FORCE_REFRESH or date_changed or data_changed
+                or collapse["transitioned"] or fmt_migrate):
+            body = _status_body()
             existing_id = (
                 prior_status_id or
                 self.gcal._find_status_event(calendar_id, oid, this_month)
             )
             status_event_id = self.gcal._update_or_create(
                 calendar_id, existing_id, body)
-            log.info(f"  Status event {oid}: {event_status} on {status_event_date}")
+            log.info(f"  Status event {oid}: "
+                     f"{'settled (collapsed)' if collapsed else event_status} "
+                     f"on {status_event_date}")
         elif prior_status_id is None:
             # RECOVERY: a prior run suppressed this event (commitment was active)
             # but the commitment has since been removed or resolved.  The state
             # has status_event_id=None and rent_event_id=None, data hasn't changed,
             # so the normal paths all skip.  Force-create the missing event.
-            body = self.gcal._build_status_event(
-                unit, event_status, status_event_date,
-                first_pay,
-                balances[0] if balances else None,
-                total_payments=len(sorted_payments),
-                month_fully_paid=month_fully_paid,
-                reversal_notes=reversal_notes,
-            )
+            body = _status_body()
             # Search the calendar first to avoid creating duplicates
             existing_id = self.gcal._find_status_event(calendar_id, oid, this_month)
             status_event_id = self.gcal._update_or_create(
@@ -1507,13 +1676,7 @@ class SyncOrchestrator:
                 log.warning(
                     f"  {oid}: status event {status_event_id} orphaned "
                     f"(missing from calendar) — recreating")
-                body = self.gcal._build_status_event(
-                    unit, event_status, status_event_date,
-                    first_pay,
-                    balances[0] if balances else None,
-                    total_payments=len(sorted_payments),
-                    reversal_notes=reversal_notes,
-                )
+                body = _status_body()
                 # Search the calendar first to avoid creating duplicates
                 existing_id = self.gcal._find_status_event(
                     calendar_id, oid, this_month)
@@ -1522,12 +1685,17 @@ class SyncOrchestrator:
             else:
                 log.info(f"  No change for {oid} — skipping status event")
 
-        # ── Additional payment events ─────────────────────────────────────────
-        if FORCE_REFRESH or data_changed or new_payments:
+        # ── Additional payment events (one per day-group; none while settled) ─
+        if frozen:
+            # A settled month keeps no payment events; any leftovers (e.g. a
+            # reactivated cycle whose rows vanished) become surplus for the
+            # cleanup below — never carry their ids forward.
+            payment_event_ids = []
+        elif (FORCE_REFRESH or data_changed or new_payments
+                or collapse["transitioned"] or fmt_migrate):
             payment_event_ids = self._sync_additional_payments(
                 unit, calendar_id, this_month,
-                sorted_payments[1:], balances[1:], prior,
-                month_fully_paid=month_fully_paid,
+                render_groups[1:], balances[1:], prior,
             )
         else:
             payment_event_ids = prior.get("payment_event_ids", []) if prior else []
@@ -1536,7 +1704,7 @@ class SyncOrchestrator:
         if not suppress_kickstart and not (FORCE_REFRESH or date_changed or data_changed):
             self._verify_locked_events(
                 soid, calendar_id, prior,
-                status_event_id, status_event_date, sorted_payments,
+                status_event_id, status_event_date, render_groups,
                 unit, today, this_month, past_due, status, commitment_months,
             )
 
@@ -1558,10 +1726,16 @@ class SyncOrchestrator:
         self._process_commitments(
             soid, calendar_id, unit, today,
             has_known_or_new=True,
+            # The pre-listed snapshot + this run's fresh conversions — the
+            # same merge submit mode does, so a promise converted after the
+            # listing is never mistaken for PM-deleted.
+            events=self._commitment_events_for(soid, live_commitments),
+            payment_dates=promise_payment_dates,
         )
 
         # ── Persist current-month state ───────────────────────────────────────
         self.state.set(soid, this_month, {
+            "fmt":               STATE_FMT,
             "status":            status,
             "past_due":          past_due,
             "calendar_id":       calendar_id,
@@ -1569,17 +1743,34 @@ class SyncOrchestrator:
             "status_event_date": status_event_date.isoformat(),
             "late_event_id":     late_event_id,
             "payment_event_ids": payment_event_ids,
-            # Index-aligned with payment_event_ids.  Submit mode has no ledger,
-            # so payment-drag detection reads canonical dates from here.
-            "payment_event_dates": [p["date"] for p in sorted_payments[1:]],
-            # All of this month's payments (index 0 = the one absorbed into
-            # the status event) — next month's NSF-reversal reconciliation
-            # matches against these without any event fetches.
+            # Index-aligned with payment_event_ids — one entry per DAY-GROUP
+            # (same-day payments render as a single event).  Submit mode has
+            # no ledger, so payment-drag detection reads canonical dates here.
+            "payment_event_dates": [g["date"] for g in render_groups[1:]],
+            # All of this month's payments, one entry per LEDGER ROW (never
+            # grouped) — NSF-reversal reconciliation and the settled-baseline
+            # integrity checks match against these without any event fetches.
             "payments": [
                 {"date": p["date"], "amount": p["amount"],
                  "is_nsf": p["is_nsf"], "description": p["description"]}
                 for p in sorted_payments
             ],
+            # Settled-month collapse bookkeeping (transforms.
+            # resolve_collapse_transition owns the transitions).
+            "collapse_state":    collapse["state"],
+            "collapse_baseline": len(collapse["settled_rows"]),
+            "settled_rows": [
+                {"date": p["date"], "amount": p["amount"],
+                 "is_nsf": p["is_nsf"], "description": p["description"]}
+                for p in collapse["settled_rows"]
+            ],
+            "settled_past_due":  settled_past_due,
+            "settled_on":        settled_on,
+            # Kept/resolved promises (rendered as "Promise history" in the
+            # settled event): carried records + this run's outcomes.
+            "promise_history":   self._merge_promise_history(
+                carried_promise_history,
+                self._pending_promise_history.pop((soid, this_month), [])),
             "nsf_reversals_applied": carried_reversals,
             "nsf_event_ids":         carried_nsf_ids,
         })
@@ -1599,6 +1790,26 @@ class SyncOrchestrator:
             except Exception as exc:
                 log.error(f"  {oid}: NSF reversal pass failed: {exc}",
                           exc_info=True)
+
+        # ── Surplus payment-event cleanup ─────────────────────────────────────
+        # Deletes every current-month payment event that should no longer
+        # exist: ALL of them when the month is settled (their history moved
+        # into the settled event's description), plus orphaned strays whose
+        # ledger rows vanished without a reversal record — a long-standing
+        # leak (the old cleanup only ran inside the reversal pass).  Runs
+        # after the reversal pass so flips/ghosts are tracked first.
+        try:
+            self._cleanup_surplus_payment_events(
+                soid, calendar_id, oid, this_month,
+                keep_ids=set(payment_event_ids),
+                prior_payment_ids=prior_payment_ids,
+                collapsed=(collapsed or frozen),
+                live_scan=(deep_clean or fmt_migrate
+                           or collapse["transitioned"]),
+            )
+        except Exception as exc:
+            log.error(f"  {oid}: payment-event cleanup failed: {exc}",
+                      exc_info=True)
 
         # ── B. Future months ──────────────────────────────────────────────────
         future_unit = {**unit, "past_due": 0.0, "amount_paid": 0.0, "payments": []}
@@ -1709,6 +1920,10 @@ class SyncOrchestrator:
             body = self.gcal._build_future_placeholder(this_fu, fut_status, fdue)
             eid  = self.gcal.upsert_event(calendar_id, body)
             self.state.set(soid, fmonth, {
+                # fmt stamped here so the entry doesn't read as pre-collapse
+                # when the month turns current (that would force a needless
+                # deep-clean scan every month rollover).
+                "fmt":           STATE_FMT,
                 "status":        fut_status,
                 "past_due":      this_fu["past_due"],
                 "calendar_id":   calendar_id,
@@ -1721,9 +1936,10 @@ class SyncOrchestrator:
     def _sync_additional_payments(
         self, unit: dict, calendar_id: str, this_month: str,
         additional: list[dict], balances: list[float], prior: Optional[dict],
-        month_fully_paid: bool = False,
     ) -> list[str]:
-        """Sync payment events for idx 1+. Payment 0 is absorbed into status event."""
+        """Sync payment events for day-groups idx 1+ (group 0 is absorbed
+        into the status event).  One event per group, its id positionally
+        reused run-to-run; a settled month passes an empty list."""
         prior_ids  = prior.get("payment_event_ids", []) if prior else []
         month_recv = unit["amount_paid"]
         total      = len(additional) + 1
@@ -1731,8 +1947,7 @@ class SyncOrchestrator:
 
         for i, (payment, balance) in enumerate(zip(additional, balances)):
             body = self.gcal._build_additional_payment_event(
-                unit, payment, i + 2, total, balance, month_recv,
-                month_fully_paid=month_fully_paid)
+                unit, payment, i + 2, total, balance, month_recv)
             existing = prior_ids[i] if i < len(prior_ids) else None
             if not existing:
                 existing = self.gcal._find_payment_event(
@@ -1740,7 +1955,7 @@ class SyncOrchestrator:
             eid = self.gcal._update_or_create(calendar_id, existing, body)
             event_ids.append(eid)
             log.info(
-                f"  Payment {i+2}/{total} for {unit['occupancy_id']} "
+                f"  Payment group {i+2}/{total} for {unit['occupancy_id']} "
                 f"on {payment['date']}")
 
         return event_ids
@@ -1754,7 +1969,7 @@ class SyncOrchestrator:
         prior: Optional[dict],
         status_event_id: Optional[str],
         canonical_status_date: date,
-        sorted_payments: list[dict],
+        render_groups: list[dict],
         unit: dict,
         today: date,
         this_month: str,
@@ -1767,7 +1982,8 @@ class SyncOrchestrator:
         Google.  If dragged to a future date and no commitment already covers
         this month, create a commitment at the target date and then snap the
         event back.  Otherwise just revert.  (Thin composition of the shared
-        drag-detection primitives above.)
+        drag-detection primitives above.)  render_groups = this run's
+        day-groups (canonical payment-event dates come from groups[1:]).
         """
         if not prior or not status_event_id:
             return
@@ -1783,7 +1999,7 @@ class SyncOrchestrator:
         self._detect_payment_drags(
             soid, calendar_id,
             prior.get("payment_event_ids", []),
-            [p["date"] for p in sorted_payments[1:]],
+            [g["date"] for g in render_groups[1:]],
             unit, today, this_month, past_due, status, commitment_months)
 
     # ── Commitment lifecycle ──────────────────────────────────────────────────
@@ -1796,19 +2012,30 @@ class SyncOrchestrator:
         today: date,
         has_known_or_new: bool = False,
         events: Optional[list] = None,
+        payment_dates: Optional[set] = None,
     ):
         """
         For each tracked commitment:
           1. Discover new copies (PM copy-pasted for split payment plans).
-          2. Resolve (delete every promise) if account balance ≤ 0.
-          3. Update the auto section, preserving PM notes above the divider.
+          2. Absorb: ANY (non-NSF) payment dated on a promise's live anchor
+             deletes that one promise — the tenant kept the date, whatever
+             the amount.  Recorded as outcome "kept"; other promises stay.
+             Never kickstarts.  payment_dates=None (submit mode: no ledger)
+             skips this — the next full sweep absorbs.
+          3. Resolve (delete every promise) if account balance ≤ 0; promise-
+             typed sources are recorded as outcome "resolved".
+          4. Update the auto section, preserving PM notes above the divider.
              Display recomputes from the live balance: 🔴 when nothing has been
              paid this month, 🟡 when a partial payment leaves a balance.  A
              promise whose date has already passed is NOT specially flagged — it
              keeps its 🔴 / 🟡 colour (no auto-expire, no ⚠️ overdue state).
              Also picks up re-drags (PM moved the commitment again).
-          4. Safe delete (≥1-promise rule): a deleted promise sticks only while
+          5. Safe delete (≥1-promise rule): a deleted promise sticks only while
              another promise remains; deleting the LAST promise recreates one.
+             An ABSORBED promise never counts as deleted: its entry lands in
+             neither `surviving` nor `missing_promises`, so a still-owing unit
+             may legitimately end up with zero promises after keeping its
+             last promised date.
           Kickstart placeholders keep their own recreate + drag-back-to-1st
           behaviour and are exempt from the ≥1-promise rule.
 
@@ -1887,8 +2114,40 @@ class SyncOrchestrator:
             source_type       = c.get("source_type") or "late"
             covers_rent_month = c.get("covers_rent_month")
 
+            # ── Absorb: the tenant paid on the promised date ─────────────────
+            # Checked before resolution so a same-day settling payment reads
+            # "kept", not merely "resolved".  Uses the LIVE anchor (a re-drag
+            # counts); falls back to the registry anchor when the event is
+            # already gone — a PM deleting a kept promise must not trip the
+            # ≥1-promise rule either.  A promise created/converted THIS run
+            # is exempt: the PM just placed it deliberately, so it survives
+            # at least one full poll before a same-day payment can absorb it.
+            if (payment_dates is not None and _is_promise(source_type)
+                    and event_id not in self._fresh_commitments):
+                probe = live_by_id.get(event_id)
+                live_anchor = anchor_date
+                if probe:
+                    start = probe.get("start", {})
+                    live_anchor = (start.get("date")
+                                   or start.get("dateTime", "")[:10]
+                                   or anchor_date)
+                if live_anchor in payment_dates:
+                    if probe is not None:
+                        self.gcal.delete_event(calendar_id, event_id)
+                    self._record_promise_outcome(
+                        soid, today_month, {**c, "anchor_date": live_anchor},
+                        "kept", today)
+                    log.info(
+                        f"  {bare_oid}: promise for {live_anchor} absorbed — "
+                        f"payment received that day (any amount keeps the "
+                        f"promised date)")
+                    continue
+
             # ── Resolve if fully paid ─────────────────────────────────────────
             if past_due <= 0:
+                if _is_promise(source_type):
+                    self._record_promise_outcome(
+                        soid, today_month, c, "resolved", today)
                 if event_id in live_by_id:
                     self.gcal.delete_event(calendar_id, event_id)
                     log.info(
@@ -2017,6 +2276,136 @@ class SyncOrchestrator:
 
         self.state.set_commitments(soid, surviving)
 
+    # ── Promise history (kept / resolved promises) ────────────────────────────
+
+    @staticmethod
+    def _merge_promise_history(base: list, extra: list) -> list:
+        """Merge promise-history records, deduplicated by (event_id, outcome)
+        — a re-run must never double-log an outcome."""
+        merged = list(base)
+        seen = {(r.get("event_id"), r.get("outcome")) for r in merged}
+        for r in extra:
+            key = (r.get("event_id"), r.get("outcome"))
+            if key not in seen:
+                merged.append(r)
+                seen.add(key)
+        return merged
+
+    def _record_promise_outcome(self, soid: str, month: str,
+                                commitment: dict, outcome: str, today: date):
+        """Queue a kept/resolved promise record; _sync_unit's state rewrite
+        (or the run-tail flush) persists it into the month entry."""
+        self._pending_promise_history.setdefault((soid, month), []).append({
+            "event_id":          commitment.get("event_id"),
+            "anchor_date":       commitment.get("anchor_date"),
+            "source_type":       commitment.get("source_type") or "late",
+            "origin_month":      commitment.get("origin_month"),
+            "covers_rent_month": commitment.get("covers_rent_month"),
+            "outcome":           outcome,
+            "recorded":          today.isoformat(),
+        })
+
+    def _project_promise_outcomes(self, commitments: list, calendar_id: str,
+                                  payment_dates: set, past_due: float,
+                                  live_anchor_by_id: Optional[dict] = None,
+                                  ) -> list:
+        """
+        Stateless preview of what this run's commitment pass will record —
+        the status event is built BEFORE _process_commitments runs, and a
+        settled month must list its promises in the SAME run they resolve.
+        live_anchor_by_id (event_id → live start date) keeps the projection
+        byte-consistent with the absorption pass, which honours re-drags;
+        the registry anchor is only the fallback for already-gone events.
+        """
+        live_anchor_by_id = live_anchor_by_id or {}
+        projected = []
+        for c in commitments:
+            c_cal = c.get("calendar_id")
+            if c_cal and c_cal != calendar_id:
+                continue
+            src = c.get("source_type") or "late"
+            if src not in ("status", "payment", "late"):
+                continue
+            anchor = (live_anchor_by_id.get(c.get("event_id"))
+                      or c.get("anchor_date"))
+            rec = {
+                "event_id":          c.get("event_id"),
+                "anchor_date":       anchor,
+                "source_type":       src,
+                "origin_month":      c.get("origin_month"),
+                "covers_rent_month": c.get("covers_rent_month"),
+                "recorded":          None,   # display only; the real record
+                                             # is written by the commitment pass
+            }
+            if anchor in payment_dates:
+                projected.append({**rec, "outcome": "kept"})
+            elif past_due <= 0:
+                projected.append({**rec, "outcome": "resolved"})
+        return projected
+
+    def _flush_pending_promise_history(self):
+        """Persist queued promise outcomes whose month entry was not
+        rewritten this run (submit mode; a unit that failed mid-sync)."""
+        for (soid, month), recs in list(self._pending_promise_history.items()):
+            if not recs:
+                continue
+            entry = self.state.get(soid, month)
+            if entry is None:
+                log.info(
+                    f"  {soid}: no {month} entry to persist {len(recs)} "
+                    f"promise-history record(s) — dropping")
+                continue
+            self.state.set(soid, month, {
+                **entry,
+                "promise_history": self._merge_promise_history(
+                    list(entry.get("promise_history") or []), recs),
+            })
+        self._pending_promise_history = {}
+
+    # ── Surplus payment-event cleanup ──────────────────────────────────────────
+
+    def _cleanup_surplus_payment_events(
+        self, soid: str, calendar_id: str, oid: str, this_month: str,
+        keep_ids: set, prior_payment_ids: list,
+        collapsed: bool, live_scan: bool,
+    ):
+        """
+        Delete current-month payment events that should no longer exist.
+
+        A settled (collapsed/frozen) month keeps NO payment events — the
+        settled event's description carries the history, and nsf_event_ids
+        are cleared.  An expanded month keeps this run's day-group events
+        plus tracked NSF flips/ghosts.  Candidates come from state; the live
+        extended-property scan is added only on deep-clean runs (collapse
+        transitions, the fmt migration, the nightly) so the hourly sweep's
+        API volume stays flat.
+        """
+        entry   = self.state.get(soid, this_month) or {}
+        nsf_ids = [i for i in (entry.get("nsf_event_ids") or []) if i]
+        keep    = set() if collapsed else (set(keep_ids) | set(nsf_ids))
+        candidates = {i for i in prior_payment_ids if i}
+        if collapsed:
+            candidates |= set(nsf_ids)
+        if live_scan:
+            try:
+                for ev in self.gcal.find_month_payment_events(
+                        calendar_id, oid, this_month):
+                    candidates.add(ev["id"])
+            except HttpError as e:
+                log.error(f"  {oid}: payment-event scan failed: {e}")
+        doomed = sorted(candidates - keep)
+        for eid in doomed:
+            try:
+                self.gcal.delete_event(calendar_id, eid)
+                log.info(
+                    f"  {oid}: removed surplus payment event {eid}"
+                    + (" (month settled — consolidated)" if collapsed else ""))
+            except HttpError as e:
+                log.error(f"  {oid}: failed to delete payment event {eid}: {e}")
+        if collapsed and nsf_ids:
+            entry = self.state.get(soid, this_month) or {}
+            self.state.set(soid, this_month, {**entry, "nsf_event_ids": []})
+
     # ── NSF reversal reconciliation ───────────────────────────────────────────
 
     @staticmethod
@@ -2027,6 +2416,18 @@ class SyncOrchestrator:
             d = rec.get("date") or "?"
         amt = float(rec.get("amount") or 0)
         return f"⚠️ ${amt:,.2f} payment REVERSED (NSF) on {d}"
+
+    @staticmethod
+    def _reversal_matches_row(rec: dict, row: dict) -> bool:
+        """Does this reversal refer to this LEDGER ROW?  Ref-token match on
+        the row's description when the reversal carries one; else an exact
+        amount match (½¢ tolerance)."""
+        ref = rec.get("ref")
+        if ref:
+            return re.search(rf"#{re.escape(ref)}(?![\w-])",
+                             row.get("description") or "") is not None
+        return abs(float(row.get("amount") or 0)
+                   - float(rec.get("amount") or 0)) < 0.005
 
     @staticmethod
     def _reversal_matches_text(rec: dict, text: str) -> bool:
@@ -2128,6 +2529,8 @@ class SyncOrchestrator:
 
         # ── Current month: flip/delete surplus events; note vanished rows ──
         cur_entry = self.state.get(soid, this_month) or {}
+        month_settled = cur_entry.get("collapse_state") in ("collapsed",
+                                                            "frozen")
         for ev_id in surplus_payment_ids:
             body = self.gcal.get_event(calendar_id, ev_id)
             if not body:
@@ -2135,7 +2538,25 @@ class SyncOrchestrator:
             desc = body.get("description") or ""
             matched = next((r for r in pending
                             if self._reversal_matches_text(r, desc)), None)
-            if matched:
+            if matched and month_settled:
+                # A settled month keeps no payment events (the cleanup would
+                # delete a flipped marker moments later) — record the bounce
+                # on the settled event instead, where it survives: patched
+                # notes persist because settled months never rebuild, and
+                # any forced rebuild re-renders them from the v2 marker.
+                note = self._format_reversal_note(matched)
+                sid = cur_entry.get("status_event_id")
+                if sid:
+                    sbody = self.gcal.get_event(calendar_id, sid)
+                    if sbody:
+                        self.gcal.append_description_note(
+                            calendar_id, sbody, note)
+                self.gcal.delete_event(calendar_id, ev_id)
+                _mark(this_month, matched)
+                pending.remove(matched)
+                log.info(f"  {oid}: reversed payment noted on the settled "
+                         f"event; surplus marker {ev_id} removed")
+            elif matched:
                 self.gcal.flip_event_to_nsf(
                     calendar_id, body, self._format_reversal_note(matched),
                     retag_idx=True)
@@ -2173,13 +2594,40 @@ class SyncOrchestrator:
                 # The month's figures were already rebuilt truthfully (the
                 # past_due jump fired data_changed); PATCH the note on now —
                 # future rebuilds re-render it from the carried marker.
+                note     = self._format_reversal_note(rec)
+                ghost_id = None
+                row_vanished = not any(
+                    self._reversal_matches_row(rec, p)
+                    for p in (unit.get("payments") or []))
+                if row_vanished and not month_settled:
+                    # The bounced payment's positive row vanished with it, so
+                    # no event remains to flip — reconstruct a red NSF event
+                    # from the stored row (this is the "NSF payment in red"
+                    # after a settled-collapse revert).  Skipped while the
+                    # month is still settled (the settled event's description
+                    # carries the note instead) and when the positive row
+                    # SURVIVED the pull keyword-flagged NSF — its natural red
+                    # rendering already shows the bounce; a ghost would
+                    # display it twice.
+                    try:
+                        gbody = self.gcal._build_nsf_ghost_event(
+                            unit, hit, note, this_month)
+                        created = _gcal_execute(
+                            self.gcal.service.events().insert(
+                                calendarId=calendar_id, body=gbody))
+                        ghost_id = created["id"]
+                        log.info(f"  {oid}: reconstructed red NSF event for "
+                                 f"vanished payment ({_key(rec)})")
+                    except HttpError as e:
+                        log.error(
+                            f"  {oid}: failed to create NSF ghost event: {e}")
                 sid = cur_entry.get("status_event_id")
                 if sid:
                     body = self.gcal.get_event(calendar_id, sid)
                     if body:
                         self.gcal.append_description_note(
-                            calendar_id, body, self._format_reversal_note(rec))
-                _mark(this_month, rec)
+                            calendar_id, body, note)
+                _mark(this_month, rec, extra_event_id=ghost_id)
                 log.info(f"  {oid}: recorded NSF reversal of a vanished "
                          f"current-month payment ({_key(rec)})")
             else:
@@ -2193,6 +2641,25 @@ class SyncOrchestrator:
             entry = self.state.get(soid, mo)
             if not entry or entry.get("calendar_id") != calendar_id:
                 continue
+            # A settled or reactivated prior month can't take the legacy
+            # flip path: settled months have no payment events, and both
+            # settled and reactivated status events embed the settled rows'
+            # Amount lines — a text match would flip the whole month's
+            # status event red.  Un-collapse first (expanded events rebuilt
+            # from the stored rows, bounced row red); any remaining
+            # reversals then match the rebuilt events below.
+            if entry.get("collapse_state") in ("collapsed", "frozen",
+                                               "reactivated"):
+                pending = self._uncollapse_prior_month(
+                    soid, calendar_id, unit, mo, entry, pending, _mark, today)
+                if not pending:
+                    break
+                entry = self.state.get(soid, mo)
+                if (not entry
+                        or entry.get("collapse_state") in ("collapsed",
+                                                           "frozen",
+                                                           "reactivated")):
+                    continue
             candidates = []
             if entry.get("status_event_id"):
                 candidates.append(entry["status_event_id"])
@@ -2239,3 +2706,115 @@ class SyncOrchestrator:
             log.warning(
                 f"  {oid}: NSF reversal ({_key(rec)}) has no matching payment "
                 f"event in {months} — will retry until it ages out")
+
+    def _uncollapse_prior_month(
+        self, soid: str, calendar_id: str, unit: dict, mo: str,
+        entry: dict, pending: list, mark, today: date,
+    ) -> list:
+        """
+        A reversal arrived for a month that COLLAPSED (or froze, or rolled
+        over mid-REACTIVATION) — the settlement was fiction.  Rebuild the
+        month's expanded view from the stored ledger rows: status event back
+        on the first payment date (reusing the settled event's id in place,
+        so nothing orphans), one event per remaining day-group, the bounced
+        row red.  Post-reversal balances are honestly reconstructable as
+        stored past_due + the reversed amount (a frozen/reactivated month's
+        stored past_due already includes its post-settle charge).  Returns
+        the still-pending reversals — an unmatched or ambiguous one leaves
+        the month settled and retries until age-out.
+        """
+        oid  = soid.split("@")[0] if "@" in soid else soid
+        rows = [dict(r) for r in (entry.get("payments") or [])]
+        matched_rec = matched_row = None
+        for rec in pending:
+            ref = rec.get("ref")
+            if ref:
+                for r in rows:
+                    if not r.get("is_nsf") and re.search(
+                            rf"#{re.escape(ref)}(?![\w-])",
+                            r.get("description") or ""):
+                        matched_rec, matched_row = rec, r
+                        break
+            else:
+                amt_matches = [
+                    r for r in rows
+                    if not r.get("is_nsf")
+                    and abs(float(r.get("amount") or 0)
+                            - float(rec.get("amount") or 0)) < 0.005]
+                if len(amt_matches) == 1:
+                    matched_rec, matched_row = rec, amt_matches[0]
+                elif len(amt_matches) > 1:
+                    log.warning(
+                        f"  {oid}: reversal ({rec.get('date')}:"
+                        f"{rec.get('amount')}) matches multiple stored "
+                        f"payments in settled {mo} — ambiguous, skipping")
+            if matched_rec:
+                break
+        if not matched_rec:
+            return pending
+
+        matched_row["is_nsf"] = True
+        note = (self._format_reversal_note(matched_rec)
+                + " — month no longer settled; events reconstructed from "
+                  "sync records (balances shown are post-reversal)")
+        final_pd = (float(entry.get("past_due") or 0)
+                    + float(matched_rec.get("amount") or 0))
+        rows.sort(key=lambda p: (p.get("date") or "",
+                                 -float(p.get("amount") or 0)))
+        groups   = group_payments_by_day(rows)
+        balances = compute_running_balances(groups, final_pd)
+        try:
+            mo_due = date(int(mo[:4]), int(mo[5:7]), RENT_DUE_DAY)
+        except (ValueError, IndexError):
+            mo_due = today.replace(day=RENT_DUE_DAY)
+        month_recv = sum(r["amount"] for r in rows if not r.get("is_nsf"))
+        unit_mo = {**unit, "past_due": final_pd, "amount_paid": month_recv,
+                   "payments": rows}
+
+        if groups:
+            anchor    = max(date.fromisoformat(groups[0]["date"]), mo_due)
+            first     = groups[0]
+            ev_status = payment_status(unit["rent"], balances[0])
+        else:
+            anchor, first = mo_due, None
+            ev_status     = classify_status(unit["rent"], final_pd)
+        body = self.gcal._build_status_event(
+            unit_mo, ev_status, anchor, first,
+            balances[0] if balances else None,
+            total_payments=len(groups),
+            reversal_notes=[note],
+            promise_history=list(entry.get("promise_history") or []),
+        )
+        sid = self.gcal._update_or_create(
+            calendar_id, entry.get("status_event_id"), body)
+
+        new_ids = []
+        for i, (g, bal) in enumerate(zip(groups[1:], balances[1:])):
+            pbody = self.gcal._build_additional_payment_event(
+                unit_mo, g, i + 2, len(groups), bal, month_recv)
+            existing = self.gcal._find_payment_event(
+                calendar_id, oid, mo, i + 1)
+            new_ids.append(self.gcal._update_or_create(
+                calendar_id, existing, pbody))
+
+        self.state.set(soid, mo, {
+            **entry,
+            "fmt":               STATE_FMT,
+            "status":            ev_status,
+            "past_due":          final_pd,
+            "status_event_id":   sid,
+            "status_event_date": anchor.isoformat(),
+            "payment_event_ids": new_ids,
+            "payment_event_dates": [g["date"] for g in groups[1:]],
+            "payments":          rows,
+            "collapse_state":    None,
+            "collapse_baseline": 0,
+            "settled_rows":      [],
+            "settled_past_due":  None,
+            "settled_on":        None,
+        })
+        mark(mo, matched_rec)
+        log.info(
+            f"  {oid}: reversal broke {mo}'s settlement — un-collapsed "
+            f"({len(groups)} day-group(s) rebuilt, bounced payment red)")
+        return [r for r in pending if r is not matched_rec]

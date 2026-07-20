@@ -472,8 +472,9 @@ check("NSF first payment -> red + NSF tag",
       and " NSF" in b["summary"])
 b2 = orch.gcal._build_status_event(unit_fx, status.STATUS_PARTIAL,
                                    _date(2026, 6, 4), nsf_pay, 0.0,
-                                   total_payments=2, month_fully_paid=True)
-check("settled month -> muting wins over NSF red", b2["colorId"] == "8")
+                                   total_payments=2)
+check("NSF first payment stays red (grey muting removed — settled months "
+      "collapse instead)", b2["colorId"] == "11")
 ok_pay = {**nsf_pay, "is_nsf": False}
 b3 = orch.gcal._build_status_event(unit_fx, status.STATUS_PARTIAL,
                                    _date(2026, 6, 4), ok_pay, 700.0,
@@ -523,7 +524,12 @@ bodies = {
                             "Status:       ✅ Paid")},
 }
 unit85 = {"occupancy_id": "85", "tenant": "Darden, Sanquia",
-          "additional_tenants": "", "rent": 1500.0, "past_due": 3030.0}
+          "additional_tenants": "", "rent": 1500.0, "past_due": 3030.0,
+          "property_name": "7736 South Greenwood Avenue", "unit_label": "Unit 2",
+          "address": "7736 South Greenwood Avenue, Chicago, IL, 60619",
+          "phone": "N/A", "late_fee_desc": "N/A", "grace_days": 5,
+          "amount_paid": 0.0, "payments": [],
+          "lease_from": "2026-01-01", "lease_to": "2026-12-31"}
 rmap85 = {"Sanquia Darden": [
     {"date": "2026-07-01", "amount": 1530.0, "ref": "1A4A-5A70",
      "description": "NSF reversal receipt for Reference #1A4A-5A70"},
@@ -589,6 +595,8 @@ rmap7 = {"Sanquia Darden": [
 ]}
 prior_pays = [{"date": "2026-07-02", "amount": 650.0, "is_nsf": False,
                "description": "ACH (#EEEE-FFFF)"}]
+orch5.gcal.service.events.return_value.insert.return_value.execute.return_value = \
+    {"id": "ghost1"}
 with mock.patch.object(orch5.gcal, "get_event",
                        side_effect=lambda cal, eid: bodies7.get(eid)), \
      mock.patch.object(orch5.gcal, "delete_event") as dele5:
@@ -605,11 +613,23 @@ check("non-matching surplus event deleted (positional duplicate)",
       dele5.call_args == mock.call("calA", "p72"))
 july = orch5.state.get("85@10", "2026-07")
 check("flipped event recorded in nsf_event_ids + marker",
-      july.get("nsf_event_ids") == ["p71"]
+      "p71" in (july.get("nsf_event_ids") or [])
       and "CCCC-DDDD" in [r["key"] for r in july["nsf_reversals_applied"]])
 check("vanished single payment matched via stored payments -> noted",
       "EEEE-FFFF" in [r["key"] for r in july["nsf_reversals_applied"]]
       and "REVERSED (NSF)" in bodies7["st7"]["description"])
+ghost_body = orch5.gcal.service.events.return_value.insert.call_args.kwargs["body"]
+check("vanished payment reconstructed as red ghost event (idx nsfg, tracked)",
+      ghost_body["colorId"] == "11"
+      and ghost_body["extendedProperties"]["private"]["okpm_payment_idx"] == "nsfg"
+      and "$650.00" in ghost_body["description"]
+      and "Reconstructed from sync records" in ghost_body["description"]
+      and "Balance" not in ghost_body["description"]
+      and "ghost1" in (july.get("nsf_event_ids") or []))
+# The mocked discovery.build was captured at import, so every orchestrator
+# shares ONE service mock — clear the insert counter for later sections
+# that assert exact insert counts (e.g. the cutover suite).
+orch5.gcal.service.events.return_value.insert.reset_mock()
 check("62-day-old reversal ignored (no marker)",
       "OLD1-OLD1" not in [r["key"] for r in july["nsf_reversals_applied"]])
 check("new markers carry v=2",
@@ -862,6 +882,482 @@ orch8.state.mark_migration_done("group_cutover_v1", {"note": "smoke"})
 check("marker round-trips with done_at stamp",
       orch8.state.migration_done("group_cutover_v1")
       and "done_at" in orch8.state.data["_migrations"]["group_cutover_v1"])
+
+print("\n=== 22. Day-groups: same-day payments render as one event ===")
+pays22 = [
+    {"date": "2026-07-03", "amount": 700.0, "is_nsf": False,
+     "description": "ACH (#AA-11)", "intended_month": None},
+    {"date": "2026-07-03", "amount": 300.0, "is_nsf": False,
+     "description": "ACH (#BB-22)", "intended_month": None},
+    {"date": "2026-07-03", "amount": 200.0, "is_nsf": True,
+     "description": "ACH (#CC-33) NSF", "intended_month": None},
+    {"date": "2026-07-10", "amount": 400.0, "is_nsf": False,
+     "description": "ACH (#DD-44)", "intended_month": (2026, 6)},
+]
+groups22 = transforms.group_payments_by_day(pays22)
+check("non-NSF same-day rows merged; NSF stays its own group",
+      [g["amount"] for g in groups22] == [1000.0, 200.0, 400.0]
+      and [len(g["rows"]) for g in groups22] == [2, 1, 1]
+      and groups22[1]["is_nsf"] is True)
+check("merged group description + intended_month propagation",
+      groups22[0]["description"] == "2 same-day payments"
+      and groups22[3 - 1]["intended_month"] == (2026, 6))
+check("running balances over groups (NSF excluded from add-back)",
+      transforms.compute_running_balances(groups22, 100.0)
+      == [500.0, 500.0, 100.0])
+
+print("\n=== 23. Settled-collapse state machine ===")
+rows23 = [
+    {"date": "2026-07-02", "amount": 500.0, "is_nsf": False,
+     "description": "ACH (#R1)"},
+    {"date": "2026-07-09", "amount": 700.0, "is_nsf": False,
+     "description": "ACH (#R2)"},
+]
+rct = transforms.resolve_collapse_transition
+t = rct(None, rows23, 0.0)
+check("fully paid -> collapsed, snapshot = all rows, transitioned",
+      t["state"] == "collapsed" and t["settled_rows"] == rows23
+      and t["transitioned"] and not t["reverted"])
+prior23 = {"collapse_state": "collapsed", "collapse_baseline": 2,
+           "settled_rows": rows23, "payments": rows23}
+t = rct(prior23, rows23, 0.0)
+check("steady collapsed run -> no transition",
+      t["state"] == "collapsed" and not t["transitioned"])
+extra_row = {"date": "2026-07-15", "amount": 100.0, "is_nsf": False,
+             "description": "ACH (#R3)"}
+t = rct(prior23, rows23 + [extra_row], -100.0)
+check("advance payment while collapsed -> stays collapsed, snapshot grows",
+      t["state"] == "collapsed" and len(t["settled_rows"]) == 3
+      and t["transitioned"])
+t = rct(prior23, rows23, 80.0)
+check("charge after settlement, no new payment -> frozen",
+      t["state"] == "frozen" and t["transitioned"])
+prior_frozen = {**prior23, "collapse_state": "frozen"}
+t = rct(prior_frozen, rows23, 80.0)
+check("steady frozen run -> no transition",
+      t["state"] == "frozen" and not t["transitioned"])
+t = rct(prior_frozen, rows23 + [extra_row], 30.0)
+check("payment toward post-settle charge -> reactivated over fresh rows only",
+      t["state"] == "reactivated" and t["fresh"] == [extra_row]
+      and t["settled_rows"] == rows23)
+t = rct(prior_frozen, [rows23[0]], 700.0)
+check("settled row vanished while owing -> collapse REVERTED",
+      t["state"] is None and t["reverted"] and t["transitioned"])
+t = rct(prior23, [rows23[0], {**rows23[1], "is_nsf": True}], 700.0)
+check("settled row reappears NSF-flagged -> collapse REVERTED",
+      t["state"] is None and t["reverted"])
+prepaid_prior = {"collapse_state": "collapsed", "collapse_baseline": 0,
+                 "settled_rows": [], "payments": []}
+check("pure-prepaid month: charge alone freezes, a payment expands",
+      rct(prepaid_prior, [], 60.0)["state"] == "frozen"
+      and rct(prepaid_prior, [rows23[0]], 60.0)["state"] is None
+      and not rct(prepaid_prior, [rows23[0]], 60.0)["reverted"])
+legacy23 = {"status": "grey-era", "past_due": 0.0, "payments": rows23}
+t = rct(legacy23, rows23, 0.0)
+check("legacy grey-era entry collapses on first evaluation",
+      t["state"] == "collapsed" and t["transitioned"])
+react_prior = {"collapse_state": "reactivated", "collapse_baseline": 2,
+               "settled_rows": rows23, "payments": rows23 + [extra_row]}
+t = rct(react_prior, rows23 + [extra_row], 40.0)
+check("reactivated stays reactivated while balance remains",
+      t["state"] == "reactivated" and t["fresh"] == [extra_row]
+      and not t["transitioned"])
+t = rct(react_prior, rows23 + [extra_row], 0.0)
+check("fresh cycle fully paid -> re-collapses with the full snapshot",
+      t["state"] == "collapsed" and len(t["settled_rows"]) == 3)
+t = rct(react_prior, rows23, 40.0)
+check("reactivated fresh rows all vanished -> returns to frozen (canonical)",
+      t["state"] == "frozen" and t["transitioned"] and not t["reverted"])
+check("legacy fallback: settled_rows absent -> payments[:baseline]",
+      rct({"collapse_state": "collapsed", "collapse_baseline": 2,
+           "payments": rows23}, rows23, 50.0)["state"] == "frozen")
+
+print("\n=== 24. Settled-month event + day-group builders ===")
+unit24 = {**unit_fx, "past_due": 0.0, "amount_paid": 1400.0}
+g24 = transforms.group_payments_by_day([
+    {"date": "2026-07-02", "amount": 400.0, "is_nsf": False,
+     "description": "ACH (#S1)", "intended_month": None},
+    {"date": "2026-07-02", "amount": 300.0, "is_nsf": False,
+     "description": "ACH (#S2)", "intended_month": None},
+    {"date": "2026-07-16", "amount": 700.0, "is_nsf": False,
+     "description": "ACH (#S3)", "intended_month": None},
+])
+ph24 = [{"event_id": "pe1", "anchor_date": "2026-07-16",
+         "source_type": "status", "origin_month": "2026-07",
+         "covers_rent_month": "2026-07", "outcome": "kept",
+         "recorded": "2026-07-16"}]
+sb = orch.gcal._build_settled_month_event(
+    unit24, _date(2026, 7, 16), g24, promise_history=ph24,
+    reversal_notes=None, settled_on="2026-07-16")
+check("settled event: green, anchored on last payment date, total in title",
+      sb["colorId"] == "2" and sb["start"]["date"] == "2026-07-16"
+      and "$1,400 paid" in sb["summary"]
+      and sb["extendedProperties"]["private"]["okpm_event_type"] == "status")
+check("settled event: per-row column-0 Amount lines kept (reversal matching)",
+      "Amount:       $400.00" in sb["description"]
+      and "Amount:       $300.00" in sb["description"]
+      and "Amount:       $700.00" in sb["description"])
+check("settled event: promise history rendered",
+      "Promise history:" in sb["description"]
+      and "KEPT (payment received that day)" in sb["description"])
+sbp = orch.gcal._build_settled_month_event(
+    {**unit24, "past_due": -200.0}, _date(2026, 7, 16), g24,
+    settled_on="2026-07-16")
+check("credit month -> pink with credit suffix",
+      sbp["colorId"] == "4"
+      and "credit toward next month" in sbp["description"])
+sb0 = orch.gcal._build_settled_month_event(
+    {**unit24, "past_due": -50.0, "amount_paid": 0.0}, _date(2026, 7, 1), [],
+    settled_on="2026-07-01")
+check("pure-prepaid month -> $0 due shape, no payment-history section",
+      "$0 due" in sb0["summary"]
+      and "Payment history" not in sb0["description"])
+st24 = orch.gcal._build_status_event(
+    {**unit_fx, "past_due": 700.0, "amount_paid": 700.0},
+    status.STATUS_PARTIAL, _date(2026, 7, 2), g24[0], 700.0,
+    total_payments=2)
+check("status event absorbs the whole first day-group (sum + itemised rows)",
+      "$700 paid" in st24["summary"]
+      and "(2 same-day payments)" in st24["description"]
+      and "Amount:       $400.00" in st24["description"]
+      and "Amount:       $300.00" in st24["description"])
+pe24 = orch.gcal._build_additional_payment_event(
+    {**unit_fx, "past_due": 700.0, "amount_paid": 1400.0}, g24[0],
+    2, 2, 700.0, 1400.0)
+check("payment event renders a day-group (sum title, per-row blocks, idx=1)",
+      "$700" in pe24["summary"]
+      and "Amount:       $400.00" in pe24["description"]
+      and pe24["extendedProperties"]["private"]["okpm_payment_idx"] == "1")
+sp24 = {"count": 2, "total": 700.0, "settled_on": "2026-07-09",
+        "rows": g24[0]["rows"]}
+st25 = orch.gcal._build_status_event(
+    {**unit_fx, "past_due": 100.0, "amount_paid": 1400.0},
+    status.STATUS_PARTIAL, _date(2026, 7, 20), g24[1], 100.0,
+    total_payments=1, settled_prefix=sp24)
+check("reactivated month: 'Previously settled' section + fresh tracking note",
+      "Previously settled" in st25["description"]
+      and "covers the new balance only" in st25["description"])
+
+print("\n=== 25. Promise absorption by same-day payment ===")
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {"88@g9": [
+        {"event_id": "cA", "anchor_date": "2026-07-10",
+         "source_type": "status", "origin_month": "2026-07",
+         "covers_rent_month": "2026-07", "calendar_id": "calZ"},
+        {"event_id": "cB", "anchor_date": "2026-07-20",
+         "source_type": "payment", "origin_month": "2026-07",
+         "covers_rent_month": "2026-07", "calendar_id": "calZ"},
+    ]}}, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch9 = SyncOrchestrator()
+os.unlink(tmp)
+
+unit88 = {"occupancy_id": "88", "tenant": "Doe, Jane",
+          "additional_tenants": "", "rent": 1000.0, "past_due": 600.0}
+# Shared service mock (see note in section 16) — start from a clean counter.
+orch9.gcal.service.events.return_value.insert.reset_mock()
+live25 = [
+    {"id": "cA", "start": {"date": "2026-07-10"}},
+    {"id": "cB", "start": {"date": "2026-07-20"}},
+]
+with mock.patch.object(orch9.gcal, "find_all_events_by_type",
+                       return_value=live25), \
+     mock.patch.object(orch9.gcal, "delete_event") as del9, \
+     mock.patch.object(orch9.gcal, "update_commitment_event",
+                       return_value="2026-07-20") as upd9:
+    orch9._process_commitments("88@g9", "calZ", unit88, _date(2026, 7, 11),
+                               has_known_or_new=True,
+                               payment_dates={"2026-07-10"})
+check("promise on the payment date absorbed; the other survives",
+      del9.call_args_list == [mock.call("calZ", "cA")]
+      and [c["event_id"] for c in orch9.state.get_commitments("88@g9")]
+      == ["cB"] and upd9.called)
+check("absorption recorded as outcome 'kept'",
+      any(r["event_id"] == "cA" and r["outcome"] == "kept"
+          for r in orch9._pending_promise_history.get(("88@g9", "2026-07"), [])))
+check("no ≥1-promise resurrection after absorbing (no inserts)",
+      orch9.gcal.service.events.return_value.insert.call_count == 0)
+with mock.patch.object(orch9.gcal, "find_all_events_by_type",
+                       return_value=[live25[1]]), \
+     mock.patch.object(orch9.gcal, "delete_event") as del9b:
+    orch9._process_commitments("88@g9", "calZ", unit88, _date(2026, 7, 21),
+                               has_known_or_new=True,
+                               payment_dates={"2026-07-20"})
+check("absorbing the LAST promise leaves ZERO promises (rule not tripped)",
+      del9b.call_args_list == [mock.call("calZ", "cB")]
+      and orch9.state.get_commitments("88@g9") == []
+      and orch9.gcal.service.events.return_value.insert.call_count == 0)
+orch9.state.set_commitments("88@g9", [
+    {"event_id": "cC", "anchor_date": "2026-07-12", "source_type": "late",
+     "origin_month": "2026-07", "covers_rent_month": None,
+     "calendar_id": "calZ"}])
+live25c = [{"id": "cC", "start": {"date": "2026-07-12"}}]
+with mock.patch.object(orch9.gcal, "find_all_events_by_type",
+                       return_value=live25c), \
+     mock.patch.object(orch9.gcal, "delete_event") as del9c, \
+     mock.patch.object(orch9.gcal, "update_commitment_event",
+                       return_value="2026-07-12"):
+    orch9._process_commitments("88@g9", "calZ", unit88, _date(2026, 7, 12),
+                               has_known_or_new=True, payment_dates=None)
+check("payment_dates=None (submit: no ledger) -> absorption skipped",
+      not del9c.called
+      and len(orch9.state.get_commitments("88@g9")) == 1)
+with mock.patch.object(orch9.gcal, "find_all_events_by_type",
+                       return_value=live25c), \
+     mock.patch.object(orch9.gcal, "delete_event") as del9d:
+    orch9._process_commitments("88@g9", "calZ", {**unit88, "past_due": 0.0},
+                               _date(2026, 7, 13), has_known_or_new=True,
+                               payment_dates=set())
+check("resolution deletes the promise and records outcome 'resolved'",
+      del9d.call_args == mock.call("calZ", "cC")
+      and any(r["event_id"] == "cC" and r["outcome"] == "resolved"
+              for r in orch9._pending_promise_history.get(("88@g9", "2026-07"),
+                                                          [])))
+orch9.state.set("88@g9", "2026-07", {"status": "🟡 Partial",
+                                     "past_due": 600.0,
+                                     "calendar_id": "calZ"})
+orch9._flush_pending_promise_history()
+hist25 = {(r["event_id"], r["outcome"])
+          for r in orch9.state.get("88@g9", "2026-07")["promise_history"]}
+check("flush merges pending outcomes into the month entry",
+      hist25 >= {("cA", "kept"), ("cB", "kept"), ("cC", "resolved")}
+      and orch9._pending_promise_history == {})
+
+print("\n=== 26. Surplus payment-event cleanup (collapse + leak fix) ===")
+orch9.state.set("90@g9", "2026-07", {"calendar_id": "calY",
+                                     "nsf_event_ids": ["n1"]})
+with mock.patch.object(orch9.gcal, "delete_event") as d10, \
+     mock.patch.object(orch9.gcal, "find_month_payment_events",
+                       return_value=[{"id": "stray"}]):
+    orch9._cleanup_surplus_payment_events(
+        "90@g9", "calY", "90", "2026-07",
+        keep_ids={"k1"}, prior_payment_ids=["k1", "old1"],
+        collapsed=False, live_scan=True)
+check("expanded: keeps current + NSF ids, deletes stale prior + live strays",
+      sorted(c.args[1] for c in d10.call_args_list) == ["old1", "stray"])
+with mock.patch.object(orch9.gcal, "delete_event") as d11, \
+     mock.patch.object(orch9.gcal, "find_month_payment_events",
+                       return_value=[{"id": "p1"}, {"id": "n1"}]):
+    orch9._cleanup_surplus_payment_events(
+        "90@g9", "calY", "90", "2026-07",
+        keep_ids=set(), prior_payment_ids=["p1"],
+        collapsed=True, live_scan=True)
+check("collapsed: ALL payment events deleted, nsf_event_ids cleared",
+      sorted(c.args[1] for c in d11.call_args_list) == ["n1", "p1"]
+      and orch9.state.get("90@g9", "2026-07")["nsf_event_ids"] == [])
+with mock.patch.object(orch9.gcal, "delete_event") as d12, \
+     mock.patch.object(orch9.gcal, "find_month_payment_events") as fm12:
+    orch9._cleanup_surplus_payment_events(
+        "90@g9", "calY", "90", "2026-07",
+        keep_ids={"k1"}, prior_payment_ids=["k1"],
+        collapsed=False, live_scan=False)
+check("steady hourly run: no live scan, nothing deleted",
+      not fm12.called and not d12.called)
+
+print("\n=== 27. Reversal against a settled prior month -> un-collapse ===")
+june_rows = [
+    {"date": "2026-06-05", "amount": 500.0, "is_nsf": False,
+     "description": "ACH (#JJ-55)"},
+    {"date": "2026-06-20", "amount": 1000.0, "is_nsf": False,
+     "description": "ACH (#KK-66)"},
+]
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({
+        "_commitments": {},
+        "85@10_2026-06": {"fmt": 2, "status": "✅ Paid", "past_due": 0.0,
+                          "calendar_id": "calA", "status_event_id": "set6",
+                          "status_event_date": "2026-06-20",
+                          "late_event_id": None, "payment_event_ids": [],
+                          "payment_event_dates": [], "payments": june_rows,
+                          "collapse_state": "collapsed",
+                          "collapse_baseline": 2, "settled_rows": june_rows,
+                          "settled_past_due": 0.0,
+                          "settled_on": "2026-06-20", "promise_history": []},
+        "85@10_2026-07": {"fmt": 2, "status": "🔴 Unpaid", "past_due": 1000.0,
+                          "calendar_id": "calA", "status_event_id": "st7c",
+                          "status_event_date": "2026-07-01",
+                          "late_event_id": None, "payment_event_ids": []},
+    }, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch11 = SyncOrchestrator()
+os.unlink(tmp)
+
+rmap27 = {"Sanquia Darden": [
+    {"date": "2026-07-02", "amount": 1000.0, "ref": "KK-66",
+     "description": "NSF reversal receipt for Reference #KK-66"}]}
+with mock.patch.object(orch11.gcal, "_update_or_create",
+                       side_effect=["set6", "newP"]) as uoc27, \
+     mock.patch.object(orch11.gcal, "_find_payment_event",
+                       return_value=None), \
+     mock.patch.object(orch11.gcal, "get_event", return_value=None):
+    orch11._apply_nsf_reversals("85@10", "calA", unit85, _date(2026, 7, 4),
+                                "2026-07", rmap27,
+                                surplus_payment_ids=[], prior_payments=[])
+stat27 = uoc27.call_args_list[0].args[2]
+pay27  = uoc27.call_args_list[1].args[2]
+check("un-collapse: status event rebuilt yellow on first pay date, in place",
+      uoc27.call_args_list[0].args[1] == "set6"
+      and stat27["start"]["date"] == "2026-06-05"
+      and stat27["colorId"] == "5"
+      and "month no longer settled" in stat27["description"]
+      and "reconstructed from sync records" in stat27["description"])
+check("un-collapse: bounced payment rebuilt as its own RED event",
+      pay27["colorId"] == "11" and " NSF" in pay27["summary"]
+      and pay27["start"]["date"] == "2026-06-20")
+june27 = orch11.state.get("85@10", "2026-06")
+check("un-collapse: state expanded, bounced row flagged, marker v2",
+      june27["collapse_state"] is None
+      and june27["past_due"] == 1000.0
+      and june27["payments"][1]["is_nsf"] is True
+      and [r["key"] for r in june27["nsf_reversals_applied"]] == ["KK-66"]
+      and june27["payment_event_ids"] == ["newP"]
+      and june27["settled_rows"] == [])
+with mock.patch.object(orch11.gcal, "_update_or_create") as uoc27b, \
+     mock.patch.object(orch11.gcal, "get_event", return_value=None):
+    orch11._apply_nsf_reversals("85@10", "calA", unit85, _date(2026, 7, 4),
+                                "2026-07", rmap27,
+                                surplus_payment_ids=[], prior_payments=[])
+check("second pass is a no-op (marker honored)", not uoc27b.called)
+
+print("\n=== 28. Promise-history projection & merge ===")
+comms28 = [
+    {"event_id": "x1", "anchor_date": "2026-07-10", "source_type": "status",
+     "origin_month": "2026-07", "covers_rent_month": "2026-07",
+     "calendar_id": "calQ"},
+    {"event_id": "x2", "anchor_date": "2026-08-01",
+     "source_type": "kickstart", "origin_month": "2026-08",
+     "covers_rent_month": "2026-08", "calendar_id": "calQ"},
+    {"event_id": "x3", "anchor_date": "2026-07-18", "source_type": "late",
+     "origin_month": "2026-07", "covers_rent_month": None,
+     "calendar_id": "other"},
+]
+proj = orch._project_promise_outcomes(comms28, "calQ", {"2026-07-10"}, 0.0)
+check("projection: kept beats resolved; kickstart + other-calendar skipped",
+      [(r["event_id"], r["outcome"]) for r in proj] == [("x1", "kept")])
+proj2 = orch._project_promise_outcomes(comms28, "calQ", set(), 0.0)
+check("projection: resolved when settled",
+      [(r["event_id"], r["outcome"]) for r in proj2] == [("x1", "resolved")])
+merged28 = orch._merge_promise_history(proj, proj + proj2)
+check("merge dedupes by (event_id, outcome)",
+      [(r["event_id"], r["outcome"]) for r in merged28]
+      == [("x1", "kept"), ("x1", "resolved")])
+# Live anchors override registry anchors — the projection must agree with
+# the absorption pass when the PM re-dragged a promise since the last run.
+proj3 = orch._project_promise_outcomes(
+    comms28, "calQ", {"2026-07-10"}, 900.0,
+    live_anchor_by_id={"x1": "2026-07-11"})
+proj4 = orch._project_promise_outcomes(
+    comms28, "calQ", {"2026-07-11"}, 900.0,
+    live_anchor_by_id={"x1": "2026-07-11"})
+check("projection honours LIVE anchors (re-drag off/on a payment date)",
+      proj3 == [] and [(r["event_id"], r["outcome"], r["anchor_date"])
+                       for r in proj4] == [("x1", "kept", "2026-07-11")])
+
+print("\n=== 29. Reversals on settled months + surviving-row ghost guard ===")
+mm_row = {"date": "2026-07-15", "amount": 1500.0, "is_nsf": False,
+          "description": "ACH (#MM-77)"}
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({
+        "_commitments": {},
+        "77@g2_2026-07": {"fmt": 2, "status": "✅ Paid", "past_due": 0.0,
+                          "calendar_id": "calB", "status_event_id": "sev7",
+                          "status_event_date": "2026-07-15",
+                          "late_event_id": None, "payment_event_ids": [],
+                          "payment_event_dates": [], "payments": [mm_row],
+                          "collapse_state": "collapsed",
+                          "collapse_baseline": 1, "settled_rows": [mm_row],
+                          "settled_past_due": 0.0,
+                          "settled_on": "2026-07-15",
+                          "promise_history": [],
+                          "nsf_reversals_applied": [], "nsf_event_ids": []},
+        "78@g2_2026-07": {"fmt": 2, "status": "🟡 Partial", "past_due": 850.0,
+                          "calendar_id": "calB", "status_event_id": "st78",
+                          "status_event_date": "2026-07-03",
+                          "late_event_id": None, "payment_event_ids": [],
+                          "payment_event_dates": [], "payments": []},
+    }, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch12 = SyncOrchestrator()
+os.unlink(tmp)
+orch12.gcal.service.events.return_value.insert.reset_mock()
+
+# (a) Settle + bounce in the SAME poll: a matched surplus marker on a
+# settled month is deleted (never flipped — the cleanup would kill a
+# flipped marker anyway) and the bounce is noted on the settled event.
+bodies29 = {
+    "sev7": {"id": "sev7", "colorId": "2",
+             "summary": "✅ · Jane Doe · Unit 1 · 5 Main · $1,500 paid",
+             "description": "Received in July: $1,500.00\nStatus:       ✅ Paid"},
+    "sur1": {"id": "sur1", "colorId": "2",
+             "summary": "✅ · Jane Doe · Unit 1 · 5 Main · $200",
+             "description": ("Method:       ACH (#LL-88)\n"
+                             "Amount:       $200.00\nStatus:       ✅ Paid")},
+}
+unit77b = {"occupancy_id": "77", "tenant": "Doe, Jane",
+           "additional_tenants": "", "rent": 1500.0, "past_due": 0.0,
+           "payments": [mm_row]}
+rmap29 = {"Jane Doe": [
+    {"date": "2026-07-16", "amount": 200.0, "ref": "LL-88",
+     "description": "NSF reversal receipt for Reference #LL-88"}]}
+with mock.patch.object(orch12.gcal, "get_event",
+                       side_effect=lambda cal, eid: bodies29.get(eid)), \
+     mock.patch.object(orch12.gcal, "delete_event") as del29, \
+     mock.patch.object(orch12.gcal, "flip_event_to_nsf") as flip29:
+    orch12._apply_nsf_reversals("77@g2", "calB", unit77b, _date(2026, 7, 16),
+                                "2026-07", rmap29,
+                                surplus_payment_ids=["sur1"],
+                                prior_payments=[
+                                    {"date": "2026-07-14", "amount": 200.0,
+                                     "is_nsf": False,
+                                     "description": "ACH (#LL-88)"}])
+july29 = orch12.state.get("77@g2", "2026-07")
+check("settled month: bounce noted on settled event, marker deleted, no flip",
+      not flip29.called
+      and del29.call_args == mock.call("calB", "sur1")
+      and "REVERSED (NSF)" in bodies29["sev7"]["description"]
+      and [r["key"] for r in july29["nsf_reversals_applied"]] == ["LL-88"]
+      and july29.get("nsf_event_ids") == []
+      and orch12.gcal.service.events.return_value.insert.call_count == 0)
+
+# (b) Surviving-row guard: the bounced positive row REMAINED in the pull
+# (keyword-flagged NSF) — its natural red rendering covers the bounce, so
+# no ghost is reconstructed; the status event still gets the note.
+unit78 = {"occupancy_id": "78", "tenant": "Roe, Rick",
+          "additional_tenants": "", "rent": 900.0, "past_due": 850.0,
+          "payments": [{"date": "2026-07-03", "amount": 650.0,
+                        "is_nsf": True,
+                        "description": "ACH (#NN-99) NSF returned"}]}
+rmap29b = {"Rick Roe": [
+    {"date": "2026-07-05", "amount": 650.0, "ref": "NN-99",
+     "description": "NSF reversal receipt for Reference #NN-99"}]}
+with mock.patch.object(orch12.gcal, "get_event",
+                       side_effect=lambda cal, eid: bodies29.get(eid, {
+                           "id": eid, "description": "", "summary": ""})), \
+     mock.patch.object(orch12.gcal, "delete_event"):
+    orch12._apply_nsf_reversals("78@g2", "calB", unit78, _date(2026, 7, 6),
+                                "2026-07", rmap29b,
+                                surplus_payment_ids=[],
+                                prior_payments=[
+                                    {"date": "2026-07-03", "amount": 650.0,
+                                     "is_nsf": False,
+                                     "description": "ACH (#NN-99)"}])
+july29b = orch12.state.get("78@g2", "2026-07")
+check("surviving NSF-flagged row: marker written but NO duplicate ghost",
+      orch12.gcal.service.events.return_value.insert.call_count == 0
+      and "NN-99" in [r["key"] for r in july29b["nsf_reversals_applied"]]
+      and not july29b.get("nsf_event_ids"))
 
 print()
 if failures:

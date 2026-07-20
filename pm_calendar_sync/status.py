@@ -10,8 +10,11 @@ STATUS_PREPAID = "🩷 Prepaid"
 STATUS_PARTIAL = "🟡 Partial"
 STATUS_UNPAID  = "🔴 Unpaid"
 STATUS_LATE    = "🔴 Late"
-# Muted state for an earlier / failed payment once the month is fully paid.
-# Only used to recolour past events grey — never returned by classify_status.
+# LEGACY grey-muted state.  Since the settled-collapse deploy a fully-paid
+# month consolidates into one event instead of greying its history, so no new
+# event is ever painted ⚪ — this constant only serves pre-deploy months
+# (frozen grey events + unmute_event_to_own_status on their reversals).
+# Never returned by classify_status.
 STATUS_SETTLED = "⚪ Settled"
 
 
