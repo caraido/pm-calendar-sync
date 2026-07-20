@@ -3,7 +3,8 @@ clean_keep_commitments.py
 ─────────────────────────
 Smart cleanup that PRESERVES your dragged promises.
 
-WHAT IT DOES, per "… Portfolio" calendar:
+WHAT IT DOES, per sync-managed calendar (from state.json `_calendars` —
+since the group cutover these are the property-group calendars):
   1. KEEPS every commitment event (your dragged promises) — these are the
      source of truth for promises.
   2. DEDUPES commitment events: if several sit on the same date for the same
@@ -34,7 +35,7 @@ PROCEDURE:
 Requires confirmation (type YES) before deleting.
 """
 
-import json, sys, time
+import json, os, sys, time
 from pathlib import Path
 from collections import defaultdict
 from google.oauth2 import service_account
@@ -64,18 +65,26 @@ def _delete_with_retry(cal_id, event_id, retries=4, base=4):
             return False
     return False
  
-# ── Find all Portfolio calendars ─────────────────────────────────────────
+# ── Find all sync-managed calendars ──────────────────────────────────────
+# Since the group cutover, managed calendars are the values of state.json's
+# `_calendars` map (group-scoped) — NOT a "Portfolio" summary suffix, which
+# now matches only the retired legacy owner calendars.
+_state_path = "state.json" if os.path.exists("state.json") else "../state.json"
+_managed_ids: set = set()
+if os.path.exists(_state_path):
+    with open(_state_path, encoding="utf-8-sig") as _f:
+        _managed_ids = set((json.load(_f).get("_calendars") or {}).values())
 cals, token = [], None
 while True:
     resp = svc.calendarList().list(pageToken=token).execute()
     for c in resp.get("items", []):
-        if (c.get("summary") or "").endswith("Portfolio"):
+        if c["id"] in _managed_ids:
             cals.append((c["id"], c["summary"]))
     token = resp.get("nextPageToken")
     if not token:
         break
- 
-print(f"Found {len(cals)} portfolio calendar(s).\n")
+
+print(f"Found {len(cals)} managed calendar(s) (from state.json _calendars).\n")
  
 # ── First pass: count + categorize (read-only preview) ───────────────────
 def fetch_all(cal_id):

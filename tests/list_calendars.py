@@ -4,9 +4,15 @@ list_calendars.py
 One-time helper: lists all OKPM-managed calendars with their IDs
 and shareable subscription links.
 
+Since the group cutover, managed calendars come from state.json's
+`_calendars` map (one per property group); retired owner calendars
+("[RETIRED] … Portfolio") are listed separately.
+
 Run locally:
     GOOGLE_SERVICE_ACCOUNT_JSON='...' python list_calendars.py
 """
+import json
+import os
 
 from local_config import load_json_config
 from google.oauth2 import service_account
@@ -30,9 +36,18 @@ while True:
     if not page_token:
         break
 
-okpm = [c for c in calendars if c.get("summary", "").endswith("Portfolio")]
+state_path = "state.json" if os.path.exists("state.json") else "../state.json"
+managed_ids = set()
+if os.path.exists(state_path):
+    with open(state_path, encoding="utf-8-sig") as f:
+        managed_ids = set((json.load(f).get("_calendars") or {}).values())
 
-print(f"\nFound {len(okpm)} OKPM calendar(s):\n")
+okpm    = [c for c in calendars if c["id"] in managed_ids]
+retired = [c for c in calendars
+           if c.get("summary", "").startswith("[RETIRED] ")]
+
+print(f"\nFound {len(okpm)} managed group calendar(s) "
+      f"(+ {len(retired)} retired owner calendar(s)):\n")
 for cal in okpm:
     cal_id  = cal["id"]
     summary = cal["summary"]

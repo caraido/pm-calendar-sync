@@ -10,7 +10,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from .config import (
-    GOOGLE_SA_JSON, GOOGLE_SCOPES, PM_EMAIL, CALENDAR_PREFIX,
+    GOOGLE_SA_JSON, GOOGLE_SCOPES, PM_EMAIL, CALENDAR_PREFIX, RETIRED_PREFIX,
     RENT_DUE_DAY, LATE_GRACE_DAYS, COMMITMENT_DIVIDER,
     COLOR_PARTIAL, COLOR_UNPAID, COLOR_SETTLED,
     GCAL_RETRY_ATTEMPTS, GCAL_RETRY_BASE_DELAY, log,
@@ -57,7 +57,108 @@ class GoogleCalendarManager:
 
     # ── Calendar management ──────────────────────────────────────────────────
 
+    def get_or_create_group_calendar(self, group_name: str) -> str:
+        """Resolve (or create) the calendar for a property group.
+
+        The summary is the AppFolio group name VERBATIM — deliberately not
+        "... Portfolio", so a group named after an owner can never adopt that
+        owner's retired legacy calendar by summary match.
+        """
+        cache_key = f"group:{group_name}"
+        if cache_key in self._cal_cache:
+            return self._cal_cache[cache_key]
+        page_token = None
+        found_id = None
+        while True:
+            resp = _gcal_execute(
+                self.service.calendarList().list(pageToken=page_token))
+            for cal in resp.get("items", []):
+                if cal["summary"] == group_name:
+                    found_id = cal["id"]
+                    break
+            if found_id:
+                break
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+        if found_id:
+            self._cal_cache[cache_key] = found_id
+            return found_id
+        cal = _gcal_execute(self.service.calendars().insert(body={
+            "summary": group_name,
+            "description": (f"Rent tracking for the {group_name} property "
+                            f"group. Do not edit — auto-synced from AppFolio."),
+            "timeZone": "America/Chicago",
+        }))
+        log.info(f"Created group calendar: {group_name}")
+        self.created_calendar_ids.add(cal["id"])
+        # PM gets owner so the calendar appears under 'My calendars'
+        if PM_EMAIL:
+            self._share(cal["id"], PM_EMAIL, role="owner", notify=False)
+        self._cal_cache[cache_key] = cal["id"]
+        return cal["id"]
+
+    def ensure_calendar_summary(self, calendar_id: str, summary: str) -> bool:
+        """Verify a calendar still exists (by id) and that its summary matches;
+        patch the summary in place when it drifted (e.g. the property group was
+        renamed in AppFolio).  Returns False when the calendar is gone —
+        resolve-by-id healing beats the old resolve-by-name, which would have
+        silently created an orphan duplicate on any rename."""
+        try:
+            cal = _gcal_execute(self.service.calendars().get(
+                calendarId=calendar_id))
+        except HttpError as e:
+            if e.resp.status in (404, 410):
+                return False
+            raise
+        if cal.get("summary") != summary:
+            _gcal_execute(self.service.calendars().patch(
+                calendarId=calendar_id, body={"summary": summary}))
+            log.info(f"Renamed calendar: {cal.get('summary')!r} → {summary!r}")
+        return True
+
+    def retire_calendar(self, calendar_id: str) -> bool:
+        """Idempotently retire a legacy owner calendar: prefix its summary
+        with RETIRED_PREFIX and revoke every user ACL except the PM and the
+        service account.  History (events, PM notes) is kept.  Never raises —
+        a single stubborn calendar must not abort the cutover; returns False
+        so the caller can log and let the next full run retry."""
+        try:
+            try:
+                cal = _gcal_execute(self.service.calendars().get(
+                    calendarId=calendar_id))
+            except HttpError as e:
+                if e.resp.status in (404, 410):
+                    log.warning(f"  Calendar {calendar_id} already deleted — "
+                                f"nothing to retire")
+                    return True
+                raise
+            summary = cal.get("summary", "")
+            if not summary.startswith(RETIRED_PREFIX):
+                _gcal_execute(self.service.calendars().patch(
+                    calendarId=calendar_id,
+                    body={"summary": f"{RETIRED_PREFIX}{summary}"}))
+                log.info(f"  Retired calendar: {summary!r} → "
+                         f"{RETIRED_PREFIX}{summary!r}")
+            acl = _gcal_execute(self.service.acl().list(calendarId=calendar_id))
+            for rule in acl.get("items", []):
+                scope = rule.get("scope", {})
+                if scope.get("type") != "user":
+                    continue  # never touch default/domain rules
+                value = (scope.get("value") or "").lower()
+                if value == PM_EMAIL.lower() or "gserviceaccount.com" in value:
+                    continue
+                _gcal_execute(self.service.acl().delete(
+                    calendarId=calendar_id, ruleId=rule["id"]))
+                log.info(f"  Revoked access for {scope.get('value')}")
+            return True
+        except Exception as e:
+            log.error(f"  Could not retire calendar {calendar_id}: {e}")
+            return False
+
     def get_or_create_calendar(self, owner_name: str) -> str:
+        """LEGACY (pre group-cutover): per-owner calendar resolution.  No
+        longer called by the sync; kept for the misc/ rollback tooling."""
         if owner_name in self._cal_cache:
             return self._cal_cache[owner_name]
         summary = f"{owner_name} Portfolio"                      # new: no prefix
@@ -127,10 +228,6 @@ class GoogleCalendarManager:
             log.info(f"Shared calendar ({role}) with {email}")
         except HttpError as e:
             log.warning(f"Could not share with {email}: {e}")
-
-    def share_with_owner(self, calendar_id: str, email: str):
-        """Owners stay reader-only; they should not move events."""
-        self._share(calendar_id, email, role="reader", notify=True)
 
     def ensure_pm_access(self, calendar_id: str):
         """PM gets OWNER so the calendar appears under 'My calendars' in Google
@@ -809,8 +906,9 @@ class GoogleCalendarManager:
         self, calendar_id: str, occupancy_id: str, month: str, event_type: str,
     ) -> Optional[str]:
         # Events are tagged with the RAW occupancy_id from AppFolio
-        # (unit["occupancy_id"]), never the owner-scoped soid.  Strip the
-        # "@owner_id" suffix so the search matches the tag on the event.
+        # (unit["occupancy_id"]), never the scoped soid.  Strip the
+        # "@g{group_id}" (formerly "@owner_id") suffix so the search matches
+        # the tag on the event.
         search_oid = occupancy_id.split("@")[0] if "@" in occupancy_id else occupancy_id
         result = _gcal_execute(self.service.events().list(
             calendarId=calendar_id,

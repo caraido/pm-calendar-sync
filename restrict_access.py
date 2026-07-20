@@ -1,6 +1,11 @@
 """
 restrict_access.py
 ──────────────────
+⚠️ LEGACY (pre group-cutover, July 2026): the summary.endswith("Portfolio")
+filter below now selects only the RETIRED owner calendars — the live
+calendars are per property group (state.json `_calendars`) and are PM-only
+by design.  Do not run against the live setup.
+
 One-time script: revokes calendar access from everyone except
 the PM account and a single specified owner email.
 

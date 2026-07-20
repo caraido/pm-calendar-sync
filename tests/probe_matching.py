@@ -1,17 +1,20 @@
 """
 diagnose_calendar.py
 ────────────────────
-Dumps EVERY event on a portfolio calendar (by owner name substring) with its
-okpm tags, start date, and title.  Reveals stale events, duplicates, wrong
-dates, and untagged orphans.
+Dumps EVERY event on a sync-managed calendar (by group-name substring) with
+its okpm tags, start date, and title.  Reveals stale events, duplicates,
+wrong dates, and untagged orphans.
+
+Since the group cutover, managed calendars come from state.json's
+`_calendars` map (one per property group).
 
 Usage:
     set GOOGLE_SERVICE_ACCOUNT_JSON=...   (or path to json)
-    python diagnose_calendar.py Bowei
-    python diagnose_calendar.py Freeport
+    python probe_matching.py Midwest
+    python probe_matching.py "Tian Xin"
 """
 
-import json, sys
+import json, os, sys
 from collections import defaultdict
 from pathlib import Path
 from google.oauth2 import service_account
@@ -27,13 +30,19 @@ creds = service_account.Credentials.from_service_account_info(
     SA_INFO, scopes=["https://www.googleapis.com/auth/calendar"])
 svc = build("calendar", "v3", credentials=creds)
 
-# Find matching portfolio calendars
+# Find matching sync-managed calendars (state.json `_calendars` values)
+state_path = "state.json" if os.path.exists("state.json") else "../state.json"
+managed_ids: set = set()
+if os.path.exists(state_path):
+    with open(state_path, encoding="utf-8-sig") as f:
+        managed_ids = set((json.load(f).get("_calendars") or {}).values())
+
 cals, token = [], None
 while True:
     resp = svc.calendarList().list(pageToken=token).execute()
     for c in resp.get("items", []):
         summary = (c.get("summary") or "")
-        if summary.endswith("Portfolio") and NAME_FILTER.lower() in summary.lower():
+        if c["id"] in managed_ids and NAME_FILTER.lower() in summary.lower():
             cals.append((c["id"], summary))
     token = resp.get("nextPageToken")
     if not token:

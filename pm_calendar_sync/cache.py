@@ -6,13 +6,17 @@ corrupt file and fall back to a live AppFolio pull — a wiped cache/ directory
 must never crash a run (it self-heals on the next write).
 
 Files (committed back to the repo by the workflow, like state.json):
-  cache/directories.json — {"refreshed_at", "owners": [...], "tenants": [...]}
-      Raw owner_directory / tenant_directory report rows; refreshed nightly.
+  cache/directories.json — {"refreshed_at", "tenants": [...],
+                            "property_groups": [...]}
+      Raw tenant_directory / property_group_directory report rows; refreshed
+      nightly.  (Pre-cutover caches held an "owners" key instead of
+      "property_groups"; the validity check treats those as stale and
+      falls back to a live pull, which rewrites the new shape.)
   cache/rent_roll.json   — {"refreshed_at", "rows": [...]}
       Raw rent_roll report rows; rewritten by every mode that pulls rent_roll.
       Baseline for update-mode money diffs and submit-mode balances.
 
-Raw rows are stored verbatim so transforms.build_owner_property_map /
+Raw rows are stored verbatim so transforms.build_group_property_map /
 build_tenant_info_map produce identical maps from cache or live data.
 """
 import json

@@ -8,17 +8,18 @@ from googleapiclient.errors import HttpError
 
 from .config import (
     FORCE_REFRESH, RENT_DUE_DAY, DEFAULT_LEASE_MONTHS,
-    COMMITMENT_LOOKAHEAD_MONTHS, TIMEZONE, LATE_GRACE_DAYS, log,
+    COMMITMENT_LOOKAHEAD_MONTHS, TIMEZONE, LATE_GRACE_DAYS,
+    COMMITMENT_DIVIDER, log,
 )
 from .status import (
     classify_status, payment_status,
     STATUS_PAID, STATUS_UNPAID,
 )
 from .transforms import (
-    normalize_tenant_name, build_owner_property_map, build_tenant_info_map,
+    normalize_tenant_name, build_group_property_map, build_tenant_info_map,
     build_payment_map, build_reversal_map, compute_running_balances,
     diff_rent_roll, format_address, parse_commitment_auto_section,
-    unit_label, owner_display_name, _next_day,
+    unit_label, group_scope_key, group_display_name, _next_day,
 )
 from .appfolio import AppFolioClient
 from .calendar_manager import GoogleCalendarManager, _gcal_execute
@@ -32,10 +33,11 @@ class SyncOrchestrator:
         self.af    = AppFolioClient()
         self.gcal  = GoogleCalendarManager()
         self.state = StateManager()
-        # Populated per run: bare occupancy_id → [(owner_id, calendar_id), ...]
-        # for every owner of that unit.  Co-owned units have >1 entry; used to
-        # mirror a promise created on one owner's calendar onto the co-owners'.
-        self._owners_by_oid: dict = {}
+        # Populated per run: bare occupancy_id → [(scope_key, calendar_id), ...]
+        # for every property group the unit's property belongs to.  Multi-group
+        # properties have >1 entry; used to mirror a promise created on one
+        # group's calendar onto the unit's other group calendars.
+        self._groups_by_oid: dict = {}
         # Commitment events created or converted DURING this run, event_id →
         # body.  Submit mode patches these into its pre-run calendar snapshot:
         # without the patch a commitment born after the listing would read as
@@ -49,12 +51,15 @@ class SyncOrchestrator:
         Full convergent sweep over ALL active units.
 
         mode="full_nightly" (default — what plain `SyncOrchestrator().run()`
-        does): pulls the owner/tenant directories live (refreshing their
-        cache) and refreshes calendar ACLs — identical to the historical
-        behaviour, plus cache/`_calendars` writes.
+        does): pulls the tenant/property-group directories live (refreshing
+        their cache), verifies every group calendar by id (healing AppFolio
+        group renames), and re-asserts the PM ACL.
 
         mode="full": directories come from cache/ (live-pull fallback) and
-        per-owner ACL calls are skipped — the hourly backstop sweep.
+        per-calendar ACL calls are skipped — the hourly backstop sweep.
+
+        The first full run after deploy performs the one-time group cutover
+        (see _run_group_cutover) before the sweep.
         """
         log.info(f"=== OKPM sync starting (mode: {mode}) ===")
         today      = datetime.now(ZoneInfo(TIMEZONE)).date()
@@ -64,12 +69,12 @@ class SyncOrchestrator:
 
         log.info("Fetching rent_roll...")
         rent_roll = self.af.get_rent_roll()
-        owners, tenants = self._load_directories(mode)
+        tenants, groups = self._load_directories(mode)
         log.info("Fetching tenant_ledger (current month)...")
         ledger = self.af.get_tenant_ledger_month(
             today.replace(day=1).isoformat(), today.isoformat())
 
-        prop_to_owner = build_owner_property_map(owners)
+        prop_to_group = build_group_property_map(groups)
         tenant_info   = build_tenant_info_map(tenants)
         payment_map   = build_payment_map(ledger)
         reversal_map  = build_reversal_map(ledger)
@@ -88,34 +93,36 @@ class SyncOrchestrator:
                 status_counts[s] = status_counts.get(s, 0) + 1
             log.info(f"  Skipped {len(non_current)} non-Current leases: {status_counts}")
 
-        owner_rows = self._group_rows_by_owner(active, prop_to_owner)
-        owner_meta = self._resolve_owner_calendars(
-            owner_rows, use_cache=(mode != "full_nightly"))
-        self._build_owners_by_oid(owner_rows, owner_meta)
+        group_rows = self._group_rows_by_property_group(active, prop_to_group)
+        if not self.state.migration_done("group_cutover_v1"):
+            group_meta = self._run_group_cutover(
+                group_rows, tenant_info, payment_map, today)
+        else:
+            group_meta = self._resolve_group_calendars(
+                group_rows, use_cache=(mode != "full_nightly"))
+        self._build_groups_by_oid(group_rows, group_meta)
 
-        for owner_id, rows_and_owners in owner_rows.items():
-            owner_name, owner_email, calendar_id = owner_meta[owner_id]
-            log.info(f"Owner: {owner_name} ({len(rows_and_owners)} units)")
-            # ACL is refreshed nightly; other modes skip it (one acl.list per
-            # owner per run) except for a calendar created this very run.
+        for scope_key, rows_and_groups in group_rows.items():
+            group_name, calendar_id = group_meta[scope_key]
+            log.info(f"Group: {group_name} ({len(rows_and_groups)} units)")
+            # Group calendars are PM-only.  The PM ACL is re-asserted nightly;
+            # other modes skip it except for a calendar created this very run.
             if mode == "full_nightly" or calendar_id in self.gcal.created_calendar_ids:
                 self.gcal.ensure_pm_access(calendar_id)
-                if owner_email:
-                    self.gcal.share_with_owner(calendar_id, owner_email)
             # Adopt PM copy-paste commitment copies BEFORE the unit loop so
             # this run's commitment pass treats them as tracked promises.
             try:
                 self._adopt_untagged_commitments(
-                    rows_and_owners, owner_id, calendar_id,
+                    rows_and_groups, scope_key, calendar_id,
                     tenant_info, payment_map, today)
             except Exception as exc:
-                log.error(f"  FAILED adoption scan for {owner_name}: {exc}",
+                log.error(f"  FAILED adoption scan for {group_name}: {exc}",
                           exc_info=True)
-            for row, _ in rows_and_owners:
+            for row, _ in rows_and_groups:
                 try:
                     self._sync_unit(
                         row, calendar_id, due_date, today, this_month,
-                        tenant_info, payment_map, owner_id=owner_id,
+                        tenant_info, payment_map, scope_key=scope_key,
                         reversal_map=reversal_map,
                     )
                 except Exception as exc:
@@ -133,29 +140,32 @@ class SyncOrchestrator:
     # ── Run-mode data plumbing ────────────────────────────────────────────────
 
     def _load_directories(self, mode: str) -> tuple:
-        """Owner + tenant directory rows.
+        """Tenant + property-group directory rows.
 
         full_nightly pulls live and refreshes cache/directories.json; every
         other mode reads the cache and only falls back to a live pull (also
-        re-writing the cache) when it is missing or corrupt.
+        re-writing the cache) when it is missing, corrupt, or pre-cutover
+        (an old "owners"-shaped cache without property_groups).
+        Returns (tenants, property_groups).
         """
         if mode != "full_nightly":
             cached = cache.load_json(cache.DIRECTORIES_FILE)
-            if cached is not None and "owners" in cached and "tenants" in cached:
+            if (cached is not None and "tenants" in cached
+                    and "property_groups" in cached):
                 log.info(
                     "Using cached directories "
                     f"(refreshed {cached.get('refreshed_at', '?')})")
-                return cached["owners"], cached["tenants"]
-        log.info("Fetching owner_directory...")
-        owners = self.af.get_owner_directory()
+                return cached["tenants"], cached["property_groups"]
         log.info("Fetching tenant_directory...")
         tenants = self.af.get_tenant_directory()
+        log.info("Fetching property_group_directory...")
+        groups = self.af.get_property_group_directory()
         cache.save_json(cache.DIRECTORIES_FILE, {
-            "refreshed_at": datetime.utcnow().isoformat(),
-            "owners":       owners,
-            "tenants":      tenants,
+            "refreshed_at":    datetime.utcnow().isoformat(),
+            "tenants":         tenants,
+            "property_groups": groups,
         })
-        return owners, tenants
+        return tenants, groups
 
     def _save_rent_roll_snapshot(self, rent_roll: list):
         """Persist the raw rent_roll rows — the diff baseline for update mode
@@ -165,69 +175,292 @@ class SyncOrchestrator:
             "rows":         rent_roll,
         })
 
-    def _group_rows_by_owner(self, active: list, prop_to_owner: dict) -> dict:
-        """owner_id → [(rent_roll row, owner dict), ...] for every active lease."""
-        owner_rows: dict = {}
+    def _group_rows_by_property_group(self, active: list,
+                                      prop_to_group: dict) -> dict:
+        """scope_key ("g{gid}") → [(rent_roll row, group dict), ...] for every
+        active lease.  A property in several groups contributes its rows to
+        each — the unit then appears on every one of its groups' calendars
+        (the same multi-calendar model co-ownership used to drive)."""
+        group_rows: dict = {}
         for row in active:
             pid = row.get("property_id")
-            owners_list = prop_to_owner.get(pid)
-            if not owners_list:
+            groups_list = prop_to_group.get(pid)
+            if not groups_list:
                 # Try string↔int coercion in case of type mismatch
                 alt_pid = int(pid) if isinstance(pid, str) and pid.isdigit() else str(pid)
-                owners_list = prop_to_owner.get(alt_pid)
-                if owners_list:
+                groups_list = prop_to_group.get(alt_pid)
+                if groups_list:
                     log.warning(
                         f"  property_id type mismatch for {row.get('property_name','?')}: "
                         f"rent_roll has {type(pid).__name__}({pid!r}), "
-                        f"owner_map expects {type(alt_pid).__name__}")
-            if owners_list:
-                for own in owners_list:
-                    owner_rows.setdefault(own["owner_id"], []).append((row, own))
+                        f"group_map expects {type(alt_pid).__name__}")
+            if groups_list:
+                for grp in groups_list:
+                    group_rows.setdefault(
+                        group_scope_key(grp["group_id"]), []).append((row, grp))
             else:
-                log.warning(
-                    f"  UNMAPPED: property_id={pid!r} "
+                # Expected state, not an error: unassigned properties are
+                # intentionally unsynced (no calendar).
+                log.info(
+                    f"  UNGROUPED: property_id={pid!r} "
                     f"({row.get('property_name','?')}, "
-                    f"tenant={row.get('tenant_name','?')}) — no owner found, skipping")
-        return owner_rows
+                    f"tenant={row.get('tenant_name','?')}) — not in any "
+                    f"property group, no calendar")
+        return group_rows
 
-    def _resolve_owner_calendars(self, owner_rows: dict, use_cache: bool) -> dict:
-        """Resolve every owner's calendar up front.
+    def _resolve_group_calendars(self, group_rows: dict, use_cache: bool) -> dict:
+        """Resolve every property group's calendar up front.
 
-        A co-owned unit appears on multiple owner calendars.  Resolving all
-        calendars before the sync loop lets each unit know its sibling
-        calendars, so a promise dragged on one owner's calendar can be
-        mirrored onto the co-owners' calendars in the same run.
+        A multi-group property's units appear on all of its groups'
+        calendars.  Resolving every calendar before the sync loop lets each
+        unit know its sibling calendars, so a promise dragged on one group's
+        calendar can be mirrored onto the others in the same run.
 
-        use_cache=True consults state's `_calendars` map first, skipping the
-        calendarList() pagination for known owners; a miss falls through to a
-        live resolve (creating + sharing the calendar if needed).  The nightly
-        sweep passes use_cache=False — re-resolving live IS the map refresh,
-        healing renames/recreates.  Returns
-        owner_id → (owner_name, owner_email, calendar_id).
+        use_cache=True consults state's `_calendars` map (keys "g{gid}"),
+        skipping the calendarList() pagination for known groups; a miss falls
+        through to a live resolve (creating the PM-only calendar if needed).
+        The nightly sweep passes use_cache=False and verifies each cached id
+        live BY ID — patching the summary when the group was renamed in
+        AppFolio — instead of re-resolving by name, which would orphan the
+        calendar on any rename.  Returns scope_key → (group_name, calendar_id).
         """
-        owner_meta: dict = {}
-        for owner_id, rows_and_owners in owner_rows.items():
-            owner       = rows_and_owners[0][1]
-            owner_name  = owner_display_name(owner)
-            owner_email = (owner.get("email") or "").strip()
-            calendar_id = self.state.get_calendar_id(owner_id) if use_cache else None
+        group_meta: dict = {}
+        for scope_key, rows_and_groups in group_rows.items():
+            group       = rows_and_groups[0][1]
+            group_name  = group_display_name(group)
+            calendar_id = self.state.get_calendar_id(scope_key)
+            if calendar_id and not use_cache:
+                if not self.gcal.ensure_calendar_summary(calendar_id, group_name):
+                    log.warning(
+                        f"  Calendar for {group_name} ({calendar_id}) is "
+                        f"gone — recreating")
+                    calendar_id = None
             if not calendar_id:
-                calendar_id = self.gcal.get_or_create_calendar(owner_name)
-            self.state.set_calendar_id(owner_id, calendar_id)
-            owner_meta[owner_id] = (owner_name, owner_email, calendar_id)
-        return owner_meta
+                calendar_id = self.gcal.get_or_create_group_calendar(group_name)
+            self.state.set_calendar_id(scope_key, calendar_id)
+            group_meta[scope_key] = (group_name, calendar_id)
+        return group_meta
 
-    def _build_owners_by_oid(self, owner_rows: dict, owner_meta: dict):
-        """Populate self._owners_by_oid (bare oid → [(owner_id, calendar_id)]).
+    def _build_groups_by_oid(self, group_rows: dict, group_meta: dict):
+        """Populate self._groups_by_oid (bare oid → [(scope_key, calendar_id)]).
         Required by _mirror_commitment_to_siblings — every run mode that can
         create or discover commitments must call this."""
-        self._owners_by_oid = {}
-        for owner_id, rows_and_owners in owner_rows.items():
-            calendar_id = owner_meta[owner_id][2]
-            for row, _ in rows_and_owners:
+        self._groups_by_oid = {}
+        for scope_key, rows_and_groups in group_rows.items():
+            calendar_id = group_meta[scope_key][1]
+            for row, _ in rows_and_groups:
                 oid = str(row.get("occupancy_id"))
-                self._owners_by_oid.setdefault(oid, []).append(
-                    (owner_id, calendar_id))
+                self._groups_by_oid.setdefault(oid, []).append(
+                    (scope_key, calendar_id))
+
+    # ── One-time group cutover (owner calendars → property-group calendars) ──
+
+    def _run_group_cutover(self, group_rows: dict, tenant_info: dict,
+                           payment_map: dict, today: date) -> dict:
+        """One-time migration from per-owner to per-property-group calendars.
+
+        Phases (each idempotent — a crash anywhere resumes on the next full
+        run; the marker is only written after every phase fully succeeds):
+          1. Retire the legacy owner calendars ([RETIRED] rename + strip
+             non-PM ACLs) FIRST, so a group named after an owner can never
+             adopt a legacy calendar by summary match in phase 2.
+          2. Create/resolve the group calendars live (PM-only sharing).
+          3. Rebuild every active commitment on its unit's group calendar(s)
+             — PM notes recovered from the old event — then delete the old
+             event and legacy registry key.  Duplicate protection is the
+             LIVE target calendar (same anchor date + source type), not just
+             the registry, so a crash between insert and state.save cannot
+             double promises on retry.
+          4. Move `_calendars` owner entries to `_retired_calendars`, purge
+             legacy owner-scoped state, write the marker, save state NOW
+             (the sweep that follows takes many minutes).
+
+        Marker: _migrations["group_cutover_v1"].  Returns group_meta so
+        run() skips a second resolve.
+        """
+        log.info("=== GROUP CUTOVER: reorganizing calendars by property group ===")
+
+        # ── Phase 1: retire legacy owner calendars ────────────────────────
+        legacy_owner_ids = [k for k in self.state.data["_calendars"]
+                            if not str(k).startswith("g")]
+        distinct_cals: dict = {}   # several owners can share one calendar
+        for owner_id in legacy_owner_ids:
+            distinct_cals.setdefault(
+                self.state.data["_calendars"][owner_id], owner_id)
+        retire_failed = 0
+        for cal_id in distinct_cals:
+            if not self.gcal.retire_calendar(cal_id):
+                retire_failed += 1
+        log.info(f"  Retired {len(distinct_cals) - retire_failed}/"
+                 f"{len(distinct_cals)} legacy owner calendar(s)")
+
+        # ── Phase 2: create/resolve group calendars ───────────────────────
+        group_meta = self._resolve_group_calendars(group_rows, use_cache=False)
+
+        # ── Phase 3: migrate active commitments ───────────────────────────
+        migrated, unmigrated = self._migrate_legacy_commitments(
+            group_rows, group_meta, tenant_info, payment_map, today)
+
+        # ── Phase 4: bookkeeping — only when nothing is left pending ─────
+        pending_comms = [
+            k for k, v in self.state.data["_commitments"].items()
+            if self.state._LEGACY_COMM_KEY.match(k) and v
+        ]
+        if retire_failed or pending_comms:
+            log.warning(
+                f"  Cutover incomplete ({retire_failed} retirement(s) failed, "
+                f"{len(pending_comms)} legacy commitment key(s) pending) — "
+                f"marker NOT written; the next full run resumes")
+            self.state.save()
+            return group_meta
+        for owner_id in legacy_owner_ids:
+            self.state.retire_calendar_entry(owner_id)
+        purged = self.state.purge_legacy_owner_entries()
+        self.state.mark_migration_done("group_cutover_v1", {
+            "retired_calendars":     len(distinct_cals),
+            "migrated_commitments":  migrated,
+            "unmigrated":            unmigrated,
+            "purged_entries":        purged,
+        })
+        self.state.save()
+        log.info(f"=== GROUP CUTOVER complete: {len(distinct_cals)} calendar(s) "
+                 f"retired, {migrated} commitment(s) migrated, "
+                 f"{purged} legacy state entr(y/ies) purged ===")
+        return group_meta
+
+    def _migrate_legacy_commitments(self, group_rows: dict, group_meta: dict,
+                                    tenant_info: dict, payment_map: dict,
+                                    today: date) -> tuple:
+        """Rebuild every legacy ({oid}@{owner_id}) commitment on the unit's
+        group calendar(s), then delete the old event + legacy key.  Returns
+        (migrated_count, unmigrated_entries).  A per-event Google failure
+        keeps the legacy key so the next full run retries; the live-calendar
+        duplicate oracle makes the retry safe."""
+        oid_to_scopes: dict = {}
+        row_by_oid: dict = {}
+        for scope_key, rows_and_groups in group_rows.items():
+            cal_id = group_meta[scope_key][1]
+            for row, _ in rows_and_groups:
+                o = str(row.get("occupancy_id"))
+                oid_to_scopes.setdefault(o, []).append((scope_key, cal_id))
+                row_by_oid[o] = row
+
+        legacy_keys = [k for k, v in self.state.data["_commitments"].items()
+                       if self.state._LEGACY_COMM_KEY.match(k) and v]
+        migrated = 0
+        unmigrated: list = []
+        today_month = today.strftime("%Y-%m")
+        listing_cache: dict = {}
+
+        def _target_commitments(cal_id: str, oid: str) -> list:
+            key = (cal_id, oid)
+            if key not in listing_cache:
+                listing_cache[key] = self.gcal.find_all_events_by_type(
+                    cal_id, oid, "commitment")
+            return listing_cache[key]
+
+        for legacy_key in legacy_keys:
+            oid = legacy_key.split("@")[0]
+            targets = oid_to_scopes.get(oid)
+            if not targets:
+                # Lease no longer Current or property ungrouped: the promise
+                # has no home calendar.  The old event stays frozen on the
+                # retired calendar; record it for the PM and drop the key.
+                for c in self.state.data["_commitments"][legacy_key]:
+                    unmigrated.append({**c, "legacy_key": legacy_key})
+                log.warning(
+                    f"  {oid}: {len(self.state.data['_commitments'][legacy_key])} "
+                    f"commitment(s) have no group calendar (lease gone or "
+                    f"property ungrouped) — left frozen on the retired calendar")
+                del self.state.data["_commitments"][legacy_key]
+                continue
+
+            unit = self._make_unit(row_by_oid[oid], tenant_info, payment_map)
+            all_ok = True
+            for c in list(self.state.data["_commitments"][legacy_key]):
+                anchor       = c.get("anchor_date") or today.isoformat()
+                source       = c.get("source_type") or "late"
+                covers       = c.get("covers_rent_month")
+                origin_month = c.get("origin_month") or anchor[:7]
+
+                # Recover PM notes from the old event (best effort).
+                pm_notes = ""
+                old_cal, old_eid = c.get("calendar_id"), c.get("event_id")
+                if old_cal and old_eid:
+                    old_ev = self.gcal.get_event(old_cal, old_eid)
+                    desc   = (old_ev or {}).get("description") or ""
+                    if COMMITMENT_DIVIDER in desc:
+                        pm_notes = desc.split(COMMITMENT_DIVIDER)[0].rstrip()
+
+                for scope_key, target_cal in targets:
+                    new_soid = f"{oid}@{scope_key}"
+                    if any((x.get("source_type") or "late") == source
+                           and (x.get("anchor_date") or "") == anchor
+                           for x in self.state.get_commitments(new_soid)):
+                        continue   # already migrated (this or a prior attempt)
+                    entry = {
+                        "anchor_date":       anchor,
+                        "source_type":       source,
+                        "origin_month":      origin_month,
+                        "calendar_id":       target_cal,
+                        "covers_rent_month": covers,
+                    }
+                    try:
+                        # Live-calendar oracle: an event inserted by a crashed
+                        # attempt is adopted, never duplicated.
+                        dup = next(
+                            (ev for ev in _target_commitments(target_cal, oid)
+                             if ev.get("start", {}).get("date") == anchor
+                             and ev.get("extendedProperties", {})
+                                  .get("private", {})
+                                  .get("okpm_source_type") == source),
+                            None)
+                        if dup is not None:
+                            self.state.add_commitment(
+                                new_soid, {**entry, "event_id": dup["id"]})
+                            continue
+                        # Same display computation as
+                        # _mirror_commitment_to_siblings.
+                        breakdown = None
+                        if source in ("status", "payment", "late"):
+                            outstanding, breakdown = self._promise_outstanding(
+                                anchor[:7], unit, today)
+                            disp = classify_status(unit["rent"], unit["past_due"])
+                        else:
+                            outstanding = unit["past_due"] + (
+                                unit["rent"] if (covers and covers > today_month)
+                                else 0.0)
+                            disp = ""
+                        body = self.gcal._build_commitment_event(
+                            unit, anchor, source, max(0.0, outstanding),
+                            pm_notes=pm_notes, source_status=disp,
+                            breakdown=breakdown)
+                        created = _gcal_execute(self.gcal.service.events().insert(
+                            calendarId=target_cal, body=body))
+                    except HttpError as e:
+                        log.error(f"  {oid}: failed to migrate {source} promise "
+                                  f"({anchor}) to {target_cal}: {e}")
+                        all_ok = False
+                        continue
+                    self._fresh_commitments[created["id"]] = created
+                    self.state.add_commitment(
+                        new_soid, {**entry, "event_id": created["id"]})
+                    migrated += 1
+                    log.info(f"  {oid}: migrated {source} promise ({anchor}) "
+                             f"→ group calendar {target_cal}")
+
+                # Old event goes away only after every target has its copy —
+                # the promise must never exist on zero calendars.
+                if all_ok and old_cal and old_eid:
+                    try:
+                        self.gcal.delete_event(old_cal, old_eid)
+                    except HttpError as e:
+                        if e.resp.status != 404:
+                            log.warning(f"  {oid}: could not delete old "
+                                        f"commitment event {old_eid}: {e}")
+            if all_ok:
+                del self.state.data["_commitments"][legacy_key]
+        return migrated, unmigrated
 
     # ── Update mode (money-diff fast path) ────────────────────────────────────
 
@@ -244,12 +477,17 @@ class SyncOrchestrator:
         NOT handled here; the hourly full sweep owns those.
         """
         log.info("=== OKPM sync starting (mode: update) ===")
+        if not self.state.migration_done("group_cutover_v1"):
+            log.warning(
+                "Group cutover has not run yet — deferring to the next full "
+                "sweep (≤1h); no changes made")
+            return
         today      = datetime.now(ZoneInfo(TIMEZONE)).date()
         this_month = today.strftime("%Y-%m")
         due_date   = date(today.year, today.month, RENT_DUE_DAY)
         log.info(f"  Timezone: {TIMEZONE}, local date: {today}")
 
-        owners, tenants = self._load_directories("update")
+        tenants, groups = self._load_directories("update")
         log.info("Fetching rent_roll...")
         rent_roll = self.af.get_rent_roll()
         log.info("Fetching tenant_ledger (current month)...")
@@ -264,36 +502,34 @@ class SyncOrchestrator:
         changed = diff_rent_roll(snap_rows, rent_roll)
         log.info(f"  {len(changed)} unit(s) with money changes since last snapshot")
 
-        prop_to_owner = build_owner_property_map(owners)
+        prop_to_group = build_group_property_map(groups)
         tenant_info   = build_tenant_info_map(tenants)
         payment_map   = build_payment_map(ledger)
         reversal_map  = build_reversal_map(ledger)
         active        = [r for r in rent_roll if r.get("status") == "Current"]
 
         # Group + resolve for ALL active rows, not just changed ones: the
-        # co-owner map must be complete for _mirror_commitment_to_siblings.
-        owner_rows = self._group_rows_by_owner(active, prop_to_owner)
-        owner_meta = self._resolve_owner_calendars(owner_rows, use_cache=True)
-        self._build_owners_by_oid(owner_rows, owner_meta)
+        # sibling map must be complete for _mirror_commitment_to_siblings.
+        group_rows = self._group_rows_by_property_group(active, prop_to_group)
+        group_meta = self._resolve_group_calendars(group_rows, use_cache=True)
+        self._build_groups_by_oid(group_rows, group_meta)
 
         synced = 0
-        for owner_id, rows_and_owners in owner_rows.items():
-            owner_name, owner_email, calendar_id = owner_meta[owner_id]
-            # ACL only for a calendar created this very run (brand-new owner).
+        for scope_key, rows_and_groups in group_rows.items():
+            group_name, calendar_id = group_meta[scope_key]
+            # ACL only for a calendar created this very run (brand-new group).
             if calendar_id in self.gcal.created_calendar_ids:
                 self.gcal.ensure_pm_access(calendar_id)
-                if owner_email:
-                    self.gcal.share_with_owner(calendar_id, owner_email)
-            scoped = [(row, own) for row, own in rows_and_owners
+            scoped = [(row, grp) for row, grp in rows_and_groups
                       if str(row.get("occupancy_id")) in changed]
             if not scoped:
                 continue
-            log.info(f"Owner: {owner_name} ({len(scoped)} changed unit(s))")
+            log.info(f"Group: {group_name} ({len(scoped)} changed unit(s))")
             for row, _ in scoped:
                 try:
                     self._sync_unit(
                         row, calendar_id, due_date, today, this_month,
-                        tenant_info, payment_map, owner_id=owner_id,
+                        tenant_info, payment_map, scope_key=scope_key,
                         reversal_map=reversal_map,
                     )
                     synced += 1
@@ -321,6 +557,11 @@ class SyncOrchestrator:
         sweep trues everything up.  FORCE_REFRESH is ignored in this mode.
         """
         log.info("=== OKPM sync starting (mode: submit) ===")
+        if not self.state.migration_done("group_cutover_v1"):
+            log.warning(
+                "Group cutover has not run yet — deferring to the next full "
+                "sweep (≤1h); no changes made")
+            return
         today      = datetime.now(ZoneInfo(TIMEZONE)).date()
         this_month = today.strftime("%Y-%m")
         log.info(f"  Timezone: {TIMEZONE}, local date: {today}")
@@ -338,25 +579,23 @@ class SyncOrchestrator:
             rows = self.af.get_rent_roll()
             self._save_rent_roll_snapshot(rows)
 
-        owners, tenants = self._load_directories("submit")
+        tenants, groups = self._load_directories("submit")
 
-        prop_to_owner = build_owner_property_map(owners)
+        prop_to_group = build_group_property_map(groups)
         tenant_info   = build_tenant_info_map(tenants)
         active        = [r for r in rows if r.get("status") == "Current"]
         log.info(f"  {len(active)} active leases (from snapshot)")
 
-        owner_rows = self._group_rows_by_owner(active, prop_to_owner)
-        owner_meta = self._resolve_owner_calendars(owner_rows, use_cache=True)
-        self._build_owners_by_oid(owner_rows, owner_meta)
+        group_rows = self._group_rows_by_property_group(active, prop_to_group)
+        group_meta = self._resolve_group_calendars(group_rows, use_cache=True)
+        self._build_groups_by_oid(group_rows, group_meta)
 
-        for owner_id, rows_and_owners in owner_rows.items():
-            owner_name, owner_email, calendar_id = owner_meta[owner_id]
-            log.info(f"Owner: {owner_name} ({len(rows_and_owners)} units)")
-            # ACL only for a calendar created this very run (brand-new owner).
+        for scope_key, rows_and_groups in group_rows.items():
+            group_name, calendar_id = group_meta[scope_key]
+            log.info(f"Group: {group_name} ({len(rows_and_groups)} units)")
+            # ACL only for a calendar created this very run (brand-new group).
             if calendar_id in self.gcal.created_calendar_ids:
                 self.gcal.ensure_pm_access(calendar_id)
-                if owner_email:
-                    self.gcal.share_with_owner(calendar_id, owner_email)
             events_by_oid = self.gcal.list_all_events(calendar_id)
             # Adopt PM copy-paste commitment copies.  Uses the same q= scan
             # as the full sweep (list_all_events deliberately skips untagged
@@ -364,14 +603,14 @@ class SyncOrchestrator:
             # commitment pass sees them despite the pre-adoption listing.
             try:
                 self._adopt_untagged_commitments(
-                    rows_and_owners, owner_id, calendar_id,
+                    rows_and_groups, scope_key, calendar_id,
                     tenant_info, {}, today)
             except Exception as exc:
-                log.error(f"  FAILED adoption scan for {owner_name}: {exc}",
+                log.error(f"  FAILED adoption scan for {group_name}: {exc}",
                           exc_info=True)
-            for row, _ in rows_and_owners:
+            for row, _ in rows_and_groups:
                 oid  = str(row.get("occupancy_id"))
-                soid = f"{oid}@{owner_id}"
+                soid = f"{oid}@{scope_key}"
                 try:
                     # No ledger in this mode → payments=[] / amount_paid=0.
                     # The commitment builders only read balance + identity
@@ -634,22 +873,23 @@ class SyncOrchestrator:
         self, oid: str, commitment: dict, unit: dict, today: date,
     ):
         """
-        Mirror a promise onto co-owners' calendars.
+        Mirror a promise onto the unit's sibling group calendars.
 
-        A co-owned unit (owned by multiple owners / portfolios) shows up on one
-        calendar per owner.  When the PM drags an event on ONE owner's calendar,
-        the promise is created only there; without this, the co-owners never see
-        it.  For every OTHER owner of the same occupancy, create an equivalent
-        commitment event on their calendar and register it in their commitment
-        state.  Each co-owner's own `_sync_unit` then suppresses that month's
-        status/placeholder normally (this run if not yet processed, next run
-        otherwise) and thereafter treats the promise as its own.
+        A property in several property groups shows up on one calendar per
+        group.  When the PM drags an event on ONE group's calendar, the
+        promise is created only there; without this, the other groups never
+        see it.  For every OTHER group containing the same occupancy, create
+        an equivalent commitment event on that group's calendar and register
+        it in that scope's commitment state.  Each sibling scope's own
+        `_sync_unit` then suppresses that month's status/placeholder normally
+        (this run if not yet processed, next run otherwise) and thereafter
+        treats the promise as its own.
 
         Idempotent: a sibling that already carries a commitment with the same
         source_type + anchor_date is skipped, so repeated runs, the sibling's own
         rediscovery, and split copies never spawn duplicates.
         """
-        siblings = self._owners_by_oid.get(oid, [])
+        siblings = self._groups_by_oid.get(oid, [])
         if len(siblings) < 2:
             return
 
@@ -663,10 +903,10 @@ class SyncOrchestrator:
         def _is_promise(src: str) -> bool:
             return src in ("status", "payment", "late")
 
-        for owner_id, cal_id in siblings:
+        for scope_key, cal_id in siblings:
             if cal_id == origin_cal:
                 continue
-            sib_soid = f"{oid}@{owner_id}"
+            sib_soid = f"{oid}@{scope_key}"
             self.state.migrate_bare_commitments(oid, sib_soid, cal_id)
             self.state.deduplicate_commitments(sib_soid)
             existing = self.state.get_commitments(sib_soid)
@@ -709,11 +949,11 @@ class SyncOrchestrator:
                 "covers_rent_month": covers,
             })
             log.info(
-                f"  {oid}: mirrored {source} promise on {anchor} to co-owner "
-                f"calendar {cal_id}")
+                f"  {oid}: mirrored {source} promise on {anchor} to sibling "
+                f"group calendar {cal_id}")
 
     def _adopt_untagged_commitments(
-        self, rows_and_owners: list, owner_id, calendar_id: str,
+        self, rows_and_groups: list, scope_key, calendar_id: str,
         tenant_info: dict, payment_map: dict, today: date,
     ) -> int:
         """
@@ -740,7 +980,7 @@ class SyncOrchestrator:
                     f"  Untagged commitment copy {ev.get('id')} on "
                     f"{calendar_id}: auto section unparseable — skipping")
                 continue
-            matches = [row for row, _ in rows_and_owners
+            matches = [row for row, _ in rows_and_groups
                        if normalize_tenant_name(row.get("tenant", ""))
                        == parsed["tenant"]]
             if len(matches) > 1:
@@ -758,7 +998,7 @@ class SyncOrchestrator:
                 continue
             row  = matches[0]
             oid  = str(row.get("occupancy_id"))
-            soid = f"{oid}@{owner_id}"
+            soid = f"{oid}@{scope_key}"
             unit = self._make_unit(row, tenant_info, payment_map)
 
             start  = ev.get("start", {})
@@ -1067,12 +1307,12 @@ class SyncOrchestrator:
     def _sync_unit(
         self, row: dict, calendar_id: str, due_date: date,
         today: date, this_month: str, tenant_info: dict, payment_map: dict,
-        owner_id: str = "",
+        scope_key: str = "",
         reversal_map: Optional[dict] = None,
     ):
         unit     = self._make_unit(row, tenant_info, payment_map)
         oid      = unit["occupancy_id"]   # bare — for Google Calendar
-        soid     = f"{oid}@{owner_id}" if owner_id else oid  # for state keys
+        soid     = f"{oid}@{scope_key}" if scope_key else oid  # for state keys
         rent     = unit["rent"]
         past_due = unit["past_due"]
         status   = classify_status(rent, past_due)

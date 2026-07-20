@@ -29,6 +29,7 @@ TIMEZONE                    = os.environ.get("TIMEZONE", "America/Chicago")
 
 STATE_FILE       = Path("state.json")
 CALENDAR_PREFIX  = "OKPM"
+RETIRED_PREFIX   = "[RETIRED] "   # prepended to old owner calendars at group cutover
 AF_API_DELAY_SEC = 2.0
 
 # Credentials are URL-encoded so special characters (@ : / # etc.) in the

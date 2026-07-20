@@ -1,5 +1,6 @@
 """State persistence (state.json) and the commitment registry."""
 import json
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -52,10 +53,25 @@ class StateManager:
       ]
 
     Top-level calendar-id map  (cache for fast modes):
-      state.data["_calendars"][owner_id] = calendar_id
-      Written whenever a calendar is resolved; read by non-nightly modes to
-      skip the calendarList() pagination.  The nightly full sweep re-resolves
-      every calendar live and rewrites the map (heals renames/recreates).
+      state.data["_calendars"][scope_key] = calendar_id
+      scope_key is "g{property_group_id}" (e.g. "g3") since the group
+      cutover; before it, keys were bare owner_ids.  Written whenever a
+      calendar is resolved; read by non-nightly modes to skip the
+      calendarList() pagination.  The nightly full sweep re-verifies every
+      calendar live (by id) and rewrites the map.
+
+    Group-cutover bookkeeping (July 2026):
+      state.data["_retired_calendars"][owner_id] = calendar_id
+        The legacy per-owner calendars, moved out of _calendars at cutover.
+        Kept for traceability and as input to misc/rollback_group_cutover.py.
+      state.data["_migrations"][key] = {..., "done_at": iso}
+        One-time migration markers; "group_cutover_v1" gates the cutover in
+        run() and the fast-path bail-outs in run_update()/run_submit().
+
+    Soids (state month keys "{soid}_{YYYY-MM}" and _commitments keys) are
+    scoped "{occupancy_id}@g{group_id}" since the cutover; legacy
+    "{occupancy_id}@{owner_id}" entries were purged by it (git history of
+    state.json is the archive).
     """
 
     def __init__(self):
@@ -79,6 +95,10 @@ class StateManager:
             self.data["_commitments"] = {}
         if "_calendars" not in self.data:
             self.data["_calendars"] = {}
+        if "_retired_calendars" not in self.data:
+            self.data["_retired_calendars"] = {}
+        if "_migrations" not in self.data:
+            self.data["_migrations"] = {}
 
     def _key(self, oid: str, month: str) -> str:
         return f"{oid}_{month}"
@@ -95,11 +115,51 @@ class StateManager:
 
     # ── Calendar-id map ───────────────────────────────────────────────────────
 
-    def get_calendar_id(self, owner_id) -> Optional[str]:
-        return self.data["_calendars"].get(str(owner_id))
+    def get_calendar_id(self, scope_key) -> Optional[str]:
+        return self.data["_calendars"].get(str(scope_key))
 
-    def set_calendar_id(self, owner_id, calendar_id: str):
-        self.data["_calendars"][str(owner_id)] = calendar_id
+    def set_calendar_id(self, scope_key, calendar_id: str):
+        self.data["_calendars"][str(scope_key)] = calendar_id
+
+    # ── Migration bookkeeping (group cutover) ─────────────────────────────────
+
+    def migration_done(self, key: str) -> bool:
+        return key in self.data["_migrations"]
+
+    def mark_migration_done(self, key: str, info: dict = None):
+        entry = dict(info or {})
+        entry["done_at"] = datetime.utcnow().isoformat()
+        self.data["_migrations"][key] = entry
+
+    def retire_calendar_entry(self, owner_id):
+        """Move a legacy owner entry out of _calendars into _retired_calendars
+        so fast paths can never resolve it again but rollback tooling can."""
+        cal_id = self.data["_calendars"].pop(str(owner_id), None)
+        if cal_id:
+            self.data["_retired_calendars"][str(owner_id)] = cal_id
+
+    _LEGACY_MONTH_KEY = re.compile(r"^\d+@\d+_\d{4}-\d{2}$")
+    _LEGACY_COMM_KEY  = re.compile(r"^\d+@\d+$")
+
+    def purge_legacy_owner_entries(self) -> int:
+        """Delete owner-scoped month entries and _commitments keys left over
+        from before the group cutover.  Only call after a fully successful
+        cutover — the migrated replacements are the "@g"-scoped keys.  Bare
+        (unscoped) keys are untouched: migrate_bare_commitments still owns
+        those.  Returns the number of entries removed."""
+        dead_months = [k for k in self.data
+                       if self._LEGACY_MONTH_KEY.match(k)]
+        for k in dead_months:
+            del self.data[k]
+        dead_comms = [k for k in self.data["_commitments"]
+                      if self._LEGACY_COMM_KEY.match(k)]
+        for k in dead_comms:
+            del self.data["_commitments"][k]
+        purged = len(dead_months) + len(dead_comms)
+        if purged:
+            log.info(f"  Purged {len(dead_months)} legacy month entr(y/ies) "
+                     f"and {len(dead_comms)} legacy commitment key(s)")
+        return purged
 
     # ── Commitment helpers ────────────────────────────────────────────────────
 

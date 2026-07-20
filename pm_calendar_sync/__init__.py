@@ -1,7 +1,21 @@
 """
 OKPM AppFolio → Google Calendar Sync  v2
 ==========================================
-Polls AppFolio Plus Reports API (v2) and maintains per-owner Google Calendars.
+Polls AppFolio Plus Reports API (v2) and maintains one Google Calendar per
+AppFolio PROPERTY GROUP.
+
+─── Calendar model (group cutover, July 2026) ───────────────────────────────
+  One calendar per property group from the property_group_directory report,
+  summary = the group name VERBATIM (no " Portfolio" suffix — a group named
+  after an owner must never summary-match that owner's retired calendar).
+  Membership is data-driven: the PM edits groups in AppFolio and the sync
+  follows.  A property in N groups appears on N calendars; promises are
+  mirrored across them by the sibling machinery (formerly co-ownership).
+  Properties in no group are intentionally unsynced.  Sharing is PM-ONLY
+  (role=owner, so drag-to-promise works); group calendars are never shared
+  with property owners — groups can span unrelated owners.
+  The legacy per-owner calendars were retired in place at cutover:
+  "[RETIRED] {name}" rename, non-PM ACLs stripped, events frozen as history.
 
 ─── Current-month model ─────────────────────────────────────────────────────
   STATUS EVENT  : one per month. Starts on the 1st (the "what's due" preview),
@@ -61,12 +75,21 @@ COMMITMENT / PROMISE EVENTS
     displayed outstanding. When that month becomes current, the kickstart
     placeholder is deleted; the commitment anchors the month until paid.
 
-  PM ACCESS: Owner (was reader) so the PM can drag events; owners stay reader.
-  Locked events are detect-and-reverted within one poll cycle.
+  PM ACCESS: Owner role, so the PM can drag events and the calendar lands
+  under "My calendars".  Locked events are detect-and-reverted within one
+  poll cycle.
 
 STATE ADDITIONS:
-  state.json["_commitments"][oid] = list of:
-    { event_id, anchor_date, source_type, origin_month, covers_rent_month }
+  state.json["_commitments"][soid] = list of:
+    { event_id, anchor_date, source_type, origin_month, covers_rent_month,
+      calendar_id }
+  soid = "{occupancy_id}@g{property_group_id}" (the "g" prefix keeps group
+  scopes disjoint from the purged legacy "{occupancy_id}@{owner_id}" keys);
+  month keys are "{soid}_{YYYY-MM}".
+  state.json["_calendars"]["g{gid}"]        = group calendar id
+  state.json["_retired_calendars"][owner_id] = legacy owner calendar id
+  state.json["_migrations"]["group_cutover_v1"] = one-time cutover marker
+  (gates the cutover in run(); update/submit no-op until it exists)
 
 New GitHub variable:
   COMMITMENT_LOOKAHEAD_MONTHS  (default 3) — how many future months to scan

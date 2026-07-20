@@ -38,7 +38,19 @@
       "Bash([ -f \"$FILE\" ])",
       "Bash(git commit *)",
       "Bash(python -m py_compile pm_calendar_sync/*.py smoke_test.py)",
-      "Bash(python -m py_compile pm_calendar_sync/*.py sync.py smoke_test.py)"
+      "Bash(python -m py_compile pm_calendar_sync/*.py sync.py smoke_test.py)",
+      "Bash(python -c ' *)",
+      "Bash(python -)",
+      "PowerShell(python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\7a1ba645-32bd-4afd-b7a6-2ab035e7c19f\\\\scratchpad\\\\preflight_groups.py\")",
+      "PowerShell(python -m py_compile pm_calendar_sync\\\\orchestrator.py pm_calendar_sync\\\\calendar_manager.py pm_calendar_sync\\\\state.py pm_calendar_sync\\\\transforms.py pm_calendar_sync\\\\cache.py pm_calendar_sync\\\\appfolio.py pm_calendar_sync\\\\config.py)",
+      "PowerShell(if \\($?\\) { \"compile OK\" })",
+      "PowerShell(python smoke_test.py)",
+      "PowerShell(\"---\")",
+      "PowerShell(python -m py_compile misc\\\\rollback_group_cutover.py misc\\\\clean_keep_commitments.py tests\\\\list_calendars.py tests\\\\probe_matching.py grant_pm_access.py restrict_access.py share_portfolio_calendars.py misc\\\\cleanup_duplicates.py smoke_test.py)",
+      "PowerShell(python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\7a1ba645-32bd-4afd-b7a6-2ab035e7c19f\\\\scratchpad\\\\dryrun_mapping.py\")",
+      "PowerShell(git check-ignore CLAUDE.md)",
+      "PowerShell(gh --version)",
+      "PowerShell(gh auth status)"
     ]
   }
 }

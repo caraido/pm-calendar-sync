@@ -1,6 +1,10 @@
 """
 cleanup_duplicates.py
 ─────────────────────
+⚠️ LEGACY twice over: filters on the pre-rename "OKPM" summary prefix
+(matches nothing since the rename) AND predates the group cutover
+(July 2026).  Kept for reference only — do not run.
+
 One-time script: scans all OKPM calendars and removes duplicate events
 (keeps the event ID stored in state.json, deletes extras).
 

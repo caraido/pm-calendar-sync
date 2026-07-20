@@ -88,13 +88,63 @@ def parse_commitment_auto_section(description: str) -> Optional[dict]:
 
 
 def build_owner_property_map(owners: list[dict]) -> dict:
-    """Maps property_id → list of owners (supports co-ownership)."""
+    """Maps property_id → list of owners (supports co-ownership).
+
+    Legacy (pre group-cutover) — the sync now groups by property group via
+    build_group_property_map; kept for the misc/ rollback tooling.
+    """
     m: dict[int, list[dict]] = {}
     for o in owners:
         for pid in (o.get("properties_owned_i_ds") or "").split(","):
             if pid.strip().isdigit():
                 m.setdefault(int(pid.strip()), []).append(o)
     return m
+
+
+def build_group_property_map(group_rows: list[dict]) -> dict:
+    """Maps property_id → list of property groups (a property may be in
+    several groups at once — it then appears on each group's calendar).
+
+    Input rows are raw property_group_directory rows (one row per
+    property × group membership).  Rows for the "Properties not assigned to
+    a property group" pseudo-group arrive with property_group_id null and
+    are skipped: unassigned properties are intentionally unsynced.
+    Keys are ints, matching build_owner_property_map's convention (the
+    orchestrator's int/str alt_pid fallback covers rent_roll mismatches).
+    """
+    m: dict[int, list[dict]] = {}
+    for row in group_rows:
+        gid = row.get("property_group_id")
+        pid = row.get("property_id")
+        if gid in (None, "") or pid in (None, ""):
+            continue
+        pid = int(pid) if str(pid).strip().isdigit() else pid
+        groups = m.setdefault(pid, [])
+        if not any(g["group_id"] == gid for g in groups):
+            groups.append({
+                "group_id":   gid,
+                "group_name": (row.get("property_group_name") or "").strip(),
+            })
+    return m
+
+
+def group_scope_key(group_id) -> str:
+    """State-scope key for a property group: "g{id}" (e.g. "g3").
+
+    The "g" prefix keeps group scopes disjoint from the legacy owner-id
+    scopes (both are small ints) in soids, state month keys, and the
+    _calendars map.  Single home for the format — never inline it.
+    """
+    return f"g{str(group_id).strip()}"
+
+
+def group_display_name(group: dict) -> str:
+    """Calendar summary for a group: the AppFolio group name VERBATIM.
+
+    No " Portfolio" suffix — a group named after an owner (e.g. "Bowei Yan")
+    must never name-match that owner's legacy "... Portfolio" calendar.
+    """
+    return (group.get("group_name") or "").strip() or "Unknown Group"
 
 
 def build_tenant_info_map(tenants: list[dict]) -> dict:

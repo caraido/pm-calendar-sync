@@ -121,9 +121,13 @@ with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
 with mock.patch.object(state, "STATE_FILE", Path(tmp)):
     sm = state.StateManager()
 check("_calendars auto-created on load", sm.data.get("_calendars") == {})
+check("_retired_calendars/_migrations auto-created on load",
+      sm.data.get("_retired_calendars") == {} and sm.data.get("_migrations") == {})
 sm.set_calendar_id(42, "cal_abc")
 check("get/set_calendar_id round-trip (int key coerced)",
       sm.get_calendar_id("42") == "cal_abc")
+sm.set_calendar_id("g3", "cal_g3")
+check("group scope-key ('g3') round-trip", sm.get_calendar_id("g3") == "cal_g3")
 os.unlink(tmp)
 
 print("\n=== 7. RUN_MODE entrypoint dispatch (sync.py / python -m) ===")
@@ -399,13 +403,14 @@ with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
                        return_value=[copy_ev]), \
      mock.patch.object(orch4, "_mirror_commitment_to_siblings") as mir:
     n = orch4._adopt_untagged_commitments(
-        [(row_fx, {"owner_id": 9})], 9, "calA", {}, {}, _date(2026, 7, 4))
+        [(row_fx, {"group_id": 9, "group_name": "Bowei Yan"})], "g9",
+        "calA", {}, {}, _date(2026, 7, 4))
 body_sent = upd.call_args.kwargs["body"]
 check("adoption re-tags the event in place",
       n == 1 and upd.called
       and body_sent["extendedProperties"]["private"]["okpm_event_type"] == "commitment"
       and body_sent["extendedProperties"]["private"]["okpm_occupancy_id"] == "99")
-comms = orch4.state.get_commitments("99@9")
+comms = orch4.state.get_commitments("99@g9")
 check("adoption registers the promise (covers current month)",
       len(comms) == 1 and comms[0]["event_id"] == "copy1"
       and comms[0]["anchor_date"] == "2026-07-03"
@@ -420,14 +425,14 @@ other_row = {**row_fx, "occupancy_id": 98, "tenant": "Else, Someone"}
 with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
                        return_value=[copy_ev]):
     n2 = orch4._adopt_untagged_commitments(
-        [(other_row, {})], 9, "calA", {}, {}, _date(2026, 7, 4))
+        [(other_row, {})], "g9", "calA", {}, {}, _date(2026, 7, 4))
 check("unmatched tenant -> skipped, no writes", n2 == 0 and not upd.called)
 
 twin = {**row_fx, "occupancy_id": 98}   # same tenant, same address/unit
 with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
                        return_value=[copy_ev]):
     n3 = orch4._adopt_untagged_commitments(
-        [(row_fx, {}), (twin, {})], 9, "calA", {}, {}, _date(2026, 7, 4))
+        [(row_fx, {}), (twin, {})], "g9", "calA", {}, {}, _date(2026, 7, 4))
 check("ambiguous tenant match -> skipped, no writes",
       n3 == 0 and not upd.called)
 
@@ -680,6 +685,149 @@ with mock.patch.object(orch6.gcal, "get_event",
                                surplus_payment_ids=[], prior_payments=[])
     check("retouch happens exactly once (v=2 honored)",
           upd6.call_count == retouch_updates)
+
+print("\n=== 18. Group cutover: build_group_property_map / scope keys ===")
+grp_rows = [
+    {"property_group_id": 8, "property_group_name": "L&P Midwest Capital",
+     "property_id": 24},
+    {"property_group_id": 8, "property_group_name": "L&P Midwest Capital",
+     "property_id": 40},
+    {"property_group_id": 3, "property_group_name": "Ryan Palmer Property Group",
+     "property_id": 40},
+    {"property_group_id": 8, "property_group_name": "L&P Midwest Capital",
+     "property_id": 24},   # duplicate membership row
+    {"property_group_id": None,
+     "property_group_name": "Properties not assigned to a property group",
+     "property_id": 47},
+    {"property_group_id": 9, "property_group_name": "Bowei Yan",
+     "property_id": "42"},  # str property_id
+]
+gm = transforms.build_group_property_map(grp_rows)
+check("null group skipped (unassigned properties unsynced)", 47 not in gm)
+check("multi-group property yields one entry per group",
+      [g["group_id"] for g in gm[40]] == [8, 3])
+check("duplicate membership rows deduped", len(gm[24]) == 1)
+check("str property_id coerced to int key", 42 in gm)
+check("scope key format g{id}",
+      transforms.group_scope_key(3) == "g3"
+      and transforms.group_scope_key(" 9 ") == "g9")
+check("group display name verbatim / fallback",
+      transforms.group_display_name({"group_name": "Bowei Yan"}) == "Bowei Yan"
+      and transforms.group_display_name({}) == "Unknown Group")
+
+print("\n=== 19. Group calendar creation (verbatim summary, no ' Portfolio') ===")
+svc19 = orch2.gcal.service
+svc19.calendarList.return_value.list.return_value.execute.side_effect = None
+svc19.calendarList.return_value.list.return_value.execute.return_value = {"items": []}
+svc19.calendars.return_value.insert.return_value.execute.return_value = {"id": "gc_new"}
+cid19 = orch2.gcal.get_or_create_group_calendar("L&P Midwest Capital")
+ins19_body = svc19.calendars.return_value.insert.call_args.kwargs["body"]
+check("created id returned + cached (2nd call hits cache)",
+      cid19 == "gc_new"
+      and orch2.gcal.get_or_create_group_calendar("L&P Midwest Capital") == "gc_new")
+check("summary is the group name VERBATIM",
+      ins19_body["summary"] == "L&P Midwest Capital")
+check("new calendar recorded for ACL bootstrap",
+      "gc_new" in orch2.gcal.created_calendar_ids)
+
+print("\n=== 20. Group cutover: idempotent migration ===")
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({
+        "_commitments": {"69@10": [{
+            "event_id": "oldev", "anchor_date": "2026-08-15",
+            "source_type": "status", "origin_month": "2026-07",
+            "calendar_id": "oldcal", "covers_rent_month": "2026-07"}]},
+        "_calendars": {"10": "oldcal", "11": "oldcal"},  # 2 owners, 1 calendar
+        "69@10_2026-07": {"status": "🔴 Unpaid", "past_due": 900.0,
+                          "calendar_id": "oldcal"},
+    }, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch7 = SyncOrchestrator()
+
+row69 = {"occupancy_id": 69, "tenant": "Burdine, Tyquita",
+         "additional_tenants": "", "rent": "900.00", "past_due": "900.00",
+         "status": "Current", "property_name": "31 West 112th Place",
+         "unit": "2", "property_street": "31 West 112Th Place",
+         "property_city": "Chicago", "property_state": "IL",
+         "property_zip": "60628", "lease_from": "2025-11-15",
+         "lease_to": "2026-11-30"}
+g_rows20 = {"g3": [(row69, {"group_id": 3, "group_name": "Test Group"})]}
+old_desc = "PM note kept\n" + config.COMMITMENT_DIVIDER + "\nauto stuff"
+ins20 = orch7.gcal.service.events.return_value.insert
+ins20.return_value.execute.return_value = {"id": "newev1"}
+with mock.patch.object(orch7.gcal, "retire_calendar", return_value=True) as ret20, \
+     mock.patch.object(orch7.gcal, "get_or_create_group_calendar",
+                       return_value="gcal3") as goc20, \
+     mock.patch.object(orch7.gcal, "ensure_calendar_summary",
+                       return_value=True), \
+     mock.patch.object(orch7.gcal, "find_all_events_by_type",
+                       return_value=[]), \
+     mock.patch.object(orch7.gcal, "get_event",
+                       return_value={"description": old_desc}), \
+     mock.patch.object(orch7.gcal, "delete_event") as del20:
+    meta20 = orch7._run_group_cutover(g_rows20, {}, {}, _date(2026, 7, 19))
+check("cutover: one retirement per DISTINCT calendar (2 owners, 1 cal)",
+      ret20.call_count == 1 and ret20.call_args == mock.call("oldcal"))
+check("cutover: group calendar resolved",
+      meta20 == {"g3": ("Test Group", "gcal3")})
+sent20 = ins20.call_args.kwargs["body"]
+check("cutover: commitment recreated with PM notes preserved",
+      ins20.call_count == 1 and sent20["description"].startswith("PM note kept")
+      and sent20["extendedProperties"]["private"]["okpm_source_type"] == "status")
+check("cutover: old commitment event deleted",
+      del20.call_args == mock.call("oldcal", "oldev"))
+comms20 = orch7.state.get_commitments("69@g3")
+check("cutover: registry re-keyed to @g scope",
+      len(comms20) == 1 and comms20[0]["event_id"] == "newev1"
+      and comms20[0]["calendar_id"] == "gcal3"
+      and comms20[0]["anchor_date"] == "2026-08-15")
+check("cutover: legacy commitment key removed",
+      "69@10" not in orch7.state.data["_commitments"])
+check("cutover: legacy month entries purged, calendars moved to retired",
+      "69@10_2026-07" not in orch7.state.data
+      and orch7.state.data["_calendars"] == {"g3": "gcal3"}
+      and orch7.state.data["_retired_calendars"] == {"10": "oldcal",
+                                                     "11": "oldcal"})
+check("cutover: marker written", orch7.state.migration_done("group_cutover_v1"))
+
+# Re-run: everything already migrated — zero mutating Google calls.
+with mock.patch.object(orch7.gcal, "retire_calendar", return_value=True) as ret21, \
+     mock.patch.object(orch7.gcal, "get_or_create_group_calendar") as goc21, \
+     mock.patch.object(orch7.gcal, "ensure_calendar_summary",
+                       return_value=True), \
+     mock.patch.object(orch7.gcal, "find_all_events_by_type",
+                       return_value=[]), \
+     mock.patch.object(orch7.gcal, "delete_event") as del21:
+    orch7._run_group_cutover(g_rows20, {}, {}, _date(2026, 7, 19))
+check("cutover re-run: no retire/create/insert/delete calls",
+      ret21.call_count == 0 and not goc21.called
+      and ins20.call_count == 1 and not del21.called)
+os.unlink(tmp)
+
+print("\n=== 21. Fast-path gate: update/submit no-op before cutover ===")
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {}}, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch8 = SyncOrchestrator()
+os.unlink(tmp)
+with mock.patch.object(orch8.af, "get_rent_roll") as rr21, \
+     mock.patch.object(pkg_cache, "load_json") as lj21:
+    orch8.run_update()
+    orch8.run_submit()
+check("update/submit bail out before any pull or cache read",
+      not rr21.called and not lj21.called)
+orch8.state.mark_migration_done("group_cutover_v1", {"note": "smoke"})
+check("marker round-trips with done_at stamp",
+      orch8.state.migration_done("group_cutover_v1")
+      and "done_at" in orch8.state.data["_migrations"]["group_cutover_v1"])
 
 print()
 if failures:

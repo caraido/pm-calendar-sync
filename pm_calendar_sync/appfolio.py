@@ -23,5 +23,7 @@ class AppFolioClient:
     def get_rent_roll(self)       -> list[dict]: return self._post_report("rent_roll")
     def get_owner_directory(self) -> list[dict]: return self._post_report("owner_directory")
     def get_tenant_directory(self)-> list[dict]: return self._post_report("tenant_directory")
+    def get_property_group_directory(self) -> list[dict]:
+        return self._post_report("property_group_directory")
     def get_tenant_ledger_month(self, from_date: str, to_date: str) -> list[dict]:
         return self._post_report("tenant_ledger", {"from_date": from_date, "to_date": to_date})

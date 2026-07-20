@@ -1,6 +1,11 @@
 """
 grant_pm_access.py
 ──────────────────
+⚠️ LEGACY (pre group-cutover, July 2026): the summary.endswith("Portfolio")
+filter below now selects only the RETIRED owner calendars — the live
+calendars are per property group (state.json `_calendars`).  Do not run
+against the live setup.
+
 One-time script: grants your PM Google account full owner access
 to all OKPM-managed calendars.
 
