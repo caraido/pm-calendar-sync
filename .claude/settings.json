@@ -50,7 +50,13 @@
       "PowerShell(python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\7a1ba645-32bd-4afd-b7a6-2ab035e7c19f\\\\scratchpad\\\\dryrun_mapping.py\")",
       "PowerShell(git check-ignore CLAUDE.md)",
       "PowerShell(gh --version)",
-      "PowerShell(gh auth status)"
+      "PowerShell(gh auth status)",
+      "mcp__claude_ai_Google_Calendar__list_calendars",
+      "PowerShell($c = Get-Content local_config.json -Raw | ConvertFrom-Json; $c.PSObject.Properties.Name; \"PM_EMAIL: $\\($c.PM_EMAIL\\)\")",
+      "PowerShell(git add pm_calendar_sync/calendar_manager.py smoke_test.py)",
+      "PowerShell(git pull --rebase origin main)",
+      "PowerShell(git push)",
+      "PowerShell(python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\7a1ba645-32bd-4afd-b7a6-2ab035e7c19f\\\\scratchpad\\\\ensure_pm_acl.py\")"
     ]
   }
 }
