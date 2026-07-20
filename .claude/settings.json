@@ -62,7 +62,24 @@
       "PowerShell(git add tests/list_calendars.py tests/probe_matching.py)",
       "PowerShell(git push -q)",
       "PowerShell(python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\7a1ba645-32bd-4afd-b7a6-2ab035e7c19f\\\\scratchpad\\\\revoke_ryan.py\")",
-      "PowerShell(python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\7a1ba645-32bd-4afd-b7a6-2ab035e7c19f\\\\scratchpad\\\\dump_acls.py\" 2>&1 | Select-String -Pattern \"^📅|ry\\\\.d\\\\.palmer|openkey\" | ForEach-Object { $_.Line })"
+      "PowerShell(python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\7a1ba645-32bd-4afd-b7a6-2ab035e7c19f\\\\scratchpad\\\\dump_acls.py\" 2>&1 | Select-String -Pattern \"^📅|ry\\\\.d\\\\.palmer|openkey\" | ForEach-Object { $_.Line })",
+      "Bash(git pull *)",
+      "Bash(python -m py_compile pm_calendar_sync/transforms.py pm_calendar_sync/calendar_manager.py pm_calendar_sync/orchestrator.py)",
+      "Bash(echo \"exit=$?\")",
+      "Read(//tmp/**)",
+      "Bash(awk -F: '$1 < 470')",
+      "Bash(git stash *)",
+      "Bash(sed -n '/=== 20/,/=== 21/p')",
+      "Bash(PYTHONUTF8=1 python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\4e3c3b38-fdf4-4dce-bf72-8dd5cad5f709\\\\scratchpad\\\\dbg20.py\")",
+      "Bash(sed -n '/=== 25/,$p' /tmp/smoke.out | grep -E \"===|✓|✗\" | head -25; echo; grep -c \"✓\" /tmp/smoke.out)",
+      "Bash(PYTHONUTF8=1 python \"C:/Users/Owner/AppData/Local/Temp/claude/d--Repos-pm-calendar-sync/4e3c3b38-fdf4-4dce-bf72-8dd5cad5f709/scratchpad/repro.py\")",
+      "Bash(python -m py_compile pm_calendar_sync/orchestrator.py pm_calendar_sync/transforms.py smoke_test.py)",
+      "Bash(PYTHONUTF8=1 python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\4e3c3b38-fdf4-4dce-bf72-8dd5cad5f709\\\\scratchpad\\\\fixcheck.py\")",
+      "Bash(echo \"smoke exit=$?\")",
+      "Bash(git commit -q -m ' *)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }
