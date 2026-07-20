@@ -13,7 +13,11 @@ Run locally:
 """
 import json
 import os
+import sys
 
+# Runnable both as `python tests/list_calendars.py` (repo root) and from
+# tests/ — local_config.py lives in the repo root.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from local_config import load_json_config
 from google.oauth2 import service_account
 from googleapiclient.discovery import build

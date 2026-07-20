@@ -20,6 +20,9 @@ from pathlib import Path
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
+# Runnable both as `python tests/probe_matching.py` (repo root) and from
+# tests/ — local_config.py lives in the repo root.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from local_config import load_json_config
 
 NAME_FILTER = sys.argv[1] if len(sys.argv) > 1 else ""
