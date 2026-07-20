@@ -148,8 +148,22 @@ class GoogleCalendarManager:
                 value = (scope.get("value") or "").lower()
                 if value == PM_EMAIL.lower() or "gserviceaccount.com" in value:
                     continue
-                _gcal_execute(self.service.acl().delete(
-                    calendarId=calendar_id, ruleId=rule["id"]))
+                if value == calendar_id.lower():
+                    # The calendar's own primary-owner pseudo-rule (scope
+                    # value == calendar id).  Google forbids touching it —
+                    # deleting returns 403 cannotChangeOwnerAcl.
+                    continue
+                try:
+                    _gcal_execute(self.service.acl().delete(
+                        calendarId=calendar_id, ruleId=rule["id"]))
+                except HttpError as e:
+                    if e.resp.status == 403:
+                        # Undeletable rule (e.g. another owner-level ACL) —
+                        # leave it; the [RETIRED] rename is what matters.
+                        log.warning(f"  Could not revoke "
+                                    f"{scope.get('value')}: {e}")
+                        continue
+                    raise
                 log.info(f"  Revoked access for {scope.get('value')}")
             return True
         except Exception as e:

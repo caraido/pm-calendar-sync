@@ -31,6 +31,7 @@ os.environ.setdefault("APPFOLIO_DB_NAME", "openkey")
 os.environ.setdefault("APPFOLIO_CLIENT_ID", "id with spaces@weird")
 os.environ.setdefault("APPFOLIO_CLIENT_SECRET", "sec/ret:with#chars ")
 os.environ.setdefault("GOOGLE_SERVICE_ACCOUNT_JSON", '{"type":"service_account"}')
+os.environ.setdefault("PM_EMAIL", "pm@example.com")
 
 failures = []
 def check(label, cond):
@@ -729,6 +730,39 @@ check("summary is the group name VERBATIM",
       ins19_body["summary"] == "L&P Midwest Capital")
 check("new calendar recorded for ACL bootstrap",
       "gc_new" in orch2.gcal.created_calendar_ids)
+
+# retire_calendar: rename + selective ACL strip.  Must skip the PM, service
+# accounts, non-user scopes, and the calendar's own primary-owner pseudo-rule
+# (scope value == calendar id — deleting it 403s with cannotChangeOwnerAcl).
+svc19.calendars.return_value.get.return_value.execute.return_value = {
+    "summary": "Xin, Tian Portfolio"}
+svc19.acl.return_value.list.return_value.execute.return_value = {"items": [
+    {"id": "r1", "role": "owner",
+     "scope": {"type": "user", "value": "oldcal19@group.calendar.google.com"}},
+    {"id": "r2", "role": "owner",
+     "scope": {"type": "user", "value": "pm@example.com"}},
+    {"id": "r3", "role": "writer",
+     "scope": {"type": "user", "value": "bot@proj.iam.gserviceaccount.com"}},
+    {"id": "r4", "role": "reader",
+     "scope": {"type": "user", "value": "owner.person@gmail.com"}},
+    {"id": "r5", "role": "reader", "scope": {"type": "default"}},
+]}
+ok19 = orch2.gcal.retire_calendar("oldcal19@group.calendar.google.com")
+patch19 = svc19.calendars.return_value.patch.call_args
+del19 = svc19.acl.return_value.delete.call_args_list
+check("retire: renamed with [RETIRED] prefix",
+      ok19 and patch19.kwargs["body"]["summary"]
+      == "[RETIRED] Xin, Tian Portfolio")
+check("retire: only the real owner email revoked "
+      "(pseudo-owner/PM/SA/default kept)",
+      [c.kwargs["ruleId"] for c in del19] == ["r4"])
+svc19.calendars.return_value.get.return_value.execute.return_value = {
+    "summary": "[RETIRED] Xin, Tian Portfolio"}
+svc19.acl.return_value.list.return_value.execute.return_value = {"items": []}
+rename19 = svc19.calendars.return_value.patch.call_count
+orch2.gcal.retire_calendar("oldcal19@group.calendar.google.com")
+check("retire: idempotent (no re-rename when already prefixed)",
+      svc19.calendars.return_value.patch.call_count == rename19)
 
 print("\n=== 20. Group cutover: idempotent migration ===")
 with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
