@@ -28,14 +28,6 @@
         "event_id": "jui0tbqltc4hmc8vpkubr75dck"
       },
       {
-        "anchor_date": "2026-07-15",
-        "source_type": "status",
-        "origin_month": "2026-07",
-        "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
-        "covers_rent_month": "2026-07",
-        "event_id": "mkrf91d5rf8d7s5fvovntjt158"
-      },
-      {
         "anchor_date": "2026-06-30",
         "source_type": "status",
         "origin_month": "2026-06",
@@ -158,14 +150,6 @@
     ],
     "2@g1": [
       {
-        "anchor_date": "2026-07-09",
-        "source_type": "status",
-        "origin_month": "2026-07",
-        "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
-        "covers_rent_month": "2026-07",
-        "event_id": "o4jv9h7q81pemf253mi9t2nar0"
-      },
-      {
         "anchor_date": "2026-07-23",
         "source_type": "status",
         "origin_month": "2026-07",
@@ -238,14 +222,6 @@
         "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
         "covers_rent_month": "2026-07",
         "event_id": "8d69gdrbtd4fs4csi2rnvsueqg"
-      },
-      {
-        "anchor_date": "2026-07-19",
-        "source_type": "status",
-        "origin_month": "2026-07",
-        "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
-        "covers_rent_month": "2026-07",
-        "event_id": "mn8jqm9ufof1d4j7812j15ivnk"
       }
     ],
     "4@g2": [
@@ -268,16 +244,7 @@
         "event_id": "6d1nt78d3g0m93562qnr9nue80"
       }
     ],
-    "87@g2": [
-      {
-        "anchor_date": "2026-07-19",
-        "source_type": "status",
-        "origin_month": "2026-07",
-        "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
-        "covers_rent_month": "2026-07",
-        "event_id": "5e3bgoh27jll4bitimie1p7hek"
-      }
-    ],
+    "87@g2": [],
     "49@g2": [
       {
         "anchor_date": "2026-07-20",
@@ -427,6 +394,7 @@
     }
   },
   "101@g8_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
@@ -443,9 +411,22 @@
         "description": "ACH (#1C3A-0900)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 2400.0,
+        "is_nsf": false,
+        "description": "ACH (#1C3A-0900)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:07.236130"
+    "last_updated": "2026-07-20T17:03:29.832336"
   },
   "101@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -512,6 +493,7 @@
     "last_updated": "2026-07-20T04:07:05.890543"
   },
   "13@g8_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 389.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
@@ -546,9 +528,15 @@
         "description": "ACH (#3680-0420)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:09.793849"
+    "last_updated": "2026-07-20T17:03:33.681045"
   },
   "13@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -647,6 +635,7 @@
     "last_updated": "2026-07-20T04:07:16.918660"
   },
   "15@g8_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
@@ -663,9 +652,22 @@
         "description": "ACH (#9DC0-4B80)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-03",
+        "amount": 2200.0,
+        "is_nsf": false,
+        "description": "ACH (#9DC0-4B80)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:10.999878"
+    "last_updated": "2026-07-20T17:03:35.199444"
   },
   "15@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -700,22 +702,15 @@
     "last_updated": "2026-07-20T04:07:20.631891"
   },
   "18@g8_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
     "status_event_id": "bjaee9p4teplg5s240ba6gre40",
-    "status_event_date": "2026-07-01",
+    "status_event_date": "2026-07-19",
     "late_event_id": null,
-    "payment_event_ids": [
-      "oi918enepbq47gonlpm1lgblno",
-      "t5k9jhuv2m2s33tj7aghglbm24",
-      "84m9jhktpr3gnkv6qg29qe6984"
-    ],
-    "payment_event_dates": [
-      "2026-07-07",
-      "2026-07-07",
-      "2026-07-19"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-01",
@@ -742,9 +737,40 @@
         "description": "Credit Card (#4E66-3840)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 4,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 1491.0,
+        "is_nsf": false,
+        "description": "Payment July Rent"
+      },
+      {
+        "date": "2026-07-07",
+        "amount": 350.0,
+        "is_nsf": false,
+        "description": "Credit Card (#6157-24E0)"
+      },
+      {
+        "date": "2026-07-07",
+        "amount": 300.0,
+        "is_nsf": false,
+        "description": "Credit Card (#CDF5-6560)"
+      },
+      {
+        "date": "2026-07-19",
+        "amount": 159.0,
+        "is_nsf": false,
+        "description": "Credit Card (#4E66-3840)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:13.396746"
+    "last_updated": "2026-07-20T17:03:36.617176"
   },
   "18@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -843,18 +869,15 @@
     "last_updated": "2026-07-20T04:07:31.856318"
   },
   "20@g8_2026-07": {
+    "fmt": 2,
     "status": "\ud83e\ude77 Prepaid",
     "past_due": -30.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
     "status_event_id": "42njdfr0l8banq50a5hhsp7o7c",
-    "status_event_date": "2026-07-01",
+    "status_event_date": "2026-07-15",
     "late_event_id": null,
-    "payment_event_ids": [
-      "eiolr3s37focsf89o0q1vdqq38"
-    ],
-    "payment_event_dates": [
-      "2026-07-15"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-01",
@@ -869,17 +892,37 @@
         "description": "ACH (#E434-23A0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 2,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 471.0,
+        "is_nsf": false,
+        "description": "Payment July Rent"
+      },
+      {
+        "date": "2026-07-15",
+        "amount": 894.5,
+        "is_nsf": false,
+        "description": "ACH (#E434-23A0)"
+      }
+    ],
+    "settled_past_due": -30.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:14.947613"
+    "last_updated": "2026-07-20T17:03:39.585956"
   },
   "20@g8_2026-08": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 2170.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
     "rent_event_id": "0s8v45ebsmucka2uvlfp46pmjo",
     "late_event_id": null,
-    "last_updated": "2026-07-20T15:43:15.613137"
+    "last_updated": "2026-07-20T17:03:41.148011"
   },
   "20@g8_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -898,6 +941,7 @@
     "last_updated": "2026-07-20T04:07:35.559213"
   },
   "102@g8_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
@@ -914,9 +958,22 @@
         "description": "ACH (#B_G_1_GSEXRF_1-_-AZGD) Flexible Rent by Flex Payment"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 1395.0,
+        "is_nsf": false,
+        "description": "ACH (#B_G_1_GSEXRF_1-_-AZGD) Flexible Rent by Flex Payment"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:16.641578"
+    "last_updated": "2026-07-20T17:03:42.623144"
   },
   "102@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -983,6 +1040,7 @@
     "last_updated": "2026-07-20T04:07:41.863800"
   },
   "35@g8_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 180.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
@@ -999,9 +1057,15 @@
         "description": "Payment July rent"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:17.776178"
+    "last_updated": "2026-07-20T17:03:44.634822"
   },
   "35@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1100,6 +1164,7 @@
     "last_updated": "2026-07-20T04:07:50.739349"
   },
   "38@g8_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
@@ -1116,9 +1181,22 @@
         "description": "ACH (#C115-BAA0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-14",
+        "amount": 1200.0,
+        "is_nsf": false,
+        "description": "ACH (#C115-BAA0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:19.058328"
+    "last_updated": "2026-07-20T17:03:46.475566"
   },
   "38@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1209,6 +1287,7 @@
     "last_updated": "2026-07-20T04:07:58.950725"
   },
   "88@g8_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 1230.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
@@ -1225,9 +1304,15 @@
         "description": "Credit Card (#821F-B510)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:20.445133"
+    "last_updated": "2026-07-20T17:03:48.607616"
   },
   "88@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1310,6 +1395,7 @@
     "last_updated": "2026-07-20T04:08:07.437788"
   },
   "93@g8_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
@@ -1326,9 +1412,22 @@
         "description": "ACH (#0C4D-F910)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 500.0,
+        "is_nsf": false,
+        "description": "ACH (#0C4D-F910)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:21.464213"
+    "last_updated": "2026-07-20T17:03:50.344130"
   },
   "93@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1419,18 +1518,15 @@
     "last_updated": "2026-07-20T04:08:15.910344"
   },
   "117@g8_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
     "status_event_id": "q3igjqppbd2a9vbqnpupeht4g0",
-    "status_event_date": "2026-07-15",
+    "status_event_date": "2026-07-16",
     "late_event_id": null,
-    "payment_event_ids": [
-      "n4vo8e217n62tgcesseuiokij8"
-    ],
-    "payment_event_dates": [
-      "2026-07-16"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-15",
@@ -1445,9 +1541,28 @@
         "description": "Payment July rent"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 2,
+    "settled_rows": [
+      {
+        "date": "2026-07-15",
+        "amount": 1000.0,
+        "is_nsf": false,
+        "description": "Payment July rent"
+      },
+      {
+        "date": "2026-07-16",
+        "amount": 900.0,
+        "is_nsf": false,
+        "description": "Payment July rent"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:22.661863"
+    "last_updated": "2026-07-20T17:03:51.876637"
   },
   "117@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1530,6 +1645,7 @@
     "last_updated": "2026-07-20T04:08:23.841715"
   },
   "101@g7_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "efde9ad49bbe01a6c72b7db391f58e91440a7a55dae7aa6810fb2ff3d5939d7b@group.calendar.google.com",
@@ -1546,9 +1662,22 @@
         "description": "ACH (#1C3A-0900)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 2400.0,
+        "is_nsf": false,
+        "description": "ACH (#1C3A-0900)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:23.882816"
+    "last_updated": "2026-07-20T17:03:54.591783"
   },
   "101@g7_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1615,6 +1744,7 @@
     "last_updated": "2026-07-20T04:08:29.567275"
   },
   "101@g3_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
@@ -1631,9 +1761,22 @@
         "description": "ACH (#1C3A-0900)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 2400.0,
+        "is_nsf": false,
+        "description": "ACH (#1C3A-0900)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:25.114143"
+    "last_updated": "2026-07-20T17:03:56.360530"
   },
   "101@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1700,6 +1843,7 @@
     "last_updated": "2026-07-20T04:08:34.460273"
   },
   "13@g3_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 389.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
@@ -1734,9 +1878,15 @@
         "description": "ACH (#3680-0420)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:27.722846"
+    "last_updated": "2026-07-20T17:04:03.322508"
   },
   "13@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1835,6 +1985,7 @@
     "last_updated": "2026-07-20T04:08:43.319709"
   },
   "15@g3_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
@@ -1851,9 +2002,22 @@
         "description": "ACH (#9DC0-4B80)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-03",
+        "amount": 2200.0,
+        "is_nsf": false,
+        "description": "ACH (#9DC0-4B80)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:28.557765"
+    "last_updated": "2026-07-20T17:04:04.824500"
   },
   "15@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1888,22 +2052,15 @@
     "last_updated": "2026-07-20T04:08:46.775756"
   },
   "18@g3_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
     "status_event_id": "fq7c6t9u70snhqnan60ualn0b4",
-    "status_event_date": "2026-07-01",
+    "status_event_date": "2026-07-19",
     "late_event_id": null,
-    "payment_event_ids": [
-      "mbinijip9r8c1ok0qh7pcnc7f8",
-      "4gmiobv70sntppv0b4taoohqj4",
-      "6j7e68i3lg3603i0v3p9djldmg"
-    ],
-    "payment_event_dates": [
-      "2026-07-07",
-      "2026-07-07",
-      "2026-07-19"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-01",
@@ -1930,9 +2087,40 @@
         "description": "Credit Card (#4E66-3840)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 4,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 1491.0,
+        "is_nsf": false,
+        "description": "Payment July Rent"
+      },
+      {
+        "date": "2026-07-07",
+        "amount": 350.0,
+        "is_nsf": false,
+        "description": "Credit Card (#6157-24E0)"
+      },
+      {
+        "date": "2026-07-07",
+        "amount": 300.0,
+        "is_nsf": false,
+        "description": "Credit Card (#CDF5-6560)"
+      },
+      {
+        "date": "2026-07-19",
+        "amount": 159.0,
+        "is_nsf": false,
+        "description": "Credit Card (#4E66-3840)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:31.728344"
+    "last_updated": "2026-07-20T17:04:06.266953"
   },
   "18@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2031,18 +2219,15 @@
     "last_updated": "2026-07-20T04:08:55.688086"
   },
   "20@g3_2026-07": {
+    "fmt": 2,
     "status": "\ud83e\ude77 Prepaid",
     "past_due": -30.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
     "status_event_id": "vmm0t04u7qqfmfngja273vlm9g",
-    "status_event_date": "2026-07-01",
+    "status_event_date": "2026-07-15",
     "late_event_id": null,
-    "payment_event_ids": [
-      "3aoisll6bao95l4pfrv0h5mmfk"
-    ],
-    "payment_event_dates": [
-      "2026-07-15"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-01",
@@ -2057,17 +2242,37 @@
         "description": "ACH (#E434-23A0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 2,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 471.0,
+        "is_nsf": false,
+        "description": "Payment July Rent"
+      },
+      {
+        "date": "2026-07-15",
+        "amount": 894.5,
+        "is_nsf": false,
+        "description": "ACH (#E434-23A0)"
+      }
+    ],
+    "settled_past_due": -30.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:33.472476"
+    "last_updated": "2026-07-20T17:04:09.178052"
   },
   "20@g3_2026-08": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 2170.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
     "rent_event_id": "vb1m6iu99hplqpftrfhv4o49p0",
     "late_event_id": null,
-    "last_updated": "2026-07-20T15:43:34.207551"
+    "last_updated": "2026-07-20T17:04:12.272718"
   },
   "20@g3_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2086,6 +2291,7 @@
     "last_updated": "2026-07-20T04:08:58.538662"
   },
   "102@g3_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
@@ -2102,9 +2308,22 @@
         "description": "ACH (#B_G_1_GSEXRF_1-_-AZGD) Flexible Rent by Flex Payment"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 1395.0,
+        "is_nsf": false,
+        "description": "ACH (#B_G_1_GSEXRF_1-_-AZGD) Flexible Rent by Flex Payment"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:34.925145"
+    "last_updated": "2026-07-20T17:04:13.601696"
   },
   "102@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2171,6 +2390,7 @@
     "last_updated": "2026-07-20T04:09:03.609441"
   },
   "35@g3_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 180.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
@@ -2187,9 +2407,15 @@
         "description": "Payment July rent"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:35.776170"
+    "last_updated": "2026-07-20T17:04:15.264181"
   },
   "35@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2288,6 +2514,7 @@
     "last_updated": "2026-07-20T04:09:10.992275"
   },
   "38@g3_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
@@ -2304,9 +2531,22 @@
         "description": "ACH (#C115-BAA0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-14",
+        "amount": 1200.0,
+        "is_nsf": false,
+        "description": "ACH (#C115-BAA0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:36.735440"
+    "last_updated": "2026-07-20T17:04:16.863183"
   },
   "38@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2397,6 +2637,7 @@
     "last_updated": "2026-07-20T04:09:17.629838"
   },
   "88@g3_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 1230.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
@@ -2413,9 +2654,15 @@
         "description": "Credit Card (#821F-B510)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:38.330532"
+    "last_updated": "2026-07-20T17:04:18.753377"
   },
   "88@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2498,6 +2745,7 @@
     "last_updated": "2026-07-20T04:09:24.006490"
   },
   "93@g3_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
@@ -2514,9 +2762,22 @@
         "description": "ACH (#0C4D-F910)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 500.0,
+        "is_nsf": false,
+        "description": "ACH (#0C4D-F910)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:39.356860"
+    "last_updated": "2026-07-20T17:04:20.291338"
   },
   "93@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2607,18 +2868,15 @@
     "last_updated": "2026-07-20T04:09:30.078850"
   },
   "117@g3_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
     "status_event_id": "80ks3bqpmcj4fp9a4pe6at198o",
-    "status_event_date": "2026-07-15",
+    "status_event_date": "2026-07-16",
     "late_event_id": null,
-    "payment_event_ids": [
-      "c995huso1iqs1ggm07bjg3eb10"
-    ],
-    "payment_event_dates": [
-      "2026-07-16"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-15",
@@ -2633,9 +2891,28 @@
         "description": "Payment July rent"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 2,
+    "settled_rows": [
+      {
+        "date": "2026-07-15",
+        "amount": 1000.0,
+        "is_nsf": false,
+        "description": "Payment July rent"
+      },
+      {
+        "date": "2026-07-16",
+        "amount": 900.0,
+        "is_nsf": false,
+        "description": "Payment July rent"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:40.404033"
+    "last_updated": "2026-07-20T17:04:21.837888"
   },
   "117@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2718,6 +2995,7 @@
     "last_updated": "2026-07-20T04:09:36.517758"
   },
   "101@g2_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -2734,9 +3012,22 @@
         "description": "ACH (#1C3A-0900)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 2400.0,
+        "is_nsf": false,
+        "description": "ACH (#1C3A-0900)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:41.783883"
+    "last_updated": "2026-07-20T17:04:24.072150"
   },
   "101@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2803,6 +3094,7 @@
     "last_updated": "2026-07-20T04:09:41.768146"
   },
   "8@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 2060.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -2812,9 +3104,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:42.790030"
+    "last_updated": "2026-07-20T17:04:25.557014"
   },
   "8@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2913,6 +3211,7 @@
     "last_updated": "2026-07-20T04:09:48.846531"
   },
   "11@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3660.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -2922,9 +3221,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:43.727656"
+    "last_updated": "2026-07-20T17:04:27.190411"
   },
   "11@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3023,6 +3328,7 @@
     "last_updated": "2026-07-20T04:09:55.982369"
   },
   "14@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5175.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -3032,9 +3338,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:44.577524"
+    "last_updated": "2026-07-20T17:04:28.523294"
   },
   "14@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3133,6 +3445,7 @@
     "last_updated": "2026-07-20T04:10:02.983695"
   },
   "17@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3990.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -3142,9 +3455,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:45.995495"
+    "last_updated": "2026-07-20T17:04:29.997718"
   },
   "17@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3243,6 +3562,7 @@
     "last_updated": "2026-07-20T04:10:09.890317"
   },
   "22@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5010.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -3252,9 +3572,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:46.831751"
+    "last_updated": "2026-07-20T17:04:31.519095"
   },
   "22@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3353,6 +3679,7 @@
     "last_updated": "2026-07-20T04:10:16.695397"
   },
   "31@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5175.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -3362,9 +3689,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:47.724912"
+    "last_updated": "2026-07-20T17:04:32.897329"
   },
   "31@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3463,6 +3796,7 @@
     "last_updated": "2026-07-20T04:10:23.835790"
   },
   "34@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3990.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -3472,9 +3806,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:48.695165"
+    "last_updated": "2026-07-20T17:04:34.363588"
   },
   "34@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3573,6 +3913,7 @@
     "last_updated": "2026-07-20T04:10:31.228094"
   },
   "42@g2_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -3582,9 +3923,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:49.945047"
+    "last_updated": "2026-07-20T17:04:35.688744"
   },
   "42@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3683,6 +4030,7 @@
     "last_updated": "2026-07-20T04:10:38.674942"
   },
   "45@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1100.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -3692,9 +4040,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:51.083650"
+    "last_updated": "2026-07-20T17:04:37.204660"
   },
   "45@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3793,6 +4147,7 @@
     "last_updated": "2026-07-20T04:10:45.857659"
   },
   "49@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1300.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -3802,9 +4157,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:52.559825"
+    "last_updated": "2026-07-20T17:04:38.518397"
   },
   "49@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3903,6 +4264,7 @@
     "last_updated": "2026-07-20T04:10:53.142945"
   },
   "78@g2_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -3912,9 +4274,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:53.586926"
+    "last_updated": "2026-07-20T17:04:40.058371"
   },
   "78@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4013,6 +4381,7 @@
     "last_updated": "2026-07-20T04:11:00.116443"
   },
   "81@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5340.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -4022,9 +4391,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:54.767019"
+    "last_updated": "2026-07-20T17:04:41.556932"
   },
   "81@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4123,6 +4498,7 @@
     "last_updated": "2026-07-20T04:11:07.190678"
   },
   "84@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5490.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -4132,9 +4508,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:55.913513"
+    "last_updated": "2026-07-20T17:04:42.888729"
   },
   "84@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4233,6 +4615,7 @@
     "last_updated": "2026-07-20T04:11:14.540351"
   },
   "87@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 1140.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -4249,9 +4632,25 @@
         "description": "ACH (#4200-E190)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [
+      {
+        "event_id": "5e3bgoh27jll4bitimie1p7hek",
+        "anchor_date": "2026-07-19",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "covers_rent_month": "2026-07",
+        "outcome": "kept",
+        "recorded": "2026-07-20"
+      }
+    ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:57.164076"
+    "last_updated": "2026-07-20T17:04:44.659071"
   },
   "87@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4350,6 +4749,7 @@
     "last_updated": "2026-07-20T04:11:21.971554"
   },
   "89@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4140.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -4359,9 +4759,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:57.996141"
+    "last_updated": "2026-07-20T17:04:45.962466"
   },
   "89@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4460,6 +4866,7 @@
     "last_updated": "2026-07-20T04:11:28.819199"
   },
   "91@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1500.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -4469,9 +4876,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:59.064748"
+    "last_updated": "2026-07-20T17:04:47.357430"
   },
   "91@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4570,6 +4983,7 @@
     "last_updated": "2026-07-20T04:11:35.866348"
   },
   "12@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5490.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -4579,9 +4993,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:43:59.991511"
+    "last_updated": "2026-07-20T17:04:48.651011"
   },
   "12@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4680,6 +5100,7 @@
     "last_updated": "2026-07-20T04:11:43.217523"
   },
   "16@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 10290.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -4689,9 +5110,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:00.864351"
+    "last_updated": "2026-07-20T17:04:50.035373"
   },
   "16@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4790,6 +5217,7 @@
     "last_updated": "2026-07-20T04:11:50.304508"
   },
   "19@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 2790.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -4799,9 +5227,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:01.926563"
+    "last_updated": "2026-07-20T17:04:51.462719"
   },
   "19@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4900,6 +5334,7 @@
     "last_updated": "2026-07-20T04:11:57.137295"
   },
   "21@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 2490.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -4909,9 +5344,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:02.842569"
+    "last_updated": "2026-07-20T17:04:52.805341"
   },
   "21@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5010,6 +5451,7 @@
     "last_updated": "2026-07-20T04:12:04.091811"
   },
   "24@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4440.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -5019,9 +5461,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:03.758211"
+    "last_updated": "2026-07-20T17:04:54.166555"
   },
   "24@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5120,6 +5568,7 @@
     "last_updated": "2026-07-20T04:12:10.957307"
   },
   "26@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5340.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -5129,9 +5578,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:04.932146"
+    "last_updated": "2026-07-20T17:04:55.710158"
   },
   "26@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5230,6 +5685,7 @@
     "last_updated": "2026-07-20T04:12:18.112068"
   },
   "37@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5190.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -5239,9 +5695,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:05.841547"
+    "last_updated": "2026-07-20T17:04:57.409586"
   },
   "37@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5340,6 +5802,7 @@
     "last_updated": "2026-07-20T04:12:25.320756"
   },
   "46@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5490.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -5349,9 +5812,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:06.675034"
+    "last_updated": "2026-07-20T17:04:59.026128"
   },
   "46@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5450,6 +5919,7 @@
     "last_updated": "2026-07-20T04:12:32.257247"
   },
   "33@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4290.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -5459,9 +5929,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:07.450532"
+    "last_updated": "2026-07-20T17:05:00.528181"
   },
   "33@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5560,6 +6036,7 @@
     "last_updated": "2026-07-20T04:12:39.524332"
   },
   "55@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1230.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -5569,9 +6046,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:10.258225"
+    "last_updated": "2026-07-20T17:05:01.984497"
   },
   "55@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5670,6 +6153,7 @@
     "last_updated": "2026-07-20T04:12:46.554406"
   },
   "59@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1780.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -5679,9 +6163,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:11.256660"
+    "last_updated": "2026-07-20T17:05:03.683545"
   },
   "59@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5780,6 +6270,7 @@
     "last_updated": "2026-07-20T04:12:53.607571"
   },
   "64@g2_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -5796,9 +6287,22 @@
         "description": "Credit Card (#52A1-88B0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-13",
+        "amount": 1500.0,
+        "is_nsf": false,
+        "description": "Credit Card (#52A1-88B0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:12.112907"
+    "last_updated": "2026-07-20T17:05:05.294378"
   },
   "64@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5897,6 +6401,7 @@
     "last_updated": "2026-07-20T04:13:01.265004"
   },
   "68@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5340.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -5906,9 +6411,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:12.962756"
+    "last_updated": "2026-07-20T17:05:06.809629"
   },
   "68@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6007,6 +6518,7 @@
     "last_updated": "2026-07-20T04:13:08.343834"
   },
   "72@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 2060.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -6016,9 +6528,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:13.953646"
+    "last_updated": "2026-07-20T17:05:08.119484"
   },
   "72@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6117,6 +6635,7 @@
     "last_updated": "2026-07-20T04:13:15.406241"
   },
   "76@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 2660.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -6126,9 +6645,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:15.012157"
+    "last_updated": "2026-07-20T17:05:09.576763"
   },
   "76@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6227,6 +6752,7 @@
     "last_updated": "2026-07-20T04:13:22.209967"
   },
   "79@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 2560.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -6236,9 +6762,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:15.908802"
+    "last_updated": "2026-07-20T17:05:11.033782"
   },
   "79@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6337,6 +6869,7 @@
     "last_updated": "2026-07-20T04:13:29.292706"
   },
   "82@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 8460.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -6346,9 +6879,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:16.670881"
+    "last_updated": "2026-07-20T17:05:12.410185"
   },
   "82@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6447,6 +6986,7 @@
     "last_updated": "2026-07-20T04:13:36.559793"
   },
   "86@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1660.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -6456,9 +6996,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:17.533640"
+    "last_updated": "2026-07-20T17:05:13.748953"
   },
   "86@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6557,6 +7103,7 @@
     "last_updated": "2026-07-20T04:13:43.413557"
   },
   "90@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3260.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -6566,9 +7113,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:18.464783"
+    "last_updated": "2026-07-20T17:05:15.031305"
   },
   "90@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6667,6 +7220,7 @@
     "last_updated": "2026-07-20T04:13:50.307131"
   },
   "92@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4890.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -6676,9 +7230,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:19.305288"
+    "last_updated": "2026-07-20T17:05:16.376724"
   },
   "92@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6777,6 +7337,7 @@
     "last_updated": "2026-07-20T04:13:57.282072"
   },
   "94@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4290.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -6786,9 +7347,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:20.165390"
+    "last_updated": "2026-07-20T17:05:17.680693"
   },
   "94@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6887,6 +7454,7 @@
     "last_updated": "2026-07-20T04:14:04.343224"
   },
   "4@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1500.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -6896,9 +7464,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:21.651829"
+    "last_updated": "2026-07-20T17:05:19.020172"
   },
   "4@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6997,8 +7571,9 @@
     "last_updated": "2026-07-20T04:14:11.395003"
   },
   "7@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
-    "past_due": 2000.0,
+    "past_due": 1700.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
     "status_event_id": null,
     "status_event_date": "2026-07-01",
@@ -7006,9 +7581,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:22.809712"
+    "last_updated": "2026-07-20T17:05:20.396921"
   },
   "7@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7107,6 +7688,7 @@
     "last_updated": "2026-07-20T04:14:18.419609"
   },
   "10@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 400.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -7123,9 +7705,15 @@
         "description": "ACH (#4245-1940)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:24.505717"
+    "last_updated": "2026-07-20T17:05:22.815927"
   },
   "10@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7200,6 +7788,7 @@
     "last_updated": "2026-07-20T04:14:24.810915"
   },
   "23@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 2260.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -7209,9 +7798,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:25.353609"
+    "last_updated": "2026-07-20T17:05:24.163594"
   },
   "23@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7310,6 +7905,7 @@
     "last_updated": "2026-07-20T04:14:31.884471"
   },
   "25@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4890.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -7319,9 +7915,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:26.394834"
+    "last_updated": "2026-07-20T17:05:25.453871"
   },
   "25@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7420,6 +8022,7 @@
     "last_updated": "2026-07-20T04:14:39.010906"
   },
   "28@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5040.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -7429,9 +8032,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:27.488569"
+    "last_updated": "2026-07-20T17:05:26.887645"
   },
   "28@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7530,6 +8139,7 @@
     "last_updated": "2026-07-20T04:14:45.867105"
   },
   "30@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3260.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -7539,9 +8149,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:28.327640"
+    "last_updated": "2026-07-20T17:05:28.229156"
   },
   "30@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7640,6 +8256,7 @@
     "last_updated": "2026-07-20T04:14:53.254168"
   },
   "41@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 9090.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -7649,9 +8266,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:29.217741"
+    "last_updated": "2026-07-20T17:05:29.768733"
   },
   "41@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7750,6 +8373,7 @@
     "last_updated": "2026-07-20T04:15:00.109212"
   },
   "44@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5043.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -7759,9 +8383,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:30.222513"
+    "last_updated": "2026-07-20T17:05:31.054842"
   },
   "44@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7860,6 +8490,7 @@
     "last_updated": "2026-07-20T04:15:06.893763"
   },
   "48@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5190.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -7869,9 +8500,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:32.191867"
+    "last_updated": "2026-07-20T17:05:32.296373"
   },
   "48@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7970,6 +8607,7 @@
     "last_updated": "2026-07-20T04:15:13.855884"
   },
   "27@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4140.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -7979,9 +8617,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:33.132298"
+    "last_updated": "2026-07-20T17:05:33.946762"
   },
   "27@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8080,6 +8724,7 @@
     "last_updated": "2026-07-20T04:15:20.884852"
   },
   "32@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4890.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -8089,9 +8734,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:34.025618"
+    "last_updated": "2026-07-20T17:05:35.243867"
   },
   "32@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8190,6 +8841,7 @@
     "last_updated": "2026-07-20T04:15:28.402951"
   },
   "36@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3990.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -8199,9 +8851,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:35.089911"
+    "last_updated": "2026-07-20T17:05:36.690492"
   },
   "36@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8300,6 +8958,7 @@
     "last_updated": "2026-07-20T04:15:35.210116"
   },
   "40@g2_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -8316,9 +8975,22 @@
         "description": "Credit Card (#87E1-2050)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-06",
+        "amount": 1300.0,
+        "is_nsf": false,
+        "description": "Credit Card (#87E1-2050)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:36.031557"
+    "last_updated": "2026-07-20T17:05:38.002739"
   },
   "40@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8417,6 +9089,7 @@
     "last_updated": "2026-07-20T04:15:42.162415"
   },
   "43@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1700.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -8426,9 +9099,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:37.352169"
+    "last_updated": "2026-07-20T17:05:39.236859"
   },
   "43@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8527,6 +9206,7 @@
     "last_updated": "2026-07-20T04:15:48.969272"
   },
   "50@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1800.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -8553,9 +9233,15 @@
         "description": "Credit Card (#6E63-3C50)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:39.754249"
+    "last_updated": "2026-07-20T17:05:42.274340"
   },
   "50@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8654,6 +9340,7 @@
     "last_updated": "2026-07-20T04:15:58.012608"
   },
   "65@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1830.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -8663,9 +9350,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:41.205894"
+    "last_updated": "2026-07-20T17:05:43.695368"
   },
   "65@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8764,6 +9457,7 @@
     "last_updated": "2026-07-20T04:16:05.141479"
   },
   "109@g2_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 7590.0,
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
@@ -8773,9 +9467,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:42.136924"
+    "last_updated": "2026-07-20T17:05:45.130055"
   },
   "109@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8842,6 +9542,7 @@
     "last_updated": "2026-07-20T04:16:10.683614"
   },
   "1@g1_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -8858,9 +9559,22 @@
         "description": "ACH (#DE7F-FBE0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 900.0,
+        "is_nsf": false,
+        "description": "ACH (#DE7F-FBE0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:43.482248"
+    "last_updated": "2026-07-20T17:05:47.002060"
   },
   "1@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8871,6 +9585,7 @@
     "last_updated": "2026-07-20T04:16:12.759570"
   },
   "51@g1_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -8887,9 +9602,22 @@
         "description": "ACH (#6B34-24C0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 1200.0,
+        "is_nsf": false,
+        "description": "ACH (#6B34-24C0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:44.034810"
+    "last_updated": "2026-07-20T17:05:48.713011"
   },
   "51@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8988,6 +9716,7 @@
     "last_updated": "2026-07-20T04:16:21.443418"
   },
   "118@g1_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9004,9 +9733,22 @@
         "description": "Credit Card (#4758-4910)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 1200.0,
+        "is_nsf": false,
+        "description": "Credit Card (#4758-4910)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:44.963352"
+    "last_updated": "2026-07-20T17:05:50.018158"
   },
   "118@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9185,6 +9927,7 @@
     "last_updated": "2026-07-20T04:16:36.165742"
   },
   "56@g1_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9201,9 +9944,22 @@
         "description": "Credit Card (#32EE-6650)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-10",
+        "amount": 1330.0,
+        "is_nsf": false,
+        "description": "Credit Card (#32EE-6650)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:46.384659"
+    "last_updated": "2026-07-20T17:05:51.977756"
   },
   "56@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9222,6 +9978,7 @@
     "last_updated": "2026-07-20T04:16:38.344713"
   },
   "60@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83e\ude77 Prepaid",
     "past_due": -189.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9238,17 +9995,31 @@
         "description": "Credit Card (#0909-01B0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-15",
+        "amount": 1250.0,
+        "is_nsf": false,
+        "description": "Credit Card (#0909-01B0)"
+      }
+    ],
+    "settled_past_due": -189.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:47.318789"
+    "last_updated": "2026-07-20T17:05:53.340688"
   },
   "60@g1_2026-08": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 911.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
     "rent_event_id": "5b1dn8fprhe1ro1qi4jhn9vmj4",
     "late_event_id": null,
-    "last_updated": "2026-07-20T15:44:48.031222"
+    "last_updated": "2026-07-20T17:05:54.420694"
   },
   "60@g1_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9267,6 +10038,7 @@
     "last_updated": "2026-07-20T04:16:41.249889"
   },
   "96@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 200.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9283,9 +10055,15 @@
         "description": "Payment July rent - cash app"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:49.221871"
+    "last_updated": "2026-07-20T17:05:56.083497"
   },
   "96@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9336,6 +10114,7 @@
     "last_updated": "2026-07-20T04:16:46.591293"
   },
   "97@g1_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9352,9 +10131,22 @@
         "description": "ACH (#B1C7-D160)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 1300.0,
+        "is_nsf": false,
+        "description": "ACH (#B1C7-D160)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:50.314183"
+    "last_updated": "2026-07-20T17:05:57.445764"
   },
   "97@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9397,6 +10189,7 @@
     "last_updated": "2026-07-20T04:16:50.612944"
   },
   "98@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1230.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9406,9 +10199,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:51.727386"
+    "last_updated": "2026-07-20T17:05:59.391752"
   },
   "98@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9507,6 +10306,7 @@
     "last_updated": "2026-07-20T04:17:00.265099"
   },
   "99@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 380.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9541,6 +10341,22 @@
         "description": "ACH (#9B22-7110)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [
+      {
+        "event_id": "mn8jqm9ufof1d4j7812j15ivnk",
+        "anchor_date": "2026-07-19",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "covers_rent_month": "2026-07",
+        "outcome": "kept",
+        "recorded": "2026-07-20"
+      }
+    ],
     "nsf_reversals_applied": [
       {
         "key": "E7AD-CAB0",
@@ -9551,7 +10367,7 @@
       }
     ],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:53.768790"
+    "last_updated": "2026-07-20T17:06:03.790662"
   },
   "99@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9586,6 +10402,7 @@
     "last_updated": "2026-07-20T04:17:06.193149"
   },
   "100@g1_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9595,9 +10412,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:54.696921"
+    "last_updated": "2026-07-20T17:06:05.369580"
   },
   "100@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9640,6 +10463,7 @@
     "last_updated": "2026-07-20T04:17:10.045996"
   },
   "2@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 700.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9656,9 +10480,25 @@
         "description": "ACH (#7CF0-DA20)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [
+      {
+        "event_id": "o4jv9h7q81pemf253mi9t2nar0",
+        "anchor_date": "2026-07-09",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "covers_rent_month": "2026-07",
+        "outcome": "kept",
+        "recorded": "2026-07-20"
+      }
+    ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:56.133328"
+    "last_updated": "2026-07-20T17:06:07.727695"
   },
   "2@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9693,18 +10533,15 @@
     "last_updated": "2026-07-20T04:17:14.440443"
   },
   "110@g1_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
     "status_event_id": "vlp3qvqsd39024tv0stgs58bq0",
     "status_event_date": "2026-07-02",
     "late_event_id": null,
-    "payment_event_ids": [
-      "9tteus9ck85rf4mjh0hri564ss"
-    ],
-    "payment_event_dates": [
-      "2026-07-02"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-02",
@@ -9719,9 +10556,28 @@
         "description": "ACH (#E2D8-E4F0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 2,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 700.0,
+        "is_nsf": false,
+        "description": "ACH (#6F35-4EF0)"
+      },
+      {
+        "date": "2026-07-02",
+        "amount": 700.0,
+        "is_nsf": false,
+        "description": "ACH (#E2D8-E4F0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:57.092604"
+    "last_updated": "2026-07-20T17:06:09.006820"
   },
   "110@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9884,6 +10740,7 @@
     "last_updated": "2026-07-20T04:17:28.812838"
   },
   "69@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1402.34,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -9910,9 +10767,25 @@
         "description": "ACH (#8105-E7A0)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [
+      {
+        "event_id": "mkrf91d5rf8d7s5fvovntjt158",
+        "anchor_date": "2026-07-15",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "covers_rent_month": "2026-07",
+        "outcome": "kept",
+        "recorded": "2026-07-20"
+      }
+    ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:44:59.569886"
+    "last_updated": "2026-07-20T17:06:17.057075"
   },
   "69@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10011,6 +10884,7 @@
     "last_updated": "2026-07-20T04:17:40.016762"
   },
   "73@g1_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -10027,9 +10901,22 @@
         "description": "ACH (#86AF-00C0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 1300.0,
+        "is_nsf": false,
+        "description": "ACH (#86AF-00C0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:00.601346"
+    "last_updated": "2026-07-20T17:06:18.694661"
   },
   "73@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10072,6 +10959,7 @@
     "last_updated": "2026-07-20T04:17:43.930491"
   },
   "77@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1230.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -10098,6 +10986,12 @@
         "description": "ACH (#B3DD-0620) Reversed by NSF"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [
       {
         "key": "B3DD-0620",
@@ -10115,7 +11009,7 @@
       }
     ],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:03.028820"
+    "last_updated": "2026-07-20T17:06:20.884573"
   },
   "77@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10166,6 +11060,7 @@
     "last_updated": "2026-07-20T04:17:49.103921"
   },
   "80@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3720.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -10175,9 +11070,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:03.996672"
+    "last_updated": "2026-07-20T17:06:22.301563"
   },
   "80@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10212,20 +11113,15 @@
     "last_updated": "2026-07-20T04:17:52.617003"
   },
   "83@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83e\ude77 Prepaid",
     "past_due": -30.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
     "status_event_id": "e59gjb0iq73kgdf9sim06c6k70",
-    "status_event_date": "2026-07-06",
+    "status_event_date": "2026-07-09",
     "late_event_id": null,
-    "payment_event_ids": [
-      "2j2sere3v9ei1nu5a00l0ukg9k",
-      "6gc2i6na9a7lv743jn8lcp4ako"
-    ],
-    "payment_event_dates": [
-      "2026-07-09",
-      "2026-07-09"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-06",
@@ -10246,17 +11142,43 @@
         "description": "Credit Card (#684E-0FD0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 3,
+    "settled_rows": [
+      {
+        "date": "2026-07-06",
+        "amount": 500.0,
+        "is_nsf": false,
+        "description": "Credit Card (#A98B-6940)"
+      },
+      {
+        "date": "2026-07-09",
+        "amount": 631.0,
+        "is_nsf": false,
+        "description": "Credit Card (#83F5-FCF0)"
+      },
+      {
+        "date": "2026-07-09",
+        "amount": 199.0,
+        "is_nsf": false,
+        "description": "Credit Card (#684E-0FD0)"
+      }
+    ],
+    "settled_past_due": -30.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:05.110749"
+    "last_updated": "2026-07-20T17:06:23.504110"
   },
   "83@g1_2026-08": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 1270.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
     "rent_event_id": "qi5jsldn5agdc7dfqpr9ru5g18",
     "late_event_id": null,
-    "last_updated": "2026-07-20T15:45:05.884492"
+    "last_updated": "2026-07-20T17:06:25.186131"
   },
   "83@g1_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10291,6 +11213,7 @@
     "last_updated": "2026-07-20T04:17:58.872657"
   },
   "85@g1_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3060.0,
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
@@ -10300,9 +11223,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:07.289596"
+    "last_updated": "2026-07-20T17:06:26.964781"
   },
   "85@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10345,6 +11274,7 @@
     "last_updated": "2026-07-20T04:18:03.720625"
   },
   "14@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5175.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -10354,9 +11284,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:08.665455"
+    "last_updated": "2026-07-20T17:06:28.741037"
   },
   "14@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10455,6 +11391,7 @@
     "last_updated": "2026-07-20T04:18:13.881487"
   },
   "17@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3990.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -10464,9 +11401,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:09.749550"
+    "last_updated": "2026-07-20T17:06:30.462669"
   },
   "17@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10565,6 +11508,7 @@
     "last_updated": "2026-07-20T04:18:23.399185"
   },
   "22@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5010.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -10574,9 +11518,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:11.054563"
+    "last_updated": "2026-07-20T17:06:32.109303"
   },
   "22@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10675,6 +11625,7 @@
     "last_updated": "2026-07-20T04:18:32.614404"
   },
   "31@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5175.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -10684,9 +11635,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:12.509650"
+    "last_updated": "2026-07-20T17:06:34.000573"
   },
   "31@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10785,6 +11742,7 @@
     "last_updated": "2026-07-20T04:18:41.848280"
   },
   "34@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3990.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -10794,9 +11752,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:13.409930"
+    "last_updated": "2026-07-20T17:06:35.733147"
   },
   "34@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10895,6 +11859,7 @@
     "last_updated": "2026-07-20T04:18:51.392840"
   },
   "28@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 5040.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -10904,9 +11869,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:14.220888"
+    "last_updated": "2026-07-20T17:06:37.445399"
   },
   "28@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11005,6 +11976,7 @@
     "last_updated": "2026-07-20T04:19:00.560594"
   },
   "30@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3260.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -11014,9 +11986,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:15.160853"
+    "last_updated": "2026-07-20T17:06:38.870848"
   },
   "30@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11115,6 +12093,7 @@
     "last_updated": "2026-07-20T04:19:10.285381"
   },
   "27@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4140.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -11124,9 +12103,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:16.069065"
+    "last_updated": "2026-07-20T17:06:40.496683"
   },
   "27@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11225,6 +12210,7 @@
     "last_updated": "2026-07-20T04:19:19.499519"
   },
   "32@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 4890.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -11234,9 +12220,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:17.011508"
+    "last_updated": "2026-07-20T17:06:42.656625"
   },
   "32@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11335,6 +12327,7 @@
     "last_updated": "2026-07-20T04:19:28.902953"
   },
   "36@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 3990.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -11344,9 +12337,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:18.474284"
+    "last_updated": "2026-07-20T17:06:44.652263"
   },
   "36@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11445,6 +12444,7 @@
     "last_updated": "2026-07-20T04:19:38.159187"
   },
   "40@g6_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -11461,9 +12461,22 @@
         "description": "Credit Card (#87E1-2050)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-06",
+        "amount": 1300.0,
+        "is_nsf": false,
+        "description": "Credit Card (#87E1-2050)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:19.299224"
+    "last_updated": "2026-07-20T17:06:46.255172"
   },
   "40@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11562,6 +12575,7 @@
     "last_updated": "2026-07-20T04:19:47.715235"
   },
   "43@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1700.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -11571,9 +12585,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:21.058477"
+    "last_updated": "2026-07-20T17:06:47.700567"
   },
   "43@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11672,6 +12692,7 @@
     "last_updated": "2026-07-20T04:19:57.346794"
   },
   "50@g6_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1800.0,
     "calendar_id": "7c19585235f15f190e68dd56ff625a01500420109a6d20b1911508cd101ef699@group.calendar.google.com",
@@ -11698,9 +12719,15 @@
         "description": "Credit Card (#6E63-3C50)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:23.510910"
+    "last_updated": "2026-07-20T17:06:51.451769"
   },
   "50@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11799,6 +12826,7 @@
     "last_updated": "2026-07-20T04:20:09.588104"
   },
   "103@g9_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "a32530799f4405031cd62fe2b47d545beb4045c11b00e44e300a8f68fb6b1b65@group.calendar.google.com",
@@ -11815,9 +12843,22 @@
         "description": "ACH (#55F3-E4F0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-18",
+        "amount": 1500.0,
+        "is_nsf": false,
+        "description": "ACH (#55F3-E4F0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:24.581544"
+    "last_updated": "2026-07-20T17:06:53.599154"
   },
   "103@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11916,6 +12957,7 @@
     "last_updated": "2026-07-20T04:20:19.120226"
   },
   "107@g9_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "a32530799f4405031cd62fe2b47d545beb4045c11b00e44e300a8f68fb6b1b65@group.calendar.google.com",
@@ -11932,9 +12974,22 @@
         "description": "ACH (#A285-5FB0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 1500.0,
+        "is_nsf": false,
+        "description": "ACH (#A285-5FB0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:25.515848"
+    "last_updated": "2026-07-20T17:06:54.880260"
   },
   "107@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11977,18 +13032,15 @@
     "last_updated": "2026-07-20T04:20:23.155052"
   },
   "108@g9_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "a32530799f4405031cd62fe2b47d545beb4045c11b00e44e300a8f68fb6b1b65@group.calendar.google.com",
     "status_event_id": "65ing4nt7m623j924m3gmeh54s",
-    "status_event_date": "2026-07-09",
+    "status_event_date": "2026-07-10",
     "late_event_id": null,
-    "payment_event_ids": [
-      "jc75lp9ev77k94o6r5300b28ls"
-    ],
-    "payment_event_dates": [
-      "2026-07-10"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-09",
@@ -12003,9 +13055,28 @@
         "description": "Credit Card (#3D09-FE80)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 2,
+    "settled_rows": [
+      {
+        "date": "2026-07-09",
+        "amount": 1000.0,
+        "is_nsf": false,
+        "description": "Credit Card (#1AEF-F490)"
+      },
+      {
+        "date": "2026-07-10",
+        "amount": 450.0,
+        "is_nsf": false,
+        "description": "Credit Card (#3D09-FE80)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:28.256195"
+    "last_updated": "2026-07-20T17:06:56.203864"
   },
   "108@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12104,6 +13175,7 @@
     "last_updated": "2026-07-20T04:20:32.131321"
   },
   "104@g9_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "a32530799f4405031cd62fe2b47d545beb4045c11b00e44e300a8f68fb6b1b65@group.calendar.google.com",
@@ -12120,9 +13192,22 @@
         "description": "ACH (#6DF4-3EF0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-10",
+        "amount": 1950.0,
+        "is_nsf": false,
+        "description": "ACH (#6DF4-3EF0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:29.052719"
+    "last_updated": "2026-07-20T17:06:58.143070"
   },
   "104@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12221,6 +13306,7 @@
     "last_updated": "2026-07-20T04:20:40.468216"
   },
   "105@g9_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 385.0,
     "calendar_id": "a32530799f4405031cd62fe2b47d545beb4045c11b00e44e300a8f68fb6b1b65@group.calendar.google.com",
@@ -12228,11 +13314,9 @@
     "status_event_date": "2026-07-16",
     "late_event_id": null,
     "payment_event_ids": [
-      "tvjl4j6kj2rss6cujk1idrk59k",
-      "5ep8mm51ldj7q6qp6bggamughc"
+      "tvjl4j6kj2rss6cujk1idrk59k"
     ],
     "payment_event_dates": [
-      "2026-07-16",
       "2026-07-17"
     ],
     "payments": [
@@ -12255,9 +13339,15 @@
         "description": "Payment July rent - cash"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:31.171854"
+    "last_updated": "2026-07-20T17:07:00.862859"
   },
   "105@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12332,6 +13422,7 @@
     "last_updated": "2026-07-20T04:20:48.551122"
   },
   "106@g9_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "a32530799f4405031cd62fe2b47d545beb4045c11b00e44e300a8f68fb6b1b65@group.calendar.google.com",
@@ -12348,9 +13439,22 @@
         "description": "Credit Card (#821E-9B30)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-12",
+        "amount": 1400.0,
+        "is_nsf": false,
+        "description": "Credit Card (#821E-9B30)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:32.031467"
+    "last_updated": "2026-07-20T17:07:02.925863"
   },
   "106@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12425,6 +13529,7 @@
     "last_updated": "2026-07-20T04:20:55.052542"
   },
   "74@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -12441,9 +13546,22 @@
         "description": "Credit Card (#E8DA-E810)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-09",
+        "amount": 830.0,
+        "is_nsf": false,
+        "description": "Credit Card (#E8DA-E810)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:33.447200"
+    "last_updated": "2026-07-20T17:07:04.848478"
   },
   "74@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12542,6 +13660,7 @@
     "last_updated": "2026-07-20T04:21:03.737763"
   },
   "66@g4_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1030.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -12551,9 +13670,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:34.899917"
+    "last_updated": "2026-07-20T17:07:06.298910"
   },
   "66@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12652,6 +13777,7 @@
     "last_updated": "2026-07-20T04:21:12.450987"
   },
   "70@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -12668,9 +13794,22 @@
         "description": "Credit Card (#8159-D3C0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 1000.0,
+        "is_nsf": false,
+        "description": "Credit Card (#8159-D3C0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:35.863976"
+    "last_updated": "2026-07-20T17:07:07.952408"
   },
   "70@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12769,6 +13908,7 @@
     "last_updated": "2026-07-20T04:21:20.595366"
   },
   "9@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -12785,9 +13925,22 @@
         "description": "ACH (#D93E-47F0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 1050.0,
+        "is_nsf": false,
+        "description": "ACH (#D93E-47F0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:36.737637"
+    "last_updated": "2026-07-20T17:07:09.320864"
   },
   "9@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12886,6 +14039,7 @@
     "last_updated": "2026-07-20T04:21:28.864800"
   },
   "3@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -12902,9 +14056,22 @@
         "description": "ACH (#0F43-3F90)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 1500.0,
+        "is_nsf": false,
+        "description": "ACH (#0F43-3F90)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:37.594606"
+    "last_updated": "2026-07-20T17:07:10.658225"
   },
   "3@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13003,6 +14170,7 @@
     "last_updated": "2026-07-20T04:21:37.526490"
   },
   "6@g4_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 420.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -13029,9 +14197,15 @@
         "description": "Credit Card (#A3D0-61B0)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:38.902069"
+    "last_updated": "2026-07-20T17:07:13.064707"
   },
   "6@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13130,6 +14304,7 @@
     "last_updated": "2026-07-20T04:21:47.377870"
   },
   "52@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -13146,9 +14321,22 @@
         "description": "ACH (#F20F-9BF0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-04",
+        "amount": 1100.0,
+        "is_nsf": false,
+        "description": "ACH (#F20F-9BF0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:40.219073"
+    "last_updated": "2026-07-20T17:07:14.380766"
   },
   "52@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13247,6 +14435,7 @@
     "last_updated": "2026-07-20T04:21:55.632392"
   },
   "54@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -13263,9 +14452,22 @@
         "description": "Credit Card (#928E-FA30)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-17",
+        "amount": 1430.0,
+        "is_nsf": false,
+        "description": "Credit Card (#928E-FA30)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:41.519479"
+    "last_updated": "2026-07-20T17:07:15.756580"
   },
   "54@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13364,6 +14566,7 @@
     "last_updated": "2026-07-20T04:22:05.085660"
   },
   "58@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -13380,9 +14583,22 @@
         "description": "Credit Card (#3048-8890)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-08",
+        "amount": 1280.0,
+        "is_nsf": false,
+        "description": "Credit Card (#3048-8890)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:42.478611"
+    "last_updated": "2026-07-20T17:07:17.198075"
   },
   "58@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13481,6 +14697,7 @@
     "last_updated": "2026-07-20T04:22:13.370249"
   },
   "62@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -13497,9 +14714,22 @@
         "description": "Payment July rent"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-03",
+        "amount": 1100.0,
+        "is_nsf": false,
+        "description": "Payment July rent"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:43.289936"
+    "last_updated": "2026-07-20T17:07:18.596857"
   },
   "62@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13598,6 +14828,7 @@
     "last_updated": "2026-07-20T04:22:22.126358"
   },
   "111@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -13614,9 +14845,22 @@
         "description": "Electronic Cash Payment (Reference #6911-7DB0)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-05",
+        "amount": 1600.0,
+        "is_nsf": false,
+        "description": "Electronic Cash Payment (Reference #6911-7DB0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:44.186555"
+    "last_updated": "2026-07-20T17:07:20.029910"
   },
   "111@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13715,6 +14959,7 @@
     "last_updated": "2026-07-20T04:22:30.922511"
   },
   "112@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -13731,9 +14976,22 @@
         "description": "ACH (#B385-A420)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-05",
+        "amount": 1600.0,
+        "is_nsf": false,
+        "description": "ACH (#B385-A420)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:45.209882"
+    "last_updated": "2026-07-20T17:07:21.577158"
   },
   "112@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13832,6 +15090,7 @@
     "last_updated": "2026-07-20T04:22:39.527322"
   },
   "113@g4_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udd34 Unpaid",
     "past_due": 1430.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -13848,9 +15107,15 @@
         "description": "Payment June Rent"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:46.380960"
+    "last_updated": "2026-07-20T17:07:23.672566"
   },
   "113@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13877,6 +15142,7 @@
     "last_updated": "2026-07-20T04:22:42.571577"
   },
   "114@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -13893,9 +15159,22 @@
         "description": "Credit Card (#1945-0600)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-05",
+        "amount": 1500.0,
+        "is_nsf": false,
+        "description": "Credit Card (#1945-0600)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:47.295248"
+    "last_updated": "2026-07-20T17:07:25.285747"
   },
   "114@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13994,6 +15273,7 @@
     "last_updated": "2026-07-20T04:22:50.732848"
   },
   "115@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -14010,9 +15290,22 @@
         "description": "Credit Card (#1621-7F50)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 1500.0,
+        "is_nsf": false,
+        "description": "Credit Card (#1621-7F50)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:48.213585"
+    "last_updated": "2026-07-20T17:07:26.702766"
   },
   "115@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14111,6 +15404,7 @@
     "last_updated": "2026-07-20T04:22:58.771669"
   },
   "116@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -14127,9 +15421,22 @@
         "description": "Credit Card (#0830-A610)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-03",
+        "amount": 640.0,
+        "is_nsf": false,
+        "description": "Credit Card (#0830-A610)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:49.183850"
+    "last_updated": "2026-07-20T17:07:28.166237"
   },
   "116@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14228,6 +15535,7 @@
     "last_updated": "2026-07-20T04:23:07.221947"
   },
   "75@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -14237,9 +15545,15 @@
     "payment_event_ids": [],
     "payment_event_dates": [],
     "payments": [],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:50.027604"
+    "last_updated": "2026-07-20T17:07:29.541540"
   },
   "75@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14338,6 +15652,7 @@
     "last_updated": "2026-07-20T04:23:15.575437"
   },
   "67@g4_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 545.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -14354,9 +15669,15 @@
         "description": "Payment July rent"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:52.054271"
+    "last_updated": "2026-07-20T17:07:32.428654"
   },
   "67@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14455,6 +15776,7 @@
     "last_updated": "2026-07-20T04:23:25.455302"
   },
   "71@g4_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
@@ -14471,9 +15793,22 @@
         "description": "Credit Card (#5C65-4F40)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 600.0,
+        "is_nsf": false,
+        "description": "Credit Card (#5C65-4F40)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:52.882795"
+    "last_updated": "2026-07-20T17:07:33.853533"
   },
   "71@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14572,6 +15907,7 @@
     "last_updated": "2026-07-20T04:23:33.931004"
   },
   "88@g5_2026-07": {
+    "fmt": 2,
     "status": "\ud83d\udfe1 Partial",
     "past_due": 1230.0,
     "calendar_id": "cf21b9dbaf46cf6544da2901ccbd7413fe69dffcbd4cb997a7598c1ab5bafac0@group.calendar.google.com",
@@ -14588,9 +15924,15 @@
         "description": "Credit Card (#821F-B510)"
       }
     ],
+    "collapse_state": null,
+    "collapse_baseline": 0,
+    "settled_rows": [],
+    "settled_past_due": null,
+    "settled_on": null,
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:54.688269"
+    "last_updated": "2026-07-20T17:07:36.396099"
   },
   "88@g5_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14673,6 +16015,7 @@
     "last_updated": "2026-07-20T04:23:41.832680"
   },
   "93@g5_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "cf21b9dbaf46cf6544da2901ccbd7413fe69dffcbd4cb997a7598c1ab5bafac0@group.calendar.google.com",
@@ -14689,9 +16032,22 @@
         "description": "ACH (#0C4D-F910)"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 1,
+    "settled_rows": [
+      {
+        "date": "2026-07-02",
+        "amount": 500.0,
+        "is_nsf": false,
+        "description": "ACH (#0C4D-F910)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:55.536618"
+    "last_updated": "2026-07-20T17:07:37.776119"
   },
   "93@g5_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14782,18 +16138,15 @@
     "last_updated": "2026-07-20T04:23:49.157388"
   },
   "117@g5_2026-07": {
+    "fmt": 2,
     "status": "\u2705 Paid",
     "past_due": 0.0,
     "calendar_id": "cf21b9dbaf46cf6544da2901ccbd7413fe69dffcbd4cb997a7598c1ab5bafac0@group.calendar.google.com",
     "status_event_id": "b1fu49fnhsknnhbtkjprk0go28",
-    "status_event_date": "2026-07-15",
+    "status_event_date": "2026-07-16",
     "late_event_id": null,
-    "payment_event_ids": [
-      "kdmj57mtcc469hf99f97mjsg0k"
-    ],
-    "payment_event_dates": [
-      "2026-07-16"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-15",
@@ -14808,9 +16161,28 @@
         "description": "Payment July rent"
       }
     ],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 2,
+    "settled_rows": [
+      {
+        "date": "2026-07-15",
+        "amount": 1000.0,
+        "is_nsf": false,
+        "description": "Payment July rent"
+      },
+      {
+        "date": "2026-07-16",
+        "amount": 900.0,
+        "is_nsf": false,
+        "description": "Payment July rent"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-20",
+    "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-20T15:45:56.882539"
+    "last_updated": "2026-07-20T17:07:38.985369"
   },
   "117@g5_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
