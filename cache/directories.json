@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-07-23T10:34:17.686914",
+  "refreshed_at": "2026-07-24T10:27:38.652937",
   "tenants": [
     {
       "tenant_address": "3345 W Walnut, Basement Chicago, IL 60624",
@@ -82,7 +82,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e787b1a9-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019351",
-      "tenant_integration_id": "e788bc63-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e788bc63-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e796a1ec-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1658 S Millard, Unit 1 Chicago, IL 60623",
@@ -165,7 +166,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ede0114a-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019673",
-      "tenant_integration_id": "ede1154a-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ede1154a-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "edf551e3-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1432 S Trumbull, 1R Chicago, IL",
@@ -248,7 +250,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eaff6b30-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019509",
-      "tenant_integration_id": "eb006d08-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eb006d08-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eb0dfe31-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "7109 South Michigan Avenue - 2 Chicago, IL 60619",
@@ -331,7 +334,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed9ae215-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019659",
-      "tenant_integration_id": "ed9c0e9a-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed9c0e9a-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "edad60b8-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3929 W Jackson, Unit 3 Chicago, IL 60624",
@@ -414,7 +418,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "8c5ae590-47e4-11f1-aef3-025658a0670f",
       "occupancy_import_uid": "14369262703745231309",
-      "tenant_integration_id": "8c5d49a0-47e4-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "8c5d49a0-47e4-11f1-aef3-025658a0670f",
+      "lease_uuid": "bb44b341-47e4-11f1-aef3-025658a0670f"
     },
     {
       "tenant_address": null,
@@ -497,7 +502,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "959077bd-36bb-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143928319",
-      "tenant_integration_id": "7ab667ef-46fa-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "7ab667ef-46fa-11f1-aef3-025658a0670f",
+      "lease_uuid": "53a1a9f4-36be-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "537 West 61st Place - 2 Chicago, IL 60621",
@@ -580,7 +586,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "959077bd-36bb-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143928319",
-      "tenant_integration_id": "959211ff-36bb-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "959211ff-36bb-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "53a1a9f4-36be-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "1456 S Avers  - Unit 3 Chicago, IL 60623",
@@ -663,7 +670,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "17988f66-34a2-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143924183",
-      "tenant_integration_id": "1799a8ab-34a2-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "1799a8ab-34a2-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "264ec84e-34a2-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "1456 S Avers  - Unit 2 Chicago, IL 60623",
@@ -746,7 +754,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "da81411a-34a1-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143924181",
-      "tenant_integration_id": "da83fdf2-34a1-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "da83fdf2-34a1-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "f20aab9f-34a1-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "3834 W Polk St, Unit 1 Chicago, IL 60624",
@@ -829,7 +838,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ea74cbbb-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019481",
-      "tenant_integration_id": "ea75d48d-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ea75d48d-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ea8456be-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "11947 South State Street (Rear) Rear Chicago, IL 60628",
@@ -912,7 +922,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e73d2b95-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019341",
-      "tenant_integration_id": "e73e6a2e-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e73e6a2e-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e752801b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "31 West 112th Place - 2 Chicago, IL 60628",
@@ -995,7 +1006,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "f044328c-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019746",
-      "tenant_integration_id": "f04567e0-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "f04567e0-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "f0566fe6-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "318 West 102nd Place Chicago, IL 60628",
@@ -1078,7 +1090,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "f0847c91-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019750",
-      "tenant_integration_id": "f0859e3e-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "f0859e3e-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "f0951dd9-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1540 S Keeler, Unit 2 Chicago, IL 60623",
@@ -1161,7 +1174,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed180264-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019628",
-      "tenant_integration_id": "ed191047-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed191047-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed26b339-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4024 W Wilcox Unit 2 Chicago, IL 60624",
@@ -1244,7 +1258,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "8bfb18a3-4e30-11f1-aef3-025658a0670f",
       "occupancy_import_uid": "14369262703745258477",
-      "tenant_integration_id": "8c0057d3-4e30-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "8c0057d3-4e30-11f1-aef3-025658a0670f",
+      "lease_uuid": "8c142675-4e30-11f1-aef3-025658a0670f"
     },
     {
       "tenant_address": "1446 South Karlov Avenue - 2 Chicago, IL 60623",
@@ -1327,7 +1342,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "8bc7f27f-5d04-11f1-8e54-069d3c8b499d",
       "occupancy_import_uid": "5650332601815208771",
-      "tenant_integration_id": "8bcb1d67-5d04-11f1-8e54-069d3c8b499d"
+      "tenant_integration_id": "8bcb1d67-5d04-11f1-8e54-069d3c8b499d",
+      "lease_uuid": "d7863fa1-5d04-11f1-8e54-069d3c8b499d"
     },
     {
       "tenant_address": "1540 S Keeler, Unit G Chicago, IL 60623",
@@ -1410,7 +1426,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed5647a5-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019646",
-      "tenant_integration_id": "ed5749be-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed5749be-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed6b7354-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3858 W Jackson, Unit 2 Chicago, IL 60624",
@@ -1493,7 +1510,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eb31fb1f-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019519",
-      "tenant_integration_id": "eb32fc57-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eb32fc57-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eb405544-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": null,
@@ -1576,7 +1594,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "48d8bf53-34a0-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143924175",
-      "tenant_integration_id": "76216c94-602b-11f1-8e54-069d3c8b499d"
+      "tenant_integration_id": "76216c94-602b-11f1-8e54-069d3c8b499d",
+      "lease_uuid": "5a27d403-34a0-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "1514 S Kedzie Ave Chicago, IL 60623",
@@ -1659,7 +1678,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "48d8bf53-34a0-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143924175",
-      "tenant_integration_id": "48dac77a-34a0-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "48dac77a-34a0-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "5a27d403-34a0-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "7736 South Greenwood Avenue - 2 Chicago, IL 60619",
@@ -1742,7 +1762,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ee5719f9-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019693",
-      "tenant_integration_id": "ee586fc2-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ee586fc2-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ee687cac-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "10910 S Eberhart Chicago, IL",
@@ -1825,7 +1846,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "9a3f1ac8-2a49-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143886301",
-      "tenant_integration_id": "ec4917e1-2a49-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "ec4917e1-2a49-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "cb815a1b-2a49-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "10910 S Eberhart Chicago, IL",
@@ -1908,7 +1930,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "9a3f1ac8-2a49-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143886301",
-      "tenant_integration_id": "9a421918-2a49-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "9a421918-2a49-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "cb815a1b-2a49-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "153 East 110th Street - 1E Unit 1E Chicago, IL 60628",
@@ -1991,7 +2014,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec0fd3dc-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019565",
-      "tenant_integration_id": "ec10d44e-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ec10d44e-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ec1ea30c-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1824 S Saint Louis, Unit 2 Chicago, IL 60623",
@@ -2074,7 +2098,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eee98577-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019717",
-      "tenant_integration_id": "eeea8aff-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eeea8aff-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eef84660-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4035 W Lexington Chicago, IL 60624",
@@ -2157,7 +2182,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed2c24e4-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019632",
-      "tenant_integration_id": "0394d099-4715-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "0394d099-4715-11f1-aef3-025658a0670f",
+      "lease_uuid": "ed3b198c-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3544  W Lake, Unit 3 Chicago, IL 60624",
@@ -2240,7 +2266,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ea23124d-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019461",
-      "tenant_integration_id": "ea241d8e-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ea241d8e-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ea3212d0-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1540 S Keeler, Unit 1 Chicago, IL 60623",
@@ -2323,7 +2350,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ecd37ecd-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019612",
-      "tenant_integration_id": "ecd49f6a-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ecd49f6a-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ece35ce6-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "153 East 110th Street - 3E Unit 1E Chicago, IL 60628",
@@ -2406,7 +2434,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec57d453-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019584",
-      "tenant_integration_id": "ec58eaf7-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ec58eaf7-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ec6a7017-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "8142 S Yates Blvd Chicago, IL 60617",
@@ -2489,7 +2518,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "2d479ff0-36b2-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143928281",
-      "tenant_integration_id": "2d4a08eb-36b2-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "2d4a08eb-36b2-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "b27b2211-36b2-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "8142 S Yates Blvd Chicago, IL 60617",
@@ -2572,7 +2602,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "2d479ff0-36b2-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143928281",
-      "tenant_integration_id": "54f08515-36b2-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "54f08515-36b2-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "b27b2211-36b2-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "4024 W Wilcox Unit 1 Chicago, IL 60624",
@@ -2655,7 +2686,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "8bcf9f95-4e30-11f1-aef3-025658a0670f",
       "occupancy_import_uid": "14369262703745258475",
-      "tenant_integration_id": "8bd5a485-4e30-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "8bd5a485-4e30-11f1-aef3-025658a0670f",
+      "lease_uuid": "8be801bf-4e30-11f1-aef3-025658a0670f"
     },
     {
       "tenant_address": "4206 W Van Buren, Unit 3 Chicago, IL 60624",
@@ -2738,7 +2770,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eb9a1dff-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019539",
-      "tenant_integration_id": "eb9b9975-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eb9b9975-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ebab7c5c-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4206 W Van Buren, Basement Chicago, IL 60624",
@@ -2821,7 +2854,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eac57306-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019499",
-      "tenant_integration_id": "eac6acb4-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eac6acb4-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ead8ef8f-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "8124 S Maryland, Unit 2 Chicago, IL 60619",
@@ -2904,7 +2938,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eef680d1-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019721",
-      "tenant_integration_id": "eef7eafc-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eef7eafc-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ef0d871a-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "8124 S Maryland, Unit 2 Chicago, IL 60619",
@@ -2987,7 +3022,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eef680d1-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019721",
-      "tenant_integration_id": "ef28e436-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ef28e436-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ef0d871a-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "8124 S Maryland, Unit 3 Chicago, IL 60619",
@@ -3070,7 +3106,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "7fc953f5-5ac1-11f1-8e54-069d3c8b499d",
       "occupancy_import_uid": "5650332601815194720",
-      "tenant_integration_id": "7fcc3717-5ac1-11f1-8e54-069d3c8b499d"
+      "tenant_integration_id": "7fcc3717-5ac1-11f1-8e54-069d3c8b499d",
+      "lease_uuid": "3aad0dba-5ac2-11f1-8e54-069d3c8b499d"
     },
     {
       "tenant_address": "33 West 112th Place - 2 Chicago, IL 60628",
@@ -3153,7 +3190,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e73ed2b6-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019343",
-      "tenant_integration_id": "e73ff633-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e73ff633-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e7529b4d-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "153 East 110th Street - 1E Unit 1E Chicago, IL 60628",
@@ -3236,7 +3274,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec0fd3dc-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019565",
-      "tenant_integration_id": "ec3344ea-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ec3344ea-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ec1ea30c-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "2225 S Ridgeway Ave, Unit 3 Chicago, IL 60623",
@@ -3319,7 +3358,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ef379984-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019728",
-      "tenant_integration_id": "ef38d004-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ef38d004-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ef4a412f-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "348 S Hamlin Blvd, Unit 2 Chicago, IL 60624",
@@ -3402,7 +3442,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e8883ec2-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019395",
-      "tenant_integration_id": "e88953fb-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e88953fb-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e89732ea-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "348 S Hamlin Blvd, Unit 1 Chicago, IL 60624",
@@ -3485,7 +3526,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e8479032-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019387",
-      "tenant_integration_id": "e8489d31-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e8489d31-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e8593398-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1932 S Drake Ave, Basement Chicago, IL 60623",
@@ -3568,7 +3610,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed35c3e5-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019636",
-      "tenant_integration_id": "ed36f257-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed36f257-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed45b0a5-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1456 S Avers  - Unit 1 Chicago, IL 60623",
@@ -3651,7 +3694,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "9e8d3216-349a-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143924141",
-      "tenant_integration_id": "9e8f3f97-349a-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "9e8f3f97-349a-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "cba26643-349a-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "3834 W Polk St, Unit 2 Chicago, IL 60624",
@@ -3734,7 +3778,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eab565c7-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019495",
-      "tenant_integration_id": "eab678b8-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eab678b8-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eac5dc68-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": null,
@@ -3817,7 +3862,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ebfd1d03-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019559",
-      "tenant_integration_id": "38b505ad-68f6-11f1-8e54-069d3c8b499d"
+      "tenant_integration_id": "38b505ad-68f6-11f1-8e54-069d3c8b499d",
+      "lease_uuid": "ec0c027b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "7109 South Michigan Avenue - 1 Chicago, IL 60619",
@@ -3900,7 +3946,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed53e47b-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019642",
-      "tenant_integration_id": "ed551630-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed551630-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed651074-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4024 W Wilcox Basement Chicago, IL 60624",
@@ -3983,7 +4030,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "8b8b46cd-4e30-11f1-aef3-025658a0670f",
       "occupancy_import_uid": "14369262703745258472",
-      "tenant_integration_id": "8b92c6e8-4e30-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "8b92c6e8-4e30-11f1-aef3-025658a0670f",
+      "lease_uuid": "8ba6a25a-4e30-11f1-aef3-025658a0670f"
     },
     {
       "tenant_address": "3502 W Lake, Unit 2 Chicago, IL 6024",
@@ -4066,7 +4114,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e9919f69-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019433",
-      "tenant_integration_id": "e992aa14-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e992aa14-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e9a1176e-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "31 East 119th Street - 1 Chicago, IL 60628",
@@ -4149,7 +4198,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ef798b7a-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019734",
-      "tenant_integration_id": "ef7ab5af-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ef7ab5af-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ef8da470-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": null,
@@ -4232,7 +4282,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "efbd6570-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019738",
-      "tenant_integration_id": "acd3e2ba-4634-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "acd3e2ba-4634-11f1-aef3-025658a0670f",
+      "lease_uuid": "efcf37e3-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1338 S Springfield Ave, Unit 1R Chicago, IL 60623",
@@ -4315,7 +4366,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e8c64208-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019405",
-      "tenant_integration_id": "e8c7d177-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e8c7d177-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e8e22992-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1338 S Springfield Ave, Unit 1F Chicago, IL 60623",
@@ -4398,7 +4450,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e8623274-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019389",
-      "tenant_integration_id": "e86424ba-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e86424ba-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e87a7c2f-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "751 East 84th Street - 2E Chicago, IL 60619",
@@ -4481,7 +4534,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eddcbd82-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019671",
-      "tenant_integration_id": "edde301d-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "edde301d-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "edee39fc-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3927 W Jackson, Unit 2 Chicago, IL 60624",
@@ -4564,7 +4618,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ebfd1d03-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019559",
-      "tenant_integration_id": "ebfe22ac-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ebfe22ac-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ec0c027b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1929 S Spaulding, Unit 3 Chicago, IL 60623",
@@ -4647,7 +4702,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ecf1fa4f-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019620",
-      "tenant_integration_id": "ecf322fe-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ecf322fe-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed0346b0-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1929 S Spaulding, Unit 2 Chicago, IL 60623",
@@ -4730,7 +4786,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec983bdf-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019598",
-      "tenant_integration_id": "ec99c78a-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ec99c78a-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ecb0b182-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1824 S Saint Louis, Unit 1 Chicago, IL 60623",
@@ -4813,7 +4870,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eea6edda-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019707",
-      "tenant_integration_id": "eea7ede6-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eea7ede6-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eeb55da2-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": null,
@@ -4896,7 +4954,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec983bdf-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019598",
-      "tenant_integration_id": "05d9c224-7e10-11f1-8e54-069d3c8b499d"
+      "tenant_integration_id": "05d9c224-7e10-11f1-8e54-069d3c8b499d",
+      "lease_uuid": "ecb0b182-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3927 W Jackson, Unit 3 Chicago, IL 60624",
@@ -4979,7 +5038,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec3cd9f4-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019576",
-      "tenant_integration_id": "ec3ddbc2-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ec3ddbc2-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ec4b44cd-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4024 W Wilcox Unit 3 Chicago, IL 60624",
@@ -5062,7 +5122,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "8c2872e3-4e30-11f1-aef3-025658a0670f",
       "occupancy_import_uid": "14369262703745258479",
-      "tenant_integration_id": "06b358ef-5dc5-11f1-8e54-069d3c8b499d"
+      "tenant_integration_id": "06b358ef-5dc5-11f1-8e54-069d3c8b499d",
+      "lease_uuid": "8c3f91de-4e30-11f1-aef3-025658a0670f"
     },
     {
       "tenant_address": "8124 S Maryland, Unit 1 Chicago, IL 60619",
@@ -5145,7 +5206,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ee9a7d66-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019705",
-      "tenant_integration_id": "ee9bbd0c-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ee9bbd0c-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eeac4981-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "2225 S Ridgeway Ave, Unit 2 Chicago, IL 60623",
@@ -5228,7 +5290,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eef2d2fb-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019719",
-      "tenant_integration_id": "eef41390-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eef41390-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ef03aeec-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "2225 S Ridgeway Ave, Basement Chicago, IL 60623",
@@ -5311,7 +5374,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ee610930-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019695",
-      "tenant_integration_id": "ee624f46-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ee624f46-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ee728626-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "7109 South Michigan Avenue - 1 Chicago, IL 60619",
@@ -5394,7 +5458,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed53e47b-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019642",
-      "tenant_integration_id": "ed7a7ffc-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed7a7ffc-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed651074-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4035 W Lexington, Unit G Chicago, IL 60624",
@@ -5477,7 +5542,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed6a13fa-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019650",
-      "tenant_integration_id": "ed6b2f26-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed6b2f26-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed793887-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "7736 South Greenwood Avenue - 1 Chicago, IL 60619",
@@ -5560,7 +5626,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ee1a5155-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019682",
-      "tenant_integration_id": "ee1b7c5f-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ee1b7c5f-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ee2a7e79-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1932 S Drake Ave, Unit 3 Chicago, IL 60623",
@@ -5643,7 +5710,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ee1a17cd-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019681",
-      "tenant_integration_id": "ee1b6d23-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ee1b6d23-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ee2c2c75-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1252 S Kildare, Unit 2 Chicago, IL 60623",
@@ -5726,7 +5794,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e8095213-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019377",
-      "tenant_integration_id": "e80a6ee2-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e80a6ee2-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e81dedde-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4024 W Wilcox Unit 3 Chicago, IL 60624",
@@ -5809,7 +5878,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "8c2872e3-4e30-11f1-aef3-025658a0670f",
       "occupancy_import_uid": "14369262703745258479",
-      "tenant_integration_id": "8c2d9c5f-4e30-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "8c2d9c5f-4e30-11f1-aef3-025658a0670f",
+      "lease_uuid": "8c3f91de-4e30-11f1-aef3-025658a0670f"
     },
     {
       "tenant_address": "1825 S Ridgeway, Unit 1 Chicago, IL 60623",
@@ -5892,7 +5962,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e750ac9e-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019345",
-      "tenant_integration_id": "e7527095-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e7527095-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e7677875-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": null,
@@ -5975,7 +6046,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ebbe6df2-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019547",
-      "tenant_integration_id": "628b71c8-70ab-11f1-8e54-069d3c8b499d"
+      "tenant_integration_id": "628b71c8-70ab-11f1-8e54-069d3c8b499d",
+      "lease_uuid": "ebcd91de-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3927 W Jackson, Unit 1 Chicago, IL 60624",
@@ -6058,7 +6130,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ebbe6df2-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019547",
-      "tenant_integration_id": "ebbf76d8-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ebbf76d8-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ebcd91de-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1252 S Kildare, Unit 1 Chicago, IL 60623",
@@ -6141,7 +6214,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e7ca7751-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019365",
-      "tenant_integration_id": "e7cb79b1-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e7cb79b1-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e7dc1c73-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "31 East 119th Street - 2 Chicago, IL 60628",
@@ -6224,7 +6298,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "efbd6570-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019738",
-      "tenant_integration_id": "efbeadd2-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "efbeadd2-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "efcf37e3-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3834 W Polk St, Basement Chicago, IL 60624",
@@ -6307,7 +6382,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "b43ee356-2a5b-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143886362",
-      "tenant_integration_id": "f4314884-2a5b-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "f4314884-2a5b-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "509218de-2a5c-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "1847 S Millard, Basement Chicago, IL 60623",
@@ -6390,7 +6466,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e841cdfd-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019385",
-      "tenant_integration_id": "e842f2cf-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e842f2cf-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e8530b7b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4316 W Gladys, Unit 2 Chicago, IL 60624",
@@ -6473,7 +6550,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec6bed6f-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019588",
-      "tenant_integration_id": "ec6d20e8-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ec6d20e8-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ec87334e-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1825 S Ridgeway, Unit G Chicago, IL 60623",
@@ -6556,7 +6634,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e7fdb212-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019373",
-      "tenant_integration_id": "e7fee2d9-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e7fee2d9-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e80ea036-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1851 S Millard, Br Chicago, IL 60623",
@@ -6639,7 +6718,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e91aeddd-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019419",
-      "tenant_integration_id": "e91c1004-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e91c1004-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e92bca4c-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1929 S Spaulding, Unit 1 Chicago, IL 60623",
@@ -6722,7 +6802,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec4c9878-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019580",
-      "tenant_integration_id": "ec4de3d1-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ec4de3d1-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ec5de194-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1338 S Springfield Ave, Unit 3F Chicago, IL 60623",
@@ -6805,7 +6886,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ea2becc2-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019463",
-      "tenant_integration_id": "ea2d56c9-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ea2d56c9-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ea3cfe2b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3502 W Lake, Unit 1 Chicago, IL 6024",
@@ -6888,7 +6970,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e9485b68-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019425",
-      "tenant_integration_id": "e9497338-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e9497338-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e95838a2-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "31 West 112th Place - 1 Chicago, IL 60628",
@@ -6971,7 +7054,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "f0055a15-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019742",
-      "tenant_integration_id": "f0067e1f-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "f0067e1f-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "f0157478-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1514 S Kedzie Ave Chicago, IL 60623",
@@ -7054,7 +7138,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "62487292-349f-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143924165",
-      "tenant_integration_id": "624abf00-349f-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "624abf00-349f-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "9daafee1-349f-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "3345 W Walnut, Unit 1 Chicago, IL 60624",
@@ -7137,7 +7222,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e7c635f6-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019363",
-      "tenant_integration_id": "e7c7392d-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e7c7392d-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e7d4a26c-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "348 S Hamlin Blvd, Unit 3 Chicago, IL 60624",
@@ -7220,7 +7306,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e8c9477b-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019407",
-      "tenant_integration_id": "e8ca68c9-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e8ca68c9-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e8db4d86-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4035 W Lexington, Unit 1 Chicago, IL 60624",
@@ -7303,7 +7390,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eceb41f2-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019616",
-      "tenant_integration_id": "ecec5743-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ecec5743-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ecfa8495-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1859 S Millard, Basement Chicago, IL",
@@ -7386,7 +7474,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ea8fc619-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019487",
-      "tenant_integration_id": "ea90ee54-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ea90ee54-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eaaecde6-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3929 W Jackson, Unit 1 Chicago, IL 60624",
@@ -7469,7 +7558,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec788bfa-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019590",
-      "tenant_integration_id": "ec798eac-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ec798eac-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ec8fa0c6-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1514 S Kedzie Ave Chicago, IL 60623",
@@ -7552,7 +7642,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "06334d47-34a0-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143924172",
-      "tenant_integration_id": "0635672e-34a0-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "0635672e-34a0-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "16637a8b-34a0-11f1-b80b-06ae7c87102a"
     },
     {
       "tenant_address": "537 West 61st Place - 2 Chicago, IL 60621",
@@ -7635,7 +7726,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ecfe8ebd-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019624",
-      "tenant_integration_id": "ecffac65-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ecffac65-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed0ec771-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": null,
@@ -7718,7 +7810,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "8b8b46cd-4e30-11f1-aef3-025658a0670f",
       "occupancy_import_uid": "14369262703745258472",
-      "tenant_integration_id": "8bb4b66f-4e30-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "8bb4b66f-4e30-11f1-aef3-025658a0670f",
+      "lease_uuid": "8ba6a25a-4e30-11f1-aef3-025658a0670f"
     },
     {
       "tenant_address": "348 S Hamlin Blvd, Unit 4 Chicago, IL 60624",
@@ -7801,7 +7894,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e90ac20c-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019415",
-      "tenant_integration_id": "e90bd16d-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e90bd16d-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e9199fe6-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4141 W Jackson, Unit 2 Chicago, IL 60624",
@@ -7884,7 +7978,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ea7e7c69-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019485",
-      "tenant_integration_id": "ea7fb718-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ea7fb718-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ea8f39a7-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4035 W Lexington, Unit 2 Chicago, IL 60624",
@@ -7967,7 +8062,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed2c24e4-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019632",
-      "tenant_integration_id": "ed2d3694-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed2d3694-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed3b198c-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3345 W Walnut, Unit 2 Chicago, IL 60624",
@@ -8050,7 +8146,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e80356f0-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019375",
-      "tenant_integration_id": "e8046e33-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e8046e33-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e8159fde-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1432 S Trumbull, 2R Chicago, IL",
@@ -8133,7 +8230,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eb7c6a0a-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019535",
-      "tenant_integration_id": "eb7d6dfd-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eb7d6dfd-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eb8aabd3-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1851 S Millard, Bf Chicago, IL 60623",
@@ -8216,7 +8314,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e8d62ba8-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019409",
-      "tenant_integration_id": "e8d75e59-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e8d75e59-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e8e708e6-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "2225 S Ridgeway Ave, Unit 1 Chicago, IL 60623",
@@ -8299,7 +8398,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eeac5b5e-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019709",
-      "tenant_integration_id": "eeadb043-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eeadb043-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eebf47d8-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3858 W Jackson, Unit 1 Chicago, IL 60624",
@@ -8382,7 +8482,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eaf5b690-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019505",
-      "tenant_integration_id": "eaf6b9d2-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eaf6b9d2-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eb04085b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3544  W Lake, Unit 2 Chicago, IL 60624",
@@ -8465,7 +8566,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e9e23c98-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019447",
-      "tenant_integration_id": "e9e340c5-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e9e340c5-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e9f0eacf-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1432 S Trumbull, 2F Chicago, IL",
@@ -8548,7 +8650,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eb41e811-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019523",
-      "tenant_integration_id": "eb42e885-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eb42e885-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eb500a16-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1824 S Saint Louis, Basement Chicago, IL 60623",
@@ -8631,7 +8734,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ee684469-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019697",
-      "tenant_integration_id": "ee694f68-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ee694f68-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ee7987a9-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1658 S Millard, Unit 2 Chicago, IL 60623",
@@ -8714,7 +8818,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ee258a74-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019685",
-      "tenant_integration_id": "ee268cc6-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ee268cc6-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ee34f2db-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1859 S Millard, Unit 1 Chicago, IL",
@@ -8797,7 +8902,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eb5081e1-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019525",
-      "tenant_integration_id": "eb54935e-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eb54935e-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eb8fb3a2-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4141 W Jackson, Unit 1 Chicago, IL 60624",
@@ -8880,7 +8986,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ea315533-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019467",
-      "tenant_integration_id": "ea32c99b-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ea32c99b-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ea47051f-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1825 S Ridgeway, Unit 2 Chicago, IL 60623",
@@ -8963,7 +9070,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e7b161d7-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019358",
-      "tenant_integration_id": "e7b2b1d6-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e7b2b1d6-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e7c645f2-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1851 S Millard, Unit 2 Chicago, IL 60623",
@@ -9046,7 +9154,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e9b3a689-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019439",
-      "tenant_integration_id": "e9b4dc3c-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e9b4dc3c-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e9c56f4d-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3858 W Jackson, Unit 3 Chicago, IL 60624",
@@ -9129,7 +9238,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eb70914f-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019533",
-      "tenant_integration_id": "eb718fe2-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eb718fe2-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eb7ebdbf-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4141 W Jackson, Basement Chicago, IL 60624",
@@ -9212,7 +9322,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e9cfe90c-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019445",
-      "tenant_integration_id": "e9d14129-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e9d14129-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e9e4704c-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1929 S Spaulding, Basement Chicago, IL 60623",
@@ -9295,7 +9406,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ec03d813-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019563",
-      "tenant_integration_id": "ec050611-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ec050611-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ec169e93-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1338 S Springfield Ave, Unit 3R Chicago, IL 60623",
@@ -9378,7 +9490,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ea7317f8-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019479",
-      "tenant_integration_id": "ea742faf-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ea742faf-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ea842d32-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1859 S Millard, 2R Chicago, IL",
@@ -9461,7 +9574,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ea473f4e-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019469",
-      "tenant_integration_id": "ea489949-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ea489949-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ea5aa288-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4206 W Van Buren, Unit 1 Chicago, IL 60624",
@@ -9544,7 +9658,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "eb1025bc-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019513",
-      "tenant_integration_id": "eb115d42-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "eb115d42-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eb2078a4-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1932 S Drake Ave, Unit 2 Chicago, IL 60623",
@@ -9627,7 +9742,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "edcdfaa2-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019669",
-      "tenant_integration_id": "edcfa741-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "edcfa741-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ede0cded-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1338 S Springfield Ave, Unit 2F Chicago, IL 60623",
@@ -9710,7 +9826,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e92f0caf-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019421",
-      "tenant_integration_id": "e930ed8c-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e930ed8c-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e9472dea-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "4316 W Gladys, Unit 3 Chicago, IL 60624",
@@ -9793,7 +9910,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ecbe3f1f-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019604",
-      "tenant_integration_id": "ecbf6851-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ecbf6851-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "eccecfe8-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1847 S Millard, Unit 1 Chicago, IL 60623",
@@ -9876,7 +9994,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e88c88ae-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019397",
-      "tenant_integration_id": "e88dc7f0-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e88dc7f0-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e8a09b2b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1932 S Drake Ave, Unit 1 Chicago, IL 60623",
@@ -9959,7 +10078,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed7c2731-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019653",
-      "tenant_integration_id": "ed7d56c7-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed7d56c7-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ed8cc826-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1851 S Millard, Unit 1 Chicago, IL 60623",
@@ -10042,7 +10162,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "e961aeff-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019429",
-      "tenant_integration_id": "e962ea90-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "e962ea90-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "e97ac88e-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "1658 S Millard, Basement Chicago, IL 60623",
@@ -10125,7 +10246,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ed9bf4e4-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019661",
-      "tenant_integration_id": "ed9cfce9-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ed9cfce9-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "edad764c-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3929 W Jackson, Unit 2 Chicago, IL 60624",
@@ -10208,7 +10330,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "18f34264-47e3-11f1-aef3-025658a0670f",
       "occupancy_import_uid": "14369262703745231286",
-      "tenant_integration_id": "190dcd60-47e3-11f1-aef3-025658a0670f"
+      "tenant_integration_id": "190dcd60-47e3-11f1-aef3-025658a0670f",
+      "lease_uuid": "2c74d7c2-47e4-11f1-aef3-025658a0670f"
     },
     {
       "tenant_address": "1446 South Karlov Avenue - 1 Chicago, IL 60623",
@@ -10291,7 +10414,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "ebb50f52-2702-11f1-8ab6-12de4bf481cd",
       "occupancy_import_uid": "3919165168135019545",
-      "tenant_integration_id": "ebb610b4-2702-11f1-8ab6-12de4bf481cd"
+      "tenant_integration_id": "ebb610b4-2702-11f1-8ab6-12de4bf481cd",
+      "lease_uuid": "ebc3a5f7-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "tenant_address": "3834 W Polk St, Basement Chicago, IL 60624",
@@ -10374,7 +10498,8 @@
       "portfolio_id": 3,
       "occupancy_integration_id": "b43ee356-2a5b-11f1-b80b-06ae7c87102a",
       "occupancy_import_uid": "8819081556143886362",
-      "tenant_integration_id": "b44041a5-2a5b-11f1-b80b-06ae7c87102a"
+      "tenant_integration_id": "b44041a5-2a5b-11f1-b80b-06ae7c87102a",
+      "lease_uuid": "509218de-2a5c-11f1-b80b-06ae7c87102a"
     }
   ],
   "property_groups": [
@@ -10394,7 +10519,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": null,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "47d67f1a-589e-11f1-8e54-069d3c8b499d"
     },
     {
       "property": "Open Key Property Management LLC - 3858 West Madison Street Apt 01 Chicago, IL 60624",
@@ -10412,7 +10538,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": null,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "738b7e20-5244-11f1-8e54-069d3c8b499d"
     },
     {
       "property": "1456 S Avers - 1456 S Avers Chicago, IL 60623",
@@ -10430,7 +10557,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 9,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "f37277b6-3499-11f1-b80b-06ae7c87102a"
     },
     {
       "property": "1514 S Kedzie - 1514 S Kedzie Ave Chicago, IL 60623",
@@ -10448,7 +10576,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 9,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "7e055e6a-349d-11f1-b80b-06ae7c87102a"
     },
     {
       "property": "10910 S Eberhart - 10910 S Eberhart Chicago, IL",
@@ -10466,7 +10595,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 8,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e83d13fd-2a3a-11f1-b80b-06ae7c87102a"
     },
     {
       "property": "123 S Western Unit 4 - 123 S Western, Unit 4 Chicago, IL 60622",
@@ -10484,7 +10614,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 8,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e285da13-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "348 S Hamlin Blvd - 348 S Hamlin Blvd Chicago, IL 60624",
@@ -10502,7 +10633,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 8,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e2cae1f7-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "3834 W Polk St - 3834 W Polk St Chicago, IL 60624",
@@ -10520,7 +10652,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 8,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e2f3d332-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "8124 S Maryland - 8124 S Maryland Chicago, IL 60619",
@@ -10538,7 +10671,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 8,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e31e404b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1540 S Keeler - 1540 S Keeler Chicago, IL 60623",
@@ -10556,7 +10690,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 4,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e1b92b4f-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1825 S Ridgeway - 1825 S Ridgeway Chicago, IL 60623",
@@ -10574,7 +10709,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 4,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e25d7652-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "3927 W Jackson - 3927 W Jackson Chicago, IL 60624",
@@ -10592,7 +10728,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 4,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e235dfd4-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "3929 W Jackson - 3929 W Jackson Chicago, IL 60624",
@@ -10610,7 +10747,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 4,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e20b0d2f-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "4024 W Wilcox - 4024 W Wilcox St Chicago, IL 60624",
@@ -10628,7 +10766,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 4,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "8a5edd9b-4e30-11f1-aef3-025658a0670f"
     },
     {
       "property": "4035 W Lexington - 4035 W Lexington Chicago, IL 60624",
@@ -10646,7 +10785,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 4,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e1e13989-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "10910 S Eberhart - 10910 S Eberhart Chicago, IL",
@@ -10664,7 +10804,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 7,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e83d13fd-2a3a-11f1-b80b-06ae7c87102a"
     },
     {
       "property": "8124 S Maryland - 8124 S Maryland Chicago, IL 60619",
@@ -10682,7 +10823,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 5,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e31e404b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "10910 S Eberhart - 10910 S Eberhart Chicago, IL",
@@ -10700,7 +10842,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 3,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e83d13fd-2a3a-11f1-b80b-06ae7c87102a"
     },
     {
       "property": "123 S Western Unit 4 - 123 S Western, Unit 4 Chicago, IL 60622",
@@ -10718,7 +10861,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 3,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e285da13-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "348 S Hamlin Blvd - 348 S Hamlin Blvd Chicago, IL 60624",
@@ -10736,7 +10880,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 3,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e2cae1f7-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "3834 W Polk St - 3834 W Polk St Chicago, IL 60624",
@@ -10754,7 +10899,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 3,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e2f3d332-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "8124 S Maryland - 8124 S Maryland Chicago, IL 60619",
@@ -10772,7 +10918,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 3,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e31e404b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1338 S Springfield Ave - 1338 S Springfield Ave Chicago, IL 60623",
@@ -10790,7 +10937,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 6,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e127ca96-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "3544  W Lake - 3544  W Lake Chicago, IL 60624",
@@ -10808,7 +10956,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 6,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e18b0429-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "4141 W Jackson - 4141 W Jackson Chicago, IL 60624",
@@ -10826,7 +10975,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 6,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e0f08353-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "4206 W Van Buren - 4206 W Van Buren Chicago, IL 60624",
@@ -10844,7 +10994,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 6,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e1576105-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "10910 S Eberhart - 10910 S Eberhart Chicago, IL",
@@ -10862,7 +11013,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e83d13fd-2a3a-11f1-b80b-06ae7c87102a"
     },
     {
       "property": "1252 S Kildare - 1252 S Kildare Chicago, IL 60623",
@@ -10880,7 +11032,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e0c15a3e-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1338 S Springfield Ave - 1338 S Springfield Ave Chicago, IL 60623",
@@ -10898,7 +11051,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e127ca96-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1432 S Trumbull - 1432 S Trumbull Chicago, IL",
@@ -10916,7 +11070,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "df4400a7-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1658 S Millard - 1658 S Millard Chicago, IL 60623",
@@ -10934,7 +11089,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "dff273ab-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1824 S Saint Louis - 1824 S Saint Louis Chicago, IL 60623",
@@ -10952,7 +11108,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "df1d06f7-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1847 S Millard - 1847 S Millard Chicago, IL 60623",
@@ -10970,7 +11127,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "dfc8599e-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1851 S Millard - 1851 S Millard Chicago, IL 60623",
@@ -10988,7 +11146,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "df9ebb34-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1859 S Millard - 1859 S Millard Chicago, IL",
@@ -11006,7 +11165,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "df72bb9b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1929 S Spaulding - 1929 S Spaulding Chicago, IL 60623",
@@ -11024,7 +11184,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "def1bee9-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1932 S Drake Ave - 1932 S Drake Ave Chicago, IL 60623",
@@ -11042,7 +11203,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "dec8188a-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "2225 S Ridgeway Ave - 2225 S Ridgeway Ave Chicago, IL 60623",
@@ -11060,7 +11222,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "de8e227d-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "3345 W Walnut - 3345 W Walnut Chicago, IL 60624",
@@ -11078,7 +11241,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e04669c3-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "3502 W Lake - 3502 W Lake Chicago, IL 6024",
@@ -11096,7 +11260,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e01c1896-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "3544  W Lake - 3544  W Lake Chicago, IL 60624",
@@ -11114,7 +11279,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e18b0429-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "3858 W Jackson - 3858 W Jackson Chicago, IL 60624",
@@ -11132,7 +11298,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e06eb352-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "4141 W Jackson - 4141 W Jackson Chicago, IL 60624",
@@ -11150,7 +11317,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e0f08353-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "4206 W Van Buren - 4206 W Van Buren Chicago, IL 60624",
@@ -11168,7 +11336,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e1576105-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "4316 W Gladys - 4316 W Gladys Chicago, IL 60624",
@@ -11186,7 +11355,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e0992f39-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "8142 S Yates - 8142 S Yates Blvd Chicago, IL 60617",
@@ -11204,7 +11374,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 2,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "28a500ff-2a5e-11f1-b80b-06ae7c87102a"
     },
     {
       "property": "11947 South State Street - 11947 South State Street Chicago, IL 60628",
@@ -11222,7 +11393,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e58e38fd-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "1446 South Karlov Avenue - 1446 South Karlov Avenue Chicago, IL 60623",
@@ -11240,7 +11412,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e4c6a3c8-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "153 East 110th Street - 153 East 110Th Street Chicago, IL 60628",
@@ -11258,7 +11431,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e3ecf0a8-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "31 East 119th Street - 31 East 119Th Street Chicago, IL 60628",
@@ -11276,7 +11450,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e34ef8e3-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "31 West 112th Place - 31 West 112Th Place Chicago, IL 60628",
@@ -11294,7 +11469,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e3819700-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "318 West 102nd Place - 318 West 102nd Place Chicago, IL 60628",
@@ -11312,7 +11488,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e4194178-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "33 West 112th Place - 33 West 112Th Place Chicago, IL 60628",
@@ -11330,7 +11507,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e3b5e282-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "537 West 61st Place - 537 West 61St Place Chicago, IL 60621",
@@ -11348,7 +11526,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e4545b89-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "7109 South Michigan Avenue - 7109 South Michigan Avenue Chicago, IL 60619",
@@ -11366,7 +11545,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e4f9d128-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "751 East 84th Street - 751 East 84Th Street Chicago, IL 60619",
@@ -11384,7 +11564,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e49184d1-2702-11f1-8ab6-12de4bf481cd"
     },
     {
       "property": "7736 South Greenwood Avenue - 7736 South Greenwood Avenue Chicago, IL 60619",
@@ -11402,7 +11583,8 @@
       "portfolio": "Open Key Property Management",
       "property_group_id": 1,
       "portfolio_id": 3,
-      "affordable_housing_property": "No"
+      "affordable_housing_property": "No",
+      "property_uuid": "e532febf-2702-11f1-8ab6-12de4bf481cd"
     }
   ]
 }
