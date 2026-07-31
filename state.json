@@ -30,26 +30,8 @@
     "96@g1": [],
     "105@g9": [],
     "67@g4": [],
-    "13@g8": [
-      {
-        "anchor_date": "2026-07-12",
-        "source_type": "status",
-        "origin_month": "2026-07",
-        "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
-        "covers_rent_month": "2026-07",
-        "event_id": "rs18rv7uqbnrq1dc20nv6hqan0"
-      }
-    ],
-    "13@g3": [
-      {
-        "anchor_date": "2026-07-12",
-        "source_type": "status",
-        "origin_month": "2026-07",
-        "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
-        "covers_rent_month": "2026-07",
-        "event_id": "bto1mse2mr6kdi9mcoss5vgop4"
-      }
-    ],
+    "13@g8": [],
+    "13@g3": [],
     "88@g8": [],
     "88@g3": [],
     "88@g5": [],
@@ -262,7 +244,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:38.577934"
+    "last_updated": "2026-07-31T12:33:44.043072"
   },
   "101@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -330,22 +312,14 @@
   },
   "13@g8_2026-07": {
     "fmt": 2,
-    "status": "\ud83d\udfe1 Partial",
-    "past_due": 189.0,
+    "status": "\u2705 Paid",
+    "past_due": 0.0,
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
     "status_event_id": "jd3hfaguaha7cho4o5d9a2kqp8",
-    "status_event_date": "2026-07-01",
+    "status_event_date": "2026-07-31",
     "late_event_id": null,
-    "payment_event_ids": [
-      "arfbb9fgr8ei3jr69ov7387ds8",
-      "t3ri5np8bnpueea595u4jipf7o",
-      "hrv93d35s46b5em54efgplug60"
-    ],
-    "payment_event_dates": [
-      "2026-07-04",
-      "2026-07-19",
-      "2026-07-25"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-01",
@@ -370,17 +344,64 @@
         "amount": 200.0,
         "is_nsf": false,
         "description": "ACH (#9851-8E70)"
+      },
+      {
+        "date": "2026-07-31",
+        "amount": 189.0,
+        "is_nsf": false,
+        "description": "ACH (#145B-08B0)"
       }
     ],
-    "collapse_state": null,
-    "collapse_baseline": 0,
-    "settled_rows": [],
-    "settled_past_due": null,
-    "settled_on": null,
-    "promise_history": [],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 5,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 953.0,
+        "is_nsf": false,
+        "description": "Payment July Rent"
+      },
+      {
+        "date": "2026-07-04",
+        "amount": 700.0,
+        "is_nsf": false,
+        "description": "ACH (#0324-B0A0)"
+      },
+      {
+        "date": "2026-07-19",
+        "amount": 300.0,
+        "is_nsf": false,
+        "description": "ACH (#3680-0420)"
+      },
+      {
+        "date": "2026-07-25",
+        "amount": 200.0,
+        "is_nsf": false,
+        "description": "ACH (#9851-8E70)"
+      },
+      {
+        "date": "2026-07-31",
+        "amount": 189.0,
+        "is_nsf": false,
+        "description": "ACH (#145B-08B0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-31",
+    "promise_history": [
+      {
+        "event_id": "rs18rv7uqbnrq1dc20nv6hqan0",
+        "anchor_date": "2026-07-12",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "covers_rent_month": "2026-07",
+        "outcome": "resolved",
+        "recorded": "2026-07-31"
+      }
+    ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:42.078321"
+    "last_updated": "2026-07-31T12:33:45.669494"
   },
   "13@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -511,7 +532,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:43.090812"
+    "last_updated": "2026-07-31T12:33:48.339363"
   },
   "15@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -614,7 +635,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:44.060119"
+    "last_updated": "2026-07-31T12:33:49.496040"
   },
   "18@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -769,7 +790,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:45.199819"
+    "last_updated": "2026-07-31T12:33:50.706267"
   },
   "20@g8_2026-08": {
     "fmt": 2,
@@ -778,7 +799,7 @@
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
     "rent_event_id": "0s8v45ebsmucka2uvlfp46pmjo",
     "late_event_id": null,
-    "last_updated": "2026-07-31T11:40:46.097512"
+    "last_updated": "2026-07-31T12:33:51.531147"
   },
   "20@g8_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -829,7 +850,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:46.879946"
+    "last_updated": "2026-07-31T12:33:52.460081"
   },
   "102@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -921,7 +942,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:47.885050"
+    "last_updated": "2026-07-31T12:33:53.697167"
   },
   "35@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1064,7 +1085,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:49.172078"
+    "last_updated": "2026-07-31T12:33:54.854642"
   },
   "38@g8_2026-08": {
     "fmt": 2,
@@ -1073,7 +1094,7 @@
     "calendar_id": "7890df4156332f515e0bd379286c616caa298699f34b966af55c1392e63df97b@group.calendar.google.com",
     "rent_event_id": "bdfnt3fnd3c1od66vmdisr8434",
     "late_event_id": null,
-    "last_updated": "2026-07-31T11:40:49.881592"
+    "last_updated": "2026-07-31T12:33:55.657782"
   },
   "38@g8_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1210,7 +1231,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:50.655159"
+    "last_updated": "2026-07-31T12:33:56.566644"
   },
   "88@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1325,7 +1346,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:51.681002"
+    "last_updated": "2026-07-31T12:33:57.699313"
   },
   "93@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1460,7 +1481,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:54.029309"
+    "last_updated": "2026-07-31T12:33:58.808290"
   },
   "117@g8_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1575,7 +1596,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:55.389661"
+    "last_updated": "2026-07-31T12:34:00.218808"
   },
   "101@g7_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1674,7 +1695,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:40:57.574557"
+    "last_updated": "2026-07-31T12:34:02.567578"
   },
   "101@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1742,22 +1763,14 @@
   },
   "13@g3_2026-07": {
     "fmt": 2,
-    "status": "\ud83d\udfe1 Partial",
-    "past_due": 189.0,
+    "status": "\u2705 Paid",
+    "past_due": 0.0,
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
     "status_event_id": "elb0pej5rt2ec0v04sj2vb4jq8",
-    "status_event_date": "2026-07-01",
+    "status_event_date": "2026-07-31",
     "late_event_id": null,
-    "payment_event_ids": [
-      "doe6ioqhse56b3uq5206rpt5hc",
-      "7geb2amkr28d1d0t6igkbjpq5g",
-      "scdi6fa9sqm77jrbn3spqdn8c0"
-    ],
-    "payment_event_dates": [
-      "2026-07-04",
-      "2026-07-19",
-      "2026-07-25"
-    ],
+    "payment_event_ids": [],
+    "payment_event_dates": [],
     "payments": [
       {
         "date": "2026-07-01",
@@ -1782,17 +1795,64 @@
         "amount": 200.0,
         "is_nsf": false,
         "description": "ACH (#9851-8E70)"
+      },
+      {
+        "date": "2026-07-31",
+        "amount": 189.0,
+        "is_nsf": false,
+        "description": "ACH (#145B-08B0)"
       }
     ],
-    "collapse_state": null,
-    "collapse_baseline": 0,
-    "settled_rows": [],
-    "settled_past_due": null,
-    "settled_on": null,
-    "promise_history": [],
+    "collapse_state": "collapsed",
+    "collapse_baseline": 5,
+    "settled_rows": [
+      {
+        "date": "2026-07-01",
+        "amount": 953.0,
+        "is_nsf": false,
+        "description": "Payment July Rent"
+      },
+      {
+        "date": "2026-07-04",
+        "amount": 700.0,
+        "is_nsf": false,
+        "description": "ACH (#0324-B0A0)"
+      },
+      {
+        "date": "2026-07-19",
+        "amount": 300.0,
+        "is_nsf": false,
+        "description": "ACH (#3680-0420)"
+      },
+      {
+        "date": "2026-07-25",
+        "amount": 200.0,
+        "is_nsf": false,
+        "description": "ACH (#9851-8E70)"
+      },
+      {
+        "date": "2026-07-31",
+        "amount": 189.0,
+        "is_nsf": false,
+        "description": "ACH (#145B-08B0)"
+      }
+    ],
+    "settled_past_due": 0.0,
+    "settled_on": "2026-07-31",
+    "promise_history": [
+      {
+        "event_id": "bto1mse2mr6kdi9mcoss5vgop4",
+        "anchor_date": "2026-07-12",
+        "source_type": "status",
+        "origin_month": "2026-07",
+        "covers_rent_month": "2026-07",
+        "outcome": "resolved",
+        "recorded": "2026-07-31"
+      }
+    ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:04.448473"
+    "last_updated": "2026-07-31T12:34:05.618613"
   },
   "13@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -1923,7 +1983,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:06.665636"
+    "last_updated": "2026-07-31T12:34:10.455609"
   },
   "15@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2026,7 +2086,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:09.780817"
+    "last_updated": "2026-07-31T12:34:12.745818"
   },
   "18@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2181,7 +2241,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:12.345469"
+    "last_updated": "2026-07-31T12:34:15.023338"
   },
   "20@g3_2026-08": {
     "fmt": 2,
@@ -2190,7 +2250,7 @@
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
     "rent_event_id": "vb1m6iu99hplqpftrfhv4o49p0",
     "late_event_id": null,
-    "last_updated": "2026-07-31T11:41:14.089126"
+    "last_updated": "2026-07-31T12:34:16.571987"
   },
   "20@g3_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2241,7 +2301,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:16.013313"
+    "last_updated": "2026-07-31T12:34:18.597056"
   },
   "102@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2333,7 +2393,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:18.123191"
+    "last_updated": "2026-07-31T12:34:20.855153"
   },
   "35@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2476,7 +2536,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:20.434351"
+    "last_updated": "2026-07-31T12:34:23.293386"
   },
   "38@g3_2026-08": {
     "fmt": 2,
@@ -2485,7 +2545,7 @@
     "calendar_id": "62d117659e40fed0013c3048e99f4ec467605373a420b15e69c0cf446153b59c@group.calendar.google.com",
     "rent_event_id": "151i90qpdg8k0vm3igqdj679ro",
     "late_event_id": null,
-    "last_updated": "2026-07-31T11:41:21.994010"
+    "last_updated": "2026-07-31T12:34:24.981765"
   },
   "38@g3_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2622,7 +2682,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:23.813059"
+    "last_updated": "2026-07-31T12:34:27.139850"
   },
   "88@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2737,7 +2797,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:25.911290"
+    "last_updated": "2026-07-31T12:34:29.499153"
   },
   "93@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2872,7 +2932,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:27.938158"
+    "last_updated": "2026-07-31T12:34:32.040170"
   },
   "117@g3_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -2987,7 +3047,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:30.702237"
+    "last_updated": "2026-07-31T12:34:35.000592"
   },
   "101@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3072,7 +3132,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:32.973770"
+    "last_updated": "2026-07-31T12:34:37.467164"
   },
   "8@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3189,7 +3249,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:35.297696"
+    "last_updated": "2026-07-31T12:34:39.872131"
   },
   "11@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3306,7 +3366,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:37.513813"
+    "last_updated": "2026-07-31T12:34:42.156338"
   },
   "14@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3423,7 +3483,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:39.661556"
+    "last_updated": "2026-07-31T12:34:44.563225"
   },
   "17@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3540,7 +3600,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:41.909227"
+    "last_updated": "2026-07-31T12:34:47.020857"
   },
   "22@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3657,7 +3717,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:44.222541"
+    "last_updated": "2026-07-31T12:34:49.451426"
   },
   "31@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3774,7 +3834,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:46.891530"
+    "last_updated": "2026-07-31T12:34:51.743868"
   },
   "34@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -3891,7 +3951,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:49.160719"
+    "last_updated": "2026-07-31T12:34:54.154303"
   },
   "42@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4008,7 +4068,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:51.499960"
+    "last_updated": "2026-07-31T12:34:56.834357"
   },
   "45@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4152,7 +4212,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:54.773219"
+    "last_updated": "2026-07-31T12:35:00.473295"
   },
   "49@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4269,7 +4329,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:56.908083"
+    "last_updated": "2026-07-31T12:35:02.860831"
   },
   "78@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4386,7 +4446,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:41:59.395898"
+    "last_updated": "2026-07-31T12:35:05.353841"
   },
   "81@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4503,7 +4563,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:01.626051"
+    "last_updated": "2026-07-31T12:35:08.070581"
   },
   "84@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4645,7 +4705,7 @@
       }
     ],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:04.704082"
+    "last_updated": "2026-07-31T12:35:11.188881"
   },
   "87@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4762,7 +4822,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:07.086968"
+    "last_updated": "2026-07-31T12:35:13.576694"
   },
   "89@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -4893,7 +4953,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:09.463600"
+    "last_updated": "2026-07-31T12:35:15.951088"
   },
   "91@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5010,7 +5070,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:11.671817"
+    "last_updated": "2026-07-31T12:35:18.365628"
   },
   "12@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5127,7 +5187,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:13.963509"
+    "last_updated": "2026-07-31T12:35:20.648618"
   },
   "16@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5244,7 +5304,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:16.584529"
+    "last_updated": "2026-07-31T12:35:22.949513"
   },
   "19@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5361,7 +5421,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:19.013183"
+    "last_updated": "2026-07-31T12:35:25.383736"
   },
   "21@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5478,7 +5538,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:21.180115"
+    "last_updated": "2026-07-31T12:35:28.785182"
   },
   "24@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5595,7 +5655,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:23.644421"
+    "last_updated": "2026-07-31T12:35:31.440121"
   },
   "26@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5712,7 +5772,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:25.790251"
+    "last_updated": "2026-07-31T12:35:33.814821"
   },
   "37@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5829,7 +5889,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:28.039560"
+    "last_updated": "2026-07-31T12:35:36.313759"
   },
   "46@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -5946,7 +6006,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:30.214719"
+    "last_updated": "2026-07-31T12:35:38.662131"
   },
   "33@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6063,7 +6123,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:32.377151"
+    "last_updated": "2026-07-31T12:35:40.956978"
   },
   "55@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6180,7 +6240,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:34.669910"
+    "last_updated": "2026-07-31T12:35:43.280482"
   },
   "59@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6311,7 +6371,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:36.860234"
+    "last_updated": "2026-07-31T12:35:45.735780"
   },
   "64@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6428,7 +6488,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:39.077118"
+    "last_updated": "2026-07-31T12:35:48.138629"
   },
   "68@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6545,7 +6605,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:42.014914"
+    "last_updated": "2026-07-31T12:35:50.581270"
   },
   "72@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6662,7 +6722,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:44.250154"
+    "last_updated": "2026-07-31T12:35:52.922334"
   },
   "76@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6779,7 +6839,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:46.399062"
+    "last_updated": "2026-07-31T12:35:55.346891"
   },
   "79@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -6896,7 +6956,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:48.637478"
+    "last_updated": "2026-07-31T12:35:57.925417"
   },
   "82@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7013,7 +7073,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:50.822402"
+    "last_updated": "2026-07-31T12:36:00.158489"
   },
   "86@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7130,7 +7190,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:53.046986"
+    "last_updated": "2026-07-31T12:36:02.606204"
   },
   "90@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7247,7 +7307,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:55.212193"
+    "last_updated": "2026-07-31T12:36:05.138685"
   },
   "92@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7364,7 +7424,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:42:57.399158"
+    "last_updated": "2026-07-31T12:36:07.580532"
   },
   "94@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7517,7 +7577,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:00.905750"
+    "last_updated": "2026-07-31T12:36:10.498589"
   },
   "4@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7641,7 +7701,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:03.668778"
+    "last_updated": "2026-07-31T12:36:13.669678"
   },
   "7@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7811,7 +7871,7 @@
       }
     ],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:06.223288"
+    "last_updated": "2026-07-31T12:36:16.228357"
   },
   "10@g2_2026-08": {
     "fmt": 2,
@@ -7820,7 +7880,7 @@
     "calendar_id": "3b0fcabb0a63558e57cd76b65dda862c2d081e28c105e2d8d527a3836d91ca34@group.calendar.google.com",
     "rent_event_id": "l56n86lo27h2ok7qie0sgei074",
     "late_event_id": null,
-    "last_updated": "2026-07-31T11:43:07.792185"
+    "last_updated": "2026-07-31T12:36:17.998353"
   },
   "10@g2_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -7905,7 +7965,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:09.796845"
+    "last_updated": "2026-07-31T12:36:20.070309"
   },
   "23@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8022,7 +8082,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:11.967430"
+    "last_updated": "2026-07-31T12:36:23.107784"
   },
   "25@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8139,7 +8199,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:14.271908"
+    "last_updated": "2026-07-31T12:36:25.466786"
   },
   "28@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8256,7 +8316,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:16.493872"
+    "last_updated": "2026-07-31T12:36:27.897889"
   },
   "30@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8373,7 +8433,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:18.728202"
+    "last_updated": "2026-07-31T12:36:30.371919"
   },
   "41@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8490,7 +8550,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:20.883069"
+    "last_updated": "2026-07-31T12:36:32.731429"
   },
   "44@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8607,7 +8667,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:23.130685"
+    "last_updated": "2026-07-31T12:36:34.996567"
   },
   "48@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8724,7 +8784,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:25.308672"
+    "last_updated": "2026-07-31T12:36:37.738660"
   },
   "27@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8841,7 +8901,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:27.584658"
+    "last_updated": "2026-07-31T12:36:40.421296"
   },
   "32@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -8958,7 +9018,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:29.808394"
+    "last_updated": "2026-07-31T12:36:42.872655"
   },
   "36@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9089,7 +9149,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:32.358474"
+    "last_updated": "2026-07-31T12:36:45.436491"
   },
   "40@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9230,7 +9290,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:34.734690"
+    "last_updated": "2026-07-31T12:36:47.927201"
   },
   "43@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9364,7 +9424,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:39.752869"
+    "last_updated": "2026-07-31T12:36:53.457683"
   },
   "50@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9491,7 +9551,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:41.884453"
+    "last_updated": "2026-07-31T12:36:55.754075"
   },
   "65@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9608,7 +9668,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:43.992950"
+    "last_updated": "2026-07-31T12:36:58.104203"
   },
   "109@g2_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9707,7 +9767,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:46.676866"
+    "last_updated": "2026-07-31T12:37:00.980741"
   },
   "1@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9750,7 +9810,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:48.231607"
+    "last_updated": "2026-07-31T12:37:02.989469"
   },
   "51@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -9881,7 +9941,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:50.348955"
+    "last_updated": "2026-07-31T12:37:05.699315"
   },
   "118@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10092,7 +10152,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:52.403522"
+    "last_updated": "2026-07-31T12:37:08.124634"
   },
   "56@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10155,7 +10215,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:54.265009"
+    "last_updated": "2026-07-31T12:37:10.120170"
   },
   "60@g1_2026-08": {
     "fmt": 2,
@@ -10164,7 +10224,7 @@
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
     "rent_event_id": "5b1dn8fprhe1ro1qi4jhn9vmj4",
     "late_event_id": null,
-    "last_updated": "2026-07-31T11:43:55.785525"
+    "last_updated": "2026-07-31T12:37:11.882727"
   },
   "60@g1_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10237,7 +10297,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:57.566657"
+    "last_updated": "2026-07-31T12:37:13.945080"
   },
   "96@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10320,7 +10380,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:43:59.776618"
+    "last_updated": "2026-07-31T12:37:16.565900"
   },
   "97@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10414,7 +10474,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:01.903643"
+    "last_updated": "2026-07-31T12:37:19.065320"
   },
   "98@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10604,7 +10664,7 @@
       }
     ],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:07.706466"
+    "last_updated": "2026-07-31T12:37:24.526895"
   },
   "99@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10657,7 +10717,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:09.901818"
+    "last_updated": "2026-07-31T12:37:26.949498"
   },
   "100@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10808,7 +10868,7 @@
       }
     ],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:11.720520"
+    "last_updated": "2026-07-31T12:37:28.934934"
   },
   "2@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -10887,7 +10947,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:13.885543"
+    "last_updated": "2026-07-31T12:37:31.473246"
   },
   "110@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11112,7 +11172,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:19.250749"
+    "last_updated": "2026-07-31T12:37:36.927143"
   },
   "69@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11243,7 +11303,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:21.576342"
+    "last_updated": "2026-07-31T12:37:39.274876"
   },
   "73@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11351,7 +11411,7 @@
       }
     ],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:24.424992"
+    "last_updated": "2026-07-31T12:37:42.325340"
   },
   "77@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11420,7 +11480,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:26.633817"
+    "last_updated": "2026-07-31T12:37:44.725644"
   },
   "80@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11523,7 +11583,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:29.210821"
+    "last_updated": "2026-07-31T12:37:47.126384"
   },
   "83@g1_2026-08": {
     "fmt": 2,
@@ -11532,7 +11592,7 @@
     "calendar_id": "3e9229eb09a3a067ab31c60adcaf001dc0f63edaf9adf4e81fa51702bee21052@group.calendar.google.com",
     "rent_event_id": "qi5jsldn5agdc7dfqpr9ru5g18",
     "late_event_id": null,
-    "last_updated": "2026-07-31T11:44:30.915136"
+    "last_updated": "2026-07-31T12:37:48.837470"
   },
   "83@g1_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11602,7 +11662,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:33.267548"
+    "last_updated": "2026-07-31T12:37:51.621869"
   },
   "85@g1_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11663,7 +11723,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:36.110865"
+    "last_updated": "2026-07-31T12:37:54.764367"
   },
   "14@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11780,7 +11840,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:38.410134"
+    "last_updated": "2026-07-31T12:37:57.096385"
   },
   "17@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -11897,7 +11957,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:40.639394"
+    "last_updated": "2026-07-31T12:37:59.404338"
   },
   "22@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12014,7 +12074,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:42.791647"
+    "last_updated": "2026-07-31T12:38:01.610409"
   },
   "31@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12131,7 +12191,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:45.018830"
+    "last_updated": "2026-07-31T12:38:03.997329"
   },
   "34@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12248,7 +12308,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:47.209729"
+    "last_updated": "2026-07-31T12:38:06.432615"
   },
   "28@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12365,7 +12425,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:49.612425"
+    "last_updated": "2026-07-31T12:38:08.917167"
   },
   "30@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12482,7 +12542,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:51.832832"
+    "last_updated": "2026-07-31T12:38:11.220163"
   },
   "27@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12599,7 +12659,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:54.000729"
+    "last_updated": "2026-07-31T12:38:13.840807"
   },
   "32@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12716,7 +12776,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:56.261131"
+    "last_updated": "2026-07-31T12:38:16.288577"
   },
   "36@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12847,7 +12907,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:44:58.393242"
+    "last_updated": "2026-07-31T12:38:18.583127"
   },
   "40@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -12988,7 +13048,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:00.748657"
+    "last_updated": "2026-07-31T12:38:21.090758"
   },
   "43@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13122,7 +13182,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:05.433442"
+    "last_updated": "2026-07-31T12:38:25.709872"
   },
   "50@g6_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13253,7 +13313,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:08.243342"
+    "last_updated": "2026-07-31T12:38:28.561655"
   },
   "103@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13384,7 +13444,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:10.742362"
+    "last_updated": "2026-07-31T12:38:31.086176"
   },
   "107@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13471,7 +13531,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:12.878167"
+    "last_updated": "2026-07-31T12:38:33.389519"
   },
   "108@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13602,7 +13662,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:15.055861"
+    "last_updated": "2026-07-31T12:38:35.663409"
   },
   "104@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13800,7 +13860,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:17.298065"
+    "last_updated": "2026-07-31T12:38:38.008973"
   },
   "105@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -13907,7 +13967,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:19.607804"
+    "last_updated": "2026-07-31T12:38:40.396751"
   },
   "106@g9_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14014,7 +14074,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:21.558875"
+    "last_updated": "2026-07-31T12:38:42.398735"
   },
   "74@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14148,7 +14208,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:22.573150"
+    "last_updated": "2026-07-31T12:38:43.448166"
   },
   "66@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14291,7 +14351,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:23.430201"
+    "last_updated": "2026-07-31T12:38:44.595358"
   },
   "70@g4_2026-08": {
     "fmt": 2,
@@ -14300,7 +14360,7 @@
     "calendar_id": "41569a049ee49bf3b432f099c15d7cb3ace0121d6f9432ff2f260b49124cbd7b@group.calendar.google.com",
     "rent_event_id": "8r8iuqi8ql3uu2ihaon51nssss",
     "late_event_id": null,
-    "last_updated": "2026-07-31T11:45:24.307976"
+    "last_updated": "2026-07-31T12:38:45.754799"
   },
   "70@g4_2026-09": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14423,7 +14483,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:25.015600"
+    "last_updated": "2026-07-31T12:38:46.914200"
   },
   "9@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14554,7 +14614,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:25.927663"
+    "last_updated": "2026-07-31T12:38:47.954442"
   },
   "3@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14696,7 +14756,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:27.579934"
+    "last_updated": "2026-07-31T12:38:50.413333"
   },
   "6@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14827,7 +14887,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:28.518953"
+    "last_updated": "2026-07-31T12:38:51.620554"
   },
   "52@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -14958,7 +15018,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:29.596352"
+    "last_updated": "2026-07-31T12:38:52.621314"
   },
   "54@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -15089,7 +15149,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:30.578202"
+    "last_updated": "2026-07-31T12:38:53.745479"
   },
   "58@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -15220,7 +15280,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:31.500257"
+    "last_updated": "2026-07-31T12:38:54.742077"
   },
   "62@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -15351,7 +15411,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:32.412436"
+    "last_updated": "2026-07-31T12:38:55.867692"
   },
   "111@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -15482,7 +15542,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:33.372110"
+    "last_updated": "2026-07-31T12:38:57.151616"
   },
   "112@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -15606,7 +15666,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:34.865989"
+    "last_updated": "2026-07-31T12:38:58.819155"
   },
   "113@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -15665,7 +15725,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:35.768023"
+    "last_updated": "2026-07-31T12:38:59.889031"
   },
   "114@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -15796,7 +15856,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:36.796510"
+    "last_updated": "2026-07-31T12:39:01.431261"
   },
   "115@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -15927,7 +15987,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:37.699784"
+    "last_updated": "2026-07-31T12:39:02.554851"
   },
   "116@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -16044,7 +16104,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:38.566749"
+    "last_updated": "2026-07-31T12:39:03.648231"
   },
   "75@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -16227,7 +16287,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:39.475795"
+    "last_updated": "2026-07-31T12:39:04.602489"
   },
   "67@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -16358,7 +16418,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:40.303978"
+    "last_updated": "2026-07-31T12:39:05.623169"
   },
   "71@g4_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -16511,7 +16571,7 @@
     ],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:42.276896"
+    "last_updated": "2026-07-31T12:39:07.765236"
   },
   "88@g5_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -16626,7 +16686,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:44.725071"
+    "last_updated": "2026-07-31T12:39:10.110967"
   },
   "93@g5_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
@@ -16761,7 +16821,7 @@
     "promise_history": [],
     "nsf_reversals_applied": [],
     "nsf_event_ids": [],
-    "last_updated": "2026-07-31T11:45:46.806913"
+    "last_updated": "2026-07-31T12:39:12.433407"
   },
   "117@g5_2026-08": {
     "status": "\ud83d\udd34 Unpaid",
