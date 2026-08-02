@@ -356,14 +356,20 @@ def resolve_collapse_transition(prior: Optional[dict],
     snapshot retired into description history at collapse; legacy fallback:
     payments[:collapse_baseline]).
 
+    A settlement requires at least ONE payment row in the month — a
+    zero-payment month NEVER collapses, whatever the balance:
+      pd == 0 with no rows is the pre-charge 1st-of-month gap (AppFolio
+      posts the month's charges hours into the 1st, so pd reads 0 for
+      tenants who simply haven't been charged yet) → plain ✅ Paid status
+      event that self-corrects via data_changed once the charge posts;
+      pd < 0 with no rows is a carried credit → plain 🩷 Prepaid status
+      event; the credit offsets the incoming rent charge (which may
+      exceed it), so "settling" it would hide the balance the charge
+      leaves behind.
+
     Transition table (pd = live past_due, baseline = the settled snapshot):
-      any        pd < 0, or pd <= 0 with live
-                 rows                             → COLLAPSED  (snapshot := all live rows)
-      any        pd == 0, NO live rows            → expanded   (never collapses: this is
-                 the pre-charge 1st-of-month gap — AppFolio posts the month's charges
-                 hours into the 1st, so pd reads 0 for tenants who simply haven't been
-                 charged yet; renders a plain ✅ Paid status event that self-corrects
-                 via data_changed the moment the charge posts)
+      any        pd <= 0 with live rows           → COLLAPSED  (snapshot := all live rows)
+      any        NO live rows, any pd <= 0        → expanded   (see above)
       expanded   pd > 0                           → expanded
       c/f/r      pd > 0, a settled row vanished
                  or bounced (NSF)                 → expanded   (REVERT — NSF un-collapse)
@@ -371,16 +377,13 @@ def resolve_collapse_transition(prior: Optional[dict],
                  rows                             → FROZEN     (post-settle charge: hands off)
       c/f/r      pd > 0, baseline intact, new
                  rows                             → REACTIVATED (fresh tracking over new rows)
-      collapsed with an EMPTY baseline (pure-prepaid month) + a new payment
-                 → plain expanded (nothing settled to retire into history).
 
-    SELF-HEAL: a prior c/f/r whose snapshot resolves EMPTY (after the legacy
-    collapse_baseline fallback) with settled_past_due >= 0 (or missing) never
-    settled anything — it is the 1st-of-month artifact above, persisted by
-    pre-fix code.  The prior state is discarded (evaluated from scratch) and
-    `transitioned` is forced True so the bogus settled event is rebuilt
-    exactly once.  A genuine pure-prepaid settlement carries
-    settled_past_due < 0 and is preserved.
+    SELF-HEAL: a prior c/f/r whose snapshot resolves EMPTY (after the
+    legacy collapse_baseline fallback) never settled anything — the
+    1st-of-month artifact or a credit mistaken for a settlement, persisted
+    by pre-fix code.  The prior state is discarded (evaluated from
+    scratch) and `transitioned` is forced True so the bogus settled event
+    is rebuilt exactly once.
 
     Returns {state, settled_rows, fresh, transitioned, reverted, healed}:
       settled_rows — snapshot to persist (list of live row dicts);
@@ -400,12 +403,15 @@ def resolve_collapse_transition(prior: Optional[dict],
         except (TypeError, ValueError):
             n = 0
         settled_rows = list((prior.get("payments") or [])[:n])
-    # SELF-HEAL: an empty snapshot with settled_past_due >= 0 (or missing)
-    # is not a settlement — nothing was ever paid and no credit existed
-    # (a genuine pure-prepaid freeze carries settled_past_due < 0).
+    # SELF-HEAL: a settlement requires at least one settled payment row.
+    # An empty snapshot means nothing was ever settled — either the
+    # pre-charge rollover artifact (past_due read 0.0 before the month's
+    # charges posted) or a carried credit mistaken for a settlement (the
+    # credit exists to offset the incoming rent charge, which may exceed
+    # it — freezing "$0 due" against that charge hides a real balance).
+    # Discard the prior state and evaluate from scratch.
     healed = False
-    if (prior_state is not None and not settled_rows
-            and (prior.get("settled_past_due") or 0) >= 0):
+    if prior_state is not None and not settled_rows:
         prior_state = None
         healed = True
 
@@ -427,24 +433,19 @@ def resolve_collapse_transition(prior: Optional[dict],
             "healed":       healed,
         }
 
-    if past_due <= 0 and (live_payments or past_due < 0):
+    if past_due <= 0 and live_payments:
         return _result("collapsed", list(live_payments), [], False)
 
     if prior_state is None:
         return _result(None, [], list(live_payments), False)
 
+    # prior_state surviving the heal above implies settled_rows is
+    # non-empty from here on.
     fresh, missing = split_settled_rows(live_payments, settled_rows)
-    if settled_rows and missing:
+    if missing:
         # A settled row vanished or bounced → the settlement was fiction;
         # re-expand (the NSF machinery paints the bounced payment red).
         return _result(None, [], list(live_payments), True)
-    if not settled_rows:
-        # Pure-prepaid collapse (no payments this month).  A charge alone
-        # freezes the pink/green event; any payment means there is nothing
-        # settled to retire — plain expanded tracking.
-        if fresh:
-            return _result(None, [], list(live_payments), False)
-        return _result("frozen", [], [], False)
     if fresh:
         return _result("reactivated", settled_rows, fresh, False)
     # No fresh rows: a plain charge freezes, and a REACTIVATED month whose

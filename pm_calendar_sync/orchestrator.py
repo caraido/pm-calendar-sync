@@ -1392,7 +1392,7 @@ class SyncOrchestrator:
         if collapse.get("healed"):
             log.info(
                 f"  {oid}: bogus zero-payment settlement HEALED — empty "
-                f"settled snapshot with settled_past_due >= 0; re-evaluating "
+                f"settled snapshot (nothing was ever settled); re-evaluating "
                 f"{this_month} from the live balance")
         if reactivated:
             render_groups = group_payments_by_day(collapse["fresh"])

@@ -949,8 +949,9 @@ check("settled row reappears NSF-flagged -> collapse REVERTED",
 prepaid_prior = {"collapse_state": "collapsed", "collapse_baseline": 0,
                  "settled_rows": [], "payments": [],
                  "settled_past_due": -50.0}
-check("pure-prepaid month: charge alone freezes, a payment expands",
-      rct(prepaid_prior, [], 60.0)["state"] == "frozen"
+check("empty-snapshot prepaid prior heals (no settlement without rows)",
+      rct(prepaid_prior, [], 60.0)["state"] is None
+      and rct(prepaid_prior, [], 60.0)["healed"]
       and rct(prepaid_prior, [rows23[0]], 60.0)["state"] is None
       and not rct(prepaid_prior, [rows23[0]], 60.0)["reverted"])
 legacy23 = {"status": "grey-era", "past_due": 0.0, "payments": rows23}
@@ -972,14 +973,19 @@ check("reactivated fresh rows all vanished -> returns to frozen (canonical)",
 check("legacy fallback: settled_rows absent -> payments[:baseline]",
       rct({"collapse_state": "collapsed", "collapse_baseline": 2,
            "payments": rows23}, rows23, 50.0)["state"] == "frozen")
-# Zero-payment collapse gate + bogus-settlement self-heal (the Aug-1
-# rollover bug: pd reads 0.0 before AppFolio posts the month's charges).
+# Zero-payment collapse gate + bogus-settlement self-heal (the Aug-2026
+# rollover bugs: pd reads 0.0 before AppFolio posts the month's charges,
+# and a carried credit is NOT a settlement — the incoming rent charge may
+# exceed it, leaving a real balance behind a frozen "$0 due" event).
 t = rct(None, [], 0.0)
 check("zero-payment month at pd==0 never collapses (pre-charge gap)",
       t["state"] is None and not t["transitioned"] and not t["healed"])
 t = rct(None, [], -25.0)
-check("zero-payment month with strict credit still collapses",
-      t["state"] == "collapsed" and t["settled_rows"] == [])
+check("zero-payment credit month never collapses (credit offsets the charge)",
+      t["state"] is None and not t["transitioned"] and not t["healed"])
+t = rct(None, rows23, -25.0)
+check("credit WITH live rows still collapses (real advance payment)",
+      t["state"] == "collapsed" and t["settled_rows"] == rows23)
 bogus23 = {"collapse_state": "frozen", "collapse_baseline": 0,
            "settled_rows": [], "payments": [],
            "settled_past_due": 0.0, "settled_on": "2026-08-01"}
@@ -990,9 +996,9 @@ check("bogus empty settlement HEALS: expanded, forced transition, not revert",
 t = rct({**bogus23, "collapse_state": "collapsed"}, [], 1400.0)
 check("bogus 'collapsed' prior heals identically",
       t["state"] is None and t["transitioned"] and t["healed"])
-t = rct({**bogus23, "settled_past_due": -200.0}, [], 1400.0)
-check("genuine prepaid prior (settled_past_due<0) untouched by the heal",
-      t["state"] == "frozen" and not t["healed"] and not t["transitioned"])
+t = rct({**bogus23, "settled_past_due": -1800.0}, [], 600.0)
+check("credit-'settled' prior heals too (Tamika case: charge ate the credit)",
+      t["state"] is None and t["healed"] and t["transitioned"])
 t = rct({"collapse_state": "frozen", "settled_rows": [], "payments": []},
         [], 700.0)
 check("missing settled_past_due heals without TypeError",
