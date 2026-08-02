@@ -38,6 +38,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Always check out the CURRENT tip of main, not the SHA frozen when
+          # this run was created.  A scheduled run queued behind an in-flight
+          # run (concurrency group) would otherwise execute against the
+          # pre-queue state.json and repeat calendar writes the finished run
+          # already made (2026-08-02: duplicated promise mirrors).
+          ref: main
 
       - name: Set up Python
         uses: actions/setup-python@v5

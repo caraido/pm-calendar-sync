@@ -901,9 +901,12 @@ class SyncOrchestrator:
         (this run if not yet processed, next run otherwise) and thereafter
         treats the promise as its own.
 
-        Idempotent: a sibling that already carries a commitment with the same
-        source_type + anchor_date is skipped, so repeated runs, the sibling's own
-        rediscovery, and split copies never spawn duplicates.
+        Idempotent twice over: a sibling whose REGISTRY already carries a
+        commitment with the same source_type + anchor_date is skipped, and —
+        because the registry can be stale (a queued run that checked out an
+        older state.json) — the sibling CALENDAR is also live-scanned before
+        any insert; an existing same-anchor commitment event is adopted into
+        the scope instead of duplicated.
         """
         siblings = self._groups_by_oid.get(oid, [])
         if len(siblings) < 2:
@@ -930,6 +933,43 @@ class SyncOrchestrator:
                    and (c.get("source_type") or "late") == source
                    and (c.get("anchor_date") or "") == anchor
                    for c in existing):
+                continue
+
+            # The registry can be stale (a queued run that checked out an
+            # older state.json — the 2026-08-02 duplicate-mirror incident);
+            # the sibling calendar itself is the durable record.  A live
+            # commitment already sitting on this anchor with this source
+            # means the mirror exists: adopt it into this scope instead of
+            # inserting a duplicate.
+            try:
+                sib_live = self.gcal.find_all_events_by_type(
+                    cal_id, oid, "commitment")
+            except HttpError as e:
+                log.error(
+                    f"  {oid}: could not scan sibling calendar {cal_id} "
+                    f"before mirroring — skipping this sibling ({e})")
+                continue
+            dup = next(
+                (ev for ev in sib_live
+                 if ((ev.get("start", {}).get("date")
+                      or ev.get("start", {}).get("dateTime", "")[:10])
+                     == anchor
+                     and (ev.get("extendedProperties", {})
+                          .get("private", {})
+                          .get("okpm_source_type", "late")) == source)),
+                None)
+            if dup is not None:
+                self.state.add_commitment(sib_soid, {
+                    "event_id":          dup["id"],
+                    "anchor_date":       anchor,
+                    "source_type":       source,
+                    "origin_month":      origin_month,
+                    "calendar_id":       cal_id,
+                    "covers_rent_month": covers,
+                })
+                log.info(
+                    f"  {oid}: sibling calendar {cal_id} already carries the "
+                    f"{source} promise on {anchor} — adopted, not re-inserted")
                 continue
 
             # Mirror the origin's outstanding / breakdown computation.
@@ -2096,6 +2136,41 @@ class SyncOrchestrator:
         commitments = self.state.get_commitments(soid)
         if not commitments:
             return
+
+        # ── Same-anchor duplicate promises (stale-state race) ────────────────
+        # A run that executed against a stale state.json can re-mirror a
+        # promise the registry already tracked (the 2026-08-02 incident: a
+        # queued cron run checked out the pre-dispatch SHA); the extra copies
+        # then get adopted as "split plans" and stick forever.  A real split
+        # plan spans DIFFERENT dates — two promises of the same source on the
+        # same calendar with the same LIVE anchor are always duplicates:
+        # keep the oldest registration, delete the rest.
+        seen_anchors: set = set()
+        deduped = []
+        for c in commitments:
+            src = c.get("source_type") or "late"
+            if ((c.get("calendar_id") and c["calendar_id"] != calendar_id)
+                    or src == "kickstart"):
+                deduped.append(c)
+                continue
+            live_ev = live_by_id.get(c["event_id"])
+            anchor = c.get("anchor_date") or today.isoformat()
+            if live_ev:
+                start = live_ev.get("start", {})
+                anchor = (start.get("date")
+                          or start.get("dateTime", "")[:10] or anchor)
+            if (src, anchor) in seen_anchors:
+                if live_ev is not None:
+                    self.gcal.delete_event(calendar_id, c["event_id"])
+                log.info(
+                    f"  {bare_oid}: removed duplicate {src} promise on "
+                    f"{anchor} (same calendar, same anchor — never a split)")
+                continue
+            seen_anchors.add((src, anchor))
+            deduped.append(c)
+        if len(deduped) != len(commitments):
+            self.state.set_commitments(soid, deduped)
+            commitments = deduped
 
         past_due    = unit["past_due"]
         rent        = unit["rent"]

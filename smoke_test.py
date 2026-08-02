@@ -1166,6 +1166,75 @@ check("flush merges pending outcomes into the month entry",
       hist25 >= {("cA", "kept"), ("cB", "kept"), ("cC", "resolved")}
       and orch9._pending_promise_history == {})
 
+# Same-anchor duplicate promises (stale-state race, 2026-08-02 incident):
+# two registered promises, same calendar, same source, same live anchor →
+# the older registration survives, the copy is deleted from the calendar.
+orch9.state.set_commitments("88@g9", [
+    {"event_id": "m1", "anchor_date": "2026-07-28", "source_type": "status",
+     "origin_month": "2026-07", "covers_rent_month": "2026-07",
+     "calendar_id": "calZ"},
+    {"event_id": "m2", "anchor_date": "2026-07-28", "source_type": "status",
+     "origin_month": "2026-07", "covers_rent_month": "2026-07",
+     "calendar_id": "calZ"},
+])
+live25d = [{"id": "m1", "start": {"date": "2026-07-28"}},
+           {"id": "m2", "start": {"date": "2026-07-28"}}]
+with mock.patch.object(orch9.gcal, "find_all_events_by_type",
+                       return_value=live25d), \
+     mock.patch.object(orch9.gcal, "delete_event") as del9e, \
+     mock.patch.object(orch9.gcal, "update_commitment_event",
+                       return_value="2026-07-28"):
+    orch9._process_commitments("88@g9", "calZ", unit88, _date(2026, 7, 14),
+                               has_known_or_new=True, payment_dates=set())
+check("same-anchor duplicate promise deleted, oldest registration kept",
+      del9e.call_args_list == [mock.call("calZ", "m2")]
+      and [c["event_id"] for c in orch9.state.get_commitments("88@g9")]
+      == ["m1"])
+# A real split plan (same source, DIFFERENT anchors) is never deduped.
+orch9.state.set_commitments("88@g9", [
+    {"event_id": "s1", "anchor_date": "2026-07-20", "source_type": "status",
+     "origin_month": "2026-07", "covers_rent_month": "2026-07",
+     "calendar_id": "calZ"},
+    {"event_id": "s2", "anchor_date": "2026-07-27", "source_type": "status",
+     "origin_month": "2026-07", "covers_rent_month": "2026-07",
+     "calendar_id": "calZ"},
+])
+live25e = [{"id": "s1", "start": {"date": "2026-07-20"}},
+           {"id": "s2", "start": {"date": "2026-07-27"}}]
+with mock.patch.object(orch9.gcal, "find_all_events_by_type",
+                       return_value=live25e), \
+     mock.patch.object(orch9.gcal, "delete_event") as del9f, \
+     mock.patch.object(orch9.gcal, "update_commitment_event",
+                       return_value="2026-07-20"):
+    orch9._process_commitments("88@g9", "calZ", unit88, _date(2026, 7, 14),
+                               has_known_or_new=True, payment_dates=set())
+check("split plan on different dates untouched by the dedupe",
+      not del9f.called
+      and len(orch9.state.get_commitments("88@g9")) == 2)
+orch9.state.set_commitments("88@g9", [])
+
+# Mirror hardening: the sibling registry is stale/empty, but the sibling
+# CALENDAR already carries the same-anchor promise → adopt, never insert.
+orch9._groups_by_oid["88"] = [("g9", "calZ"), ("gX", "calX")]
+orch9.state.set_commitments("88@gX", [])
+sib_live = [{"id": "mx1", "start": {"date": "2026-07-28"},
+             "extendedProperties": {"private":
+                                    {"okpm_source_type": "status"}}}]
+_commit25 = {"event_id": "cm0", "anchor_date": "2026-07-28",
+             "source_type": "status", "origin_month": "2026-07",
+             "calendar_id": "calZ", "covers_rent_month": "2026-07"}
+ins_before = orch9.gcal.service.events.return_value.insert.call_count
+with mock.patch.object(orch9.gcal, "find_all_events_by_type",
+                       return_value=sib_live):
+    orch9._mirror_commitment_to_siblings("88", _commit25, unit88,
+                                         _date(2026, 7, 14))
+check("mirror adopts an existing same-anchor sibling event (stale registry)",
+      orch9.gcal.service.events.return_value.insert.call_count == ins_before
+      and [c["event_id"] for c in orch9.state.get_commitments("88@gX")]
+      == ["mx1"])
+orch9.state.set_commitments("88@gX", [])
+orch9._groups_by_oid.pop("88", None)
+
 print("\n=== 26. Surplus payment-event cleanup (collapse + leak fix) ===")
 orch9.state.set("90@g9", "2026-07", {"calendar_id": "calY",
                                      "nsf_event_ids": ["n1"]})
