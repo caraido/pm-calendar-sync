@@ -357,7 +357,13 @@ def resolve_collapse_transition(prior: Optional[dict],
     payments[:collapse_baseline]).
 
     Transition table (pd = live past_due, baseline = the settled snapshot):
-      any        pd <= 0                          → COLLAPSED  (snapshot := all live rows)
+      any        pd < 0, or pd <= 0 with live
+                 rows                             → COLLAPSED  (snapshot := all live rows)
+      any        pd == 0, NO live rows            → expanded   (never collapses: this is
+                 the pre-charge 1st-of-month gap — AppFolio posts the month's charges
+                 hours into the 1st, so pd reads 0 for tenants who simply haven't been
+                 charged yet; renders a plain ✅ Paid status event that self-corrects
+                 via data_changed the moment the charge posts)
       expanded   pd > 0                           → expanded
       c/f/r      pd > 0, a settled row vanished
                  or bounced (NSF)                 → expanded   (REVERT — NSF un-collapse)
@@ -368,11 +374,20 @@ def resolve_collapse_transition(prior: Optional[dict],
       collapsed with an EMPTY baseline (pure-prepaid month) + a new payment
                  → plain expanded (nothing settled to retire into history).
 
-    Returns {state, settled_rows, fresh, transitioned, reverted}:
+    SELF-HEAL: a prior c/f/r whose snapshot resolves EMPTY (after the legacy
+    collapse_baseline fallback) with settled_past_due >= 0 (or missing) never
+    settled anything — it is the 1st-of-month artifact above, persisted by
+    pre-fix code.  The prior state is discarded (evaluated from scratch) and
+    `transitioned` is forced True so the bogus settled event is rebuilt
+    exactly once.  A genuine pure-prepaid settlement carries
+    settled_past_due < 0 and is preserved.
+
+    Returns {state, settled_rows, fresh, transitioned, reverted, healed}:
       settled_rows — snapshot to persist (list of live row dicts);
       fresh        — live rows outside the snapshot (reactivated tracking);
       transitioned — state or snapshot size changed (forces an event rebuild);
-      reverted     — a collapse was undone this run (baseline broken).
+      reverted     — a collapse was undone this run (baseline broken);
+      healed       — a bogus empty-snapshot settlement was discarded this run.
     """
     prior = prior or {}
     prior_state = prior.get("collapse_state")
@@ -385,6 +400,15 @@ def resolve_collapse_transition(prior: Optional[dict],
         except (TypeError, ValueError):
             n = 0
         settled_rows = list((prior.get("payments") or [])[:n])
+    # SELF-HEAL: an empty snapshot with settled_past_due >= 0 (or missing)
+    # is not a settlement — nothing was ever paid and no credit existed
+    # (a genuine pure-prepaid freeze carries settled_past_due < 0).
+    healed = False
+    if (prior_state is not None and not settled_rows
+            and (prior.get("settled_past_due") or 0) >= 0):
+        prior_state = None
+        healed = True
+
     prior_size = len(settled_rows) if prior_state else 0
 
     def _result(state, snapshot, fresh, reverted):
@@ -392,12 +416,18 @@ def resolve_collapse_transition(prior: Optional[dict],
             "state":        state,
             "settled_rows": snapshot,
             "fresh":        fresh,
-            "transitioned": (state != prior_state
+            # `healed` forces the rebuild: with the prior discarded, state
+            # and snapshot size both compare equal (None==None, 0==0) and
+            # the orchestrator's date/data change gates are False too, so
+            # nothing else would repaint the bogus settled event.
+            "transitioned": (healed
+                             or state != prior_state
                              or len(snapshot) != prior_size),
             "reverted":     reverted,
+            "healed":       healed,
         }
 
-    if past_due <= 0:
+    if past_due <= 0 and (live_payments or past_due < 0):
         return _result("collapsed", list(live_payments), [], False)
 
     if prior_state is None:

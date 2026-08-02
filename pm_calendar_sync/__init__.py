@@ -30,12 +30,17 @@ AppFolio PROPERTY GROUP.
 
   SETTLED-MONTH COLLAPSE (replaces the old grey muting; pre-deploy months
   keep their frozen grey events):
-    The moment past_due <= 0, the month consolidates into ONE event — green
-    (balance 0) / pink (credit) — on the LAST payment date; every payment
-    event is deleted and the settled event's description itemises the full
-    payment history and promise history.  A later advance payment re-anchors
-    it (stays collapsed).  Per-month state machine (month entry
-    collapse_state, owned by transforms.resolve_collapse_transition):
+    The moment past_due <= 0 — with at least one live payment row, or a
+    strict credit (past_due < 0) — the month consolidates into ONE event —
+    green (balance 0) / pink (credit) — on the LAST payment date; every
+    payment event is deleted and the settled event's description itemises
+    the full payment history and promise history.  A later advance payment
+    re-anchors it (stays collapsed).  An exact 0.0 with NO payment rows
+    never collapses: that is the pre-charge 1st-of-month gap (AppFolio
+    posts charges hours into the 1st), rendered as a plain ✅ Paid status
+    event that flips red when the charge posts.  Per-month state machine
+    (month entry collapse_state, owned by
+    transforms.resolve_collapse_transition):
       COLLAPSED   → the settled single-event display above.
       FROZEN      : a charge posts after settlement with no new payment —
                     the settled event is left untouched (the balance shows
@@ -55,6 +60,15 @@ AppFolio PROPERTY GROUP.
                     reconstructed "ghost" event when the row vanished).  A
                     reversal against an already-rolled-over settled month
                     un-collapses that prior month from stored state.
+      HEALED      : a prior c/f/r whose settled snapshot is EMPTY with
+                    settled_past_due >= 0 (or missing) never settled
+                    anything (the pre-charge gap artifact, persisted by
+                    pre-fix code) — the prior state is discarded and
+                    `transitioned` is forced True so the bogus settled
+                    event is rebuilt exactly once.  settled_past_due < 0
+                    marks a genuine pure-prepaid settlement and is
+                    preserved.  Current month only — rolled-over months
+                    are healed solely via _uncollapse_prior_month.
 
 ─── Future-month model ──────────────────────────────────────────────────────
   PLACEHOLDER   : frozen event on the 1st. Unfrozen only for next month when
@@ -136,7 +150,11 @@ STATE ADDITIONS:
     collapse_state       — None | "collapsed" | "frozen" | "reactivated"
     collapse_baseline    — number of settled rows retired into history
     settled_rows         — snapshot of those rows (same shape as payments)
-    settled_past_due     — past_due at (re-)collapse (0 or the credit)
+    settled_past_due     — past_due at (re-)collapse (0 or the credit);
+                           doubles as the genuine-prepaid discriminator:
+                           < 0 with an empty settled_rows = real prepaid
+                           freeze, >= 0 with an empty settled_rows = bogus
+                           (healed on sight by resolve_collapse_transition)
     settled_on           — ISO date the month (re-)settled
     promise_history      — [{event_id, anchor_date, source_type,
                              origin_month, covers_rent_month,

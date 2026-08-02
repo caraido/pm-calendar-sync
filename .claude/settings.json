@@ -76,7 +76,15 @@
       "Bash(python -m py_compile pm_calendar_sync/orchestrator.py pm_calendar_sync/transforms.py smoke_test.py)",
       "Bash(PYTHONUTF8=1 python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\4e3c3b38-fdf4-4dce-bf72-8dd5cad5f709\\\\scratchpad\\\\fixcheck.py\")",
       "Bash(echo \"smoke exit=$?\")",
-      "Bash(git commit -q -m ' *)"
+      "Bash(git commit -q -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh auth *)",
+      "Bash(gh workflow *)",
+      "Bash(gh run *)",
+      "Bash(echo \"watch exit=$?\")",
+      "PowerShell(git fetch origin main 2>$null)",
+      "PowerShell(python \"C:\\\\Users\\\\Owner\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Repos-pm-calendar-sync\\\\5cf3bee4-52f8-4868-a923-cff77dd0d4f1\\\\scratchpad\\\\trace_aug.py\")",
+      "PowerShell(git pull --ff-only origin main)"
     ],
     "additionalDirectories": [
       "\\tmp"

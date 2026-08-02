@@ -947,7 +947,8 @@ t = rct(prior23, [rows23[0], {**rows23[1], "is_nsf": True}], 700.0)
 check("settled row reappears NSF-flagged -> collapse REVERTED",
       t["state"] is None and t["reverted"])
 prepaid_prior = {"collapse_state": "collapsed", "collapse_baseline": 0,
-                 "settled_rows": [], "payments": []}
+                 "settled_rows": [], "payments": [],
+                 "settled_past_due": -50.0}
 check("pure-prepaid month: charge alone freezes, a payment expands",
       rct(prepaid_prior, [], 60.0)["state"] == "frozen"
       and rct(prepaid_prior, [rows23[0]], 60.0)["state"] is None
@@ -971,6 +972,38 @@ check("reactivated fresh rows all vanished -> returns to frozen (canonical)",
 check("legacy fallback: settled_rows absent -> payments[:baseline]",
       rct({"collapse_state": "collapsed", "collapse_baseline": 2,
            "payments": rows23}, rows23, 50.0)["state"] == "frozen")
+# Zero-payment collapse gate + bogus-settlement self-heal (the Aug-1
+# rollover bug: pd reads 0.0 before AppFolio posts the month's charges).
+t = rct(None, [], 0.0)
+check("zero-payment month at pd==0 never collapses (pre-charge gap)",
+      t["state"] is None and not t["transitioned"] and not t["healed"])
+t = rct(None, [], -25.0)
+check("zero-payment month with strict credit still collapses",
+      t["state"] == "collapsed" and t["settled_rows"] == [])
+bogus23 = {"collapse_state": "frozen", "collapse_baseline": 0,
+           "settled_rows": [], "payments": [],
+           "settled_past_due": 0.0, "settled_on": "2026-08-01"}
+t = rct(bogus23, [], 1400.0)
+check("bogus empty settlement HEALS: expanded, forced transition, not revert",
+      t["state"] is None and t["transitioned"] and t["healed"]
+      and not t["reverted"])
+t = rct({**bogus23, "collapse_state": "collapsed"}, [], 1400.0)
+check("bogus 'collapsed' prior heals identically",
+      t["state"] is None and t["transitioned"] and t["healed"])
+t = rct({**bogus23, "settled_past_due": -200.0}, [], 1400.0)
+check("genuine prepaid prior (settled_past_due<0) untouched by the heal",
+      t["state"] == "frozen" and not t["healed"] and not t["transitioned"])
+t = rct({"collapse_state": "frozen", "settled_rows": [], "payments": []},
+        [], 700.0)
+check("missing settled_past_due heals without TypeError",
+      t["state"] is None and t["healed"] and t["transitioned"])
+t = rct({"collapse_state": "collapsed", "collapse_baseline": 2,
+         "payments": rows23, "settled_past_due": 0.0}, rows23, 50.0)
+check("legacy baseline fallback beats the empty-snapshot heal check",
+      t["state"] == "frozen" and not t["healed"])
+t = rct({"collapse_state": None, "past_due": 1400.0}, [], 1400.0)
+check("healed state is steady next run (no write churn)",
+      t["state"] is None and not t["transitioned"] and not t["healed"])
 
 print("\n=== 24. Settled-month event + day-group builders ===")
 unit24 = {**unit_fx, "past_due": 0.0, "amount_paid": 1400.0}
