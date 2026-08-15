@@ -90,6 +90,24 @@ class StateManager:
         One-time migration markers; "group_cutover_v1" gates the cutover in
         run() and the fast-path bail-outs in run_update()/run_submit().
 
+    Departed-occupancy lifecycle (Aug 2026):
+      state.data["_departed_pending"][bare_oid] = {
+        first_missing_at : ISO date of the first live-roll run missing it
+        last_row         : the oid's final rent_roll row (from the previous
+                           snapshot) — None when it wasn't captured in time
+        unit_id, scopes  : attribution hints for the cleanup
+        backlog          : True for pre-deploy departures (breaker-exempt,
+                           gated by the departed_backlog_v1 migration)
+      }
+        Flagged on any live-roll run; cleared if the oid reappears.  The
+        nightly confirms each against BOTH live reports (rent_roll AND
+        tenant_directory) before cleaning.
+      state.data["_departed"][bare_oid] = {cleaned_at, move_out_date,
+        scopes, months_purged, events_deleted, events_kept,
+        marker_event_ids}
+        Post-cleanup audit — counts only, never notes; git history of
+        state.json is the archive of the purged month entries.
+
     Soids (state month keys "{soid}_{YYYY-MM}" and _commitments keys) are
     scoped "{occupancy_id}@g{group_id}" since the cutover; legacy
     "{occupancy_id}@{owner_id}" entries were purged by it (git history of
@@ -121,6 +139,10 @@ class StateManager:
             self.data["_retired_calendars"] = {}
         if "_migrations" not in self.data:
             self.data["_migrations"] = {}
+        if "_departed_pending" not in self.data:
+            self.data["_departed_pending"] = {}
+        if "_departed" not in self.data:
+            self.data["_departed"] = {}
 
     def _key(self, oid: str, month: str) -> str:
         return f"{oid}_{month}"
@@ -182,6 +204,44 @@ class StateManager:
             log.info(f"  Purged {len(dead_months)} legacy month entr(y/ies) "
                      f"and {len(dead_comms)} legacy commitment key(s)")
         return purged
+
+    # ── Departed-occupancy helpers ────────────────────────────────────────────
+
+    _SOID_MONTH_KEY = re.compile(r"^(\d+)@(g\d+)_(\d{4}-\d{2})$")
+    _SOID_COMM_KEY  = re.compile(r"^(\d+)@(g\d+)$")
+
+    def scoped_months(self, soid: str) -> list[tuple[str, str]]:
+        """[(month, full_key)] for one soid's month entries, sorted by month
+        (prefix scan over the flat key space)."""
+        prefix = f"{soid}_"
+        out = [(k[len(prefix):], k) for k in self.data
+               if k.startswith(prefix) and self._SOID_MONTH_KEY.match(k)]
+        out.sort()
+        return out
+
+    def purge_soid_months(self, soid: str) -> int:
+        """Delete every month entry of one soid (the events were already
+        handled by the caller); returns the count.  Git history of
+        state.json is the archive — same contract as
+        purge_legacy_owner_entries."""
+        keys = [k for _, k in self.scoped_months(soid)]
+        for k in keys:
+            del self.data[k]
+        return len(keys)
+
+    def known_occupancy_scopes(self) -> dict[str, set]:
+        """bare oid → {"g2", ...} from month keys AND _commitments keys —
+        every occupancy this state file still tracks anywhere."""
+        scopes: dict[str, set] = {}
+        for k in self.data:
+            m = self._SOID_MONTH_KEY.match(k)
+            if m:
+                scopes.setdefault(m.group(1), set()).add(m.group(2))
+        for k in self.data["_commitments"]:
+            m = self._SOID_COMM_KEY.match(k)
+            if m and self.data["_commitments"][k]:
+                scopes.setdefault(m.group(1), set()).add(m.group(2))
+        return scopes
 
     # ── Commitment helpers ────────────────────────────────────────────────────
 

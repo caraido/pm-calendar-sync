@@ -26,6 +26,11 @@ DEFAULT_LEASE_MONTHS        = int(os.environ.get("DEFAULT_LEASE_MONTHS", 12))
 FORCE_REFRESH               = os.environ.get("FORCE_REFRESH", "").lower() == "true"
 COMMITMENT_LOOKAHEAD_MONTHS = int(os.environ.get("COMMITMENT_LOOKAHEAD_MONTHS", 3))
 TIMEZONE                    = os.environ.get("TIMEZONE", "America/Chicago")
+# Mass-vanish circuit breaker for the departed-occupancy pass: if MORE than
+# this many non-backlog occupancies confirm as departed in one nightly, the
+# cleanup defers entirely (a truncated rent_roll pull or a bulk portfolio
+# change should wait for a human, not delete hundreds of events).
+DEPARTED_MAX_PER_RUN        = int(os.environ.get("DEPARTED_MAX_PER_RUN", 10))
 
 STATE_FILE       = Path("state.json")
 CALENDAR_PREFIX  = "OKPM"

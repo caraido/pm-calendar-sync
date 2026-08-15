@@ -1,6 +1,6 @@
 """Pure data transforms and value helpers (no network or calendar I/O)."""
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from .config import COMMITMENT_DIVIDER, LATE_GRACE_DAYS
@@ -85,6 +85,182 @@ def parse_commitment_auto_section(description: str) -> Optional[dict]:
         "source_type":  source_type,
         "auto_section": auto_section,
     }
+
+
+# Summary emojis every sync builder can emit (status/settled/payment/
+# placeholder/ghost/commitment).  📦 (moved_out markers) is deliberately
+# absent: a copy of a marker must never be adopted as a promise.
+_SYNC_EMOJIS = ("✅", "🩷", "🟡", "🔴", "⚪")
+
+# Month+year line present in status/settled/placeholder bodies — the only
+# origin-month signal a tag-stripped placeholder copy still carries.
+_LATE_AFTER_RE = re.compile(r"^Late After:\s+(.+)$", re.M)
+_TENANT_LINE_RE = re.compile(r"^Tenant\(s\)?:\s+(.+)$", re.M)
+
+
+def _late_after_month(description: str) -> Optional[str]:
+    """'YYYY-MM' from the body's 'Late After:   %b %d, %Y' line (the late
+    date is always inside the event's own month), or None when missing or
+    mangled — the caller warns + skips, never guesses."""
+    m = _LATE_AFTER_RE.search(description or "")
+    if not m:
+        return None
+    try:
+        parsed = datetime.strptime(m.group(1).strip(), "%b %d, %Y")
+    except ValueError:
+        return None
+    return parsed.strftime("%Y-%m")
+
+
+def classify_sync_copy(summary: str, description: str) -> Optional[dict]:
+    """
+    Classify an UNTAGGED Calendar-UI copy of a sync-built event.  The UI
+    strips extendedProperties.private on copy, so the body shape is all
+    that is left to type the copy by.  Returns None for anything not
+    strictly sync-styled (PM personal events are never touched), else:
+      kind             "commitment" | "status" | "settled_status" |
+                       "payment" | "nsf_ghost" | "placeholder"
+      source_type      promise source the adopted commitment gets
+                       ("status" | "payment" | "kickstart"); None for
+                       kind="commitment" — the caller re-parses the auto
+                       section (its Source: line is authoritative there)
+      tenant           normalized tenant (summary field 2, falling back to
+                       the body's Tenant(s):/Tenant: line); None if absent
+      late_after_month "YYYY-MM" (placeholder kind only) — the month the
+                       copied placeholder belonged to; None when mangled
+
+    Shape discriminators are pinned to the builders in calendar_manager
+    (payment header "Payment N of M in <Month>" vs the status event's
+    first-group header "Payment 1 of N" without "in"; a placeholder body
+    has Outstanding: but never "No payments received yet.").
+    """
+    summary = summary or ""
+    description = description or ""
+    if COMMITMENT_DIVIDER in description:
+        return {"kind": "commitment", "source_type": None,
+                "tenant": None, "late_after_month": None}
+
+    fields = [f.strip() for f in summary.split(" · ")]
+    if len(fields) < 3 or fields[0] not in _SYNC_EMOJIS:
+        return None
+
+    tenant = fields[1] or None
+    if not tenant:
+        m = _TENANT_LINE_RE.search(description)
+        if m:
+            tenant = normalize_tenant_name(m.group(1).split(",")[0].strip())
+
+    first_line = description.split("\n", 1)[0].strip()
+    kind = None
+    if first_line == "Reversed payment (NSF)":
+        kind, source = "nsf_ghost", "payment"
+    elif re.match(r"^Payment \d+ of \d+ in \S+", first_line):
+        kind, source = "payment", "payment"
+    elif ("Tenant(s):" in description and "Monthly Rent:" in description):
+        if "Settled:" in description or "Payment history (" in description:
+            kind, source = "settled_status", "status"
+        elif ("No payments received yet." in description
+                or "Received in " in description
+                or re.search(r"^Payment 1 of \d+", description, re.M)):
+            kind, source = "status", "status"
+        elif "Outstanding:" in description:
+            kind, source = "placeholder", "kickstart"
+    if kind is None:
+        return None
+    return {
+        "kind":             kind,
+        "source_type":      source,
+        "tenant":           tenant,
+        "late_after_month": (_late_after_month(description)
+                             if kind == "placeholder" else None),
+    }
+
+
+def parse_sync_event_identity(summary: str, location: str = "") -> dict:
+    """
+    {tenant, unit_label, property_name, address} recovered from a
+    sync-styled summary "emoji · tenant · [Unit X · ]property · <tail>" plus
+    the event's location field.  Missing pieces come back "" — used by the
+    departed-occupancy pass when no rent-roll row survives to describe the
+    tenant, so best-effort by design.
+    """
+    fields = [f.strip() for f in (summary or "").split(" · ")]
+    tenant = fields[1] if len(fields) > 1 else ""
+    unit = prop = ""
+    if len(fields) > 2:
+        if fields[2].lower().startswith("unit") and len(fields) > 3:
+            unit, prop = fields[2], fields[3]
+        else:
+            prop = fields[2]
+    return {"tenant": tenant, "unit_label": unit,
+            "property_name": prop, "address": (location or "").strip()}
+
+
+def active_rows(rent_roll: list[dict]) -> list[dict]:
+    """Rows with a live occupancy — the sweep's unit universe.
+
+    Keyed on occupancy_id presence, NOT status == "Current": Notice-*
+    tenants still occupy (and pay) through their move-out date and must
+    keep syncing until they leave the roll entirely.  Vacant-* rows carry
+    no occupancy_id and are the departure signal, never sync input.
+    """
+    return [r for r in rent_roll if r.get("occupancy_id")]
+
+
+def resolve_lease_horizon(lease_to: str, move_out: str,
+                          due_date: date, default_months: int) -> date:
+    """
+    Horizon for the future-placeholder loop: lease_to (falling back to
+    due_date + default_months when absent/mangled — the historical
+    behaviour), then capped at move_out when AppFolio has one (a tenant on
+    notice stops accruing expected rent after their move-out month).  The
+    cap applies AFTER the fallback so a Notice row with no lease_to still
+    gets it.
+    """
+    try:
+        lease_end = date.fromisoformat(lease_to)
+    except (TypeError, ValueError):
+        m = due_date.month + default_months
+        y = due_date.year + (m - 1) // 12
+        m = ((m - 1) % 12) + 1
+        lease_end = date(y, m, 1)
+    if move_out:
+        try:
+            lease_end = min(lease_end, date.fromisoformat(move_out))
+        except (TypeError, ValueError):
+            pass
+    return lease_end
+
+
+def resolve_status_suppression(commitments: list[dict], this_month: str,
+                               has_payments: bool,
+                               tracked_status_id: Optional[str]) -> dict:
+    """
+    Should the current month's status event be suppressed because a
+    commitment covers the month?  Pure decision — one home so the sweep,
+    submit mode, and the tests agree.
+
+      covered          any commitment covers this_month
+      kickstart_covers the cover includes a kickstart (origin or covers)
+      suppress         creation-only suppression: True when covered with
+                       no payments AND either a kickstart covers the month
+                       (legacy transition semantics) or there is no tracked
+                       status event left (it was dragged away / consumed).
+                       A live UNMOVED original under a copy-created promise
+                       is never suppressed (Q9): the PM deliberately left
+                       it in place, so it keeps updating alongside the
+                       promise events.
+    """
+    kickstart_covers = any(
+        c.get("source_type") == "kickstart"
+        and this_month in (c.get("origin_month"), c.get("covers_rent_month"))
+        for c in commitments)
+    covered = kickstart_covers or any(
+        c.get("covers_rent_month") == this_month for c in commitments)
+    suppress = (covered and not has_payments
+                and (kickstart_covers or not tracked_status_id))
+    return {"covered": covered, "kickstart_covers": kickstart_covers,
+            "suppress": suppress}
 
 
 def build_owner_property_map(owners: list[dict]) -> dict:
@@ -236,11 +412,13 @@ def diff_rent_roll(cached_rows: Optional[list[dict]], fresh_rows: list[dict],
                    eps: float = 0.005) -> set:
     """
     Bare occupancy_ids (str) whose money moved since the cached snapshot —
-    the unit scope for update mode.  Only status=="Current" rows compared.
+    the unit scope for update mode.  Rows with an occupancy_id compared
+    (Current and Notice-* alike — same universe as active_rows; Vacant rows
+    carry no occupancy_id).
 
     Changed = |past_due delta| > eps, rent changed (> eps), or the oid is
     absent from the snapshot (new lease).  cached_rows=None → every fresh
-    Current oid (bootstrap: no baseline yet).
+    active oid (bootstrap: no baseline yet).
 
     Values are float-coerced the same way _make_unit coerces them, so None /
     string variance in the raw report can never false-positive.
@@ -251,12 +429,12 @@ def diff_rent_roll(cached_rows: Optional[list[dict]], fresh_rows: list[dict],
         except (TypeError, ValueError):
             return 0.0
 
-    fresh_current = [r for r in fresh_rows if r.get("status") == "Current"]
+    fresh_current = active_rows(fresh_rows)
     if cached_rows is None:
         return {str(r.get("occupancy_id")) for r in fresh_current}
 
     old = {str(r.get("occupancy_id")): r
-           for r in cached_rows if r.get("status") == "Current"}
+           for r in active_rows(cached_rows)}
     changed = set()
     for r in fresh_current:
         oid  = str(r.get("occupancy_id"))

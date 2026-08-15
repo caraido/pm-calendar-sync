@@ -327,17 +327,20 @@ class GoogleCalendarManager:
                 break
         return items
 
-    def list_all_events(self, calendar_id: str) -> dict:
+    def list_all_events(self, calendar_id: str) -> tuple[dict, list]:
         """
-        EVERY okpm-tagged event on the calendar, grouped by bare occupancy_id
-        (oid → list of event bodies).  One paginated events().list with NO
-        extended-property filter and NO time bounds: submit mode uses the
-        result both as its event index and as its "is this event gone?"
-        oracle, and _process_commitments treats a commitment missing from its
-        listing as PM-deleted — a time window here would resurrect or
-        duplicate out-of-window promises.  Untagged events are skipped.
+        EVERY event on the calendar as (by_oid, untagged): okpm-tagged events
+        grouped by bare occupancy_id, plus the untagged remainder (PM
+        copy-paste copies — the Calendar UI strips extendedProperties.private
+        — and any personal events, which the adoption classifier ignores).
+        One paginated events().list with NO extended-property filter and NO
+        time bounds: submit mode uses by_oid both as its event index and as
+        its "is this event gone?" oracle, and _process_commitments treats a
+        commitment missing from its listing as PM-deleted — a time window
+        here would resurrect or duplicate out-of-window promises.
         """
         by_oid: dict = {}
+        untagged: list = []
         page_token = None
         while True:
             resp = _gcal_execute(self.service.events().list(
@@ -352,35 +355,38 @@ class GoogleCalendarManager:
                        .get("okpm_occupancy_id"))
                 if oid:
                     by_oid.setdefault(str(oid), []).append(ev)
+                else:
+                    untagged.append(ev)
             page_token = resp.get("nextPageToken")
             if not page_token:
                 break
-        return by_oid
+        return by_oid, untagged
 
-    def find_untagged_commitment_copies(self, calendar_id: str) -> list[dict]:
+    def find_untagged_sync_candidates(self, calendar_id: str) -> list[dict]:
         """
-        PM copy-pasted commitment copies.  The Calendar UI strips
-        extendedProperties.private on copy, so every okpm_* locator is blind
-        to them and they freeze (never updated, never resolved).  One q=
-        free-text search per calendar ("AUTO-SYNCED" is a substring of
-        COMMITMENT_DIVIDER — live-validated), then a client-side filter:
-        divider present in the description AND okpm_occupancy_id absent.
-        Adoption re-tags the copies, so they self-exclude from the next scan
+        Untagged events — adoption-scan input.  The Calendar UI strips
+        extendedProperties.private on copy, so PM copies of ANY sync event
+        (commitment, status, payment, placeholder, NSF ghost) are blind to
+        every okpm_* locator and freeze at the copied body.  One paginated
+        UNFILTERED listing per calendar (a q= narrowing can't help: only
+        commitment bodies carry the AUTO-SYNCED divider), client-filtered to
+        events with no okpm_occupancy_id.  Classification (and the guard
+        that leaves PM personal events alone) lives in
+        transforms.classify_sync_copy — this is a pure listing.  Adoption
+        re-tags the copies, so they self-exclude from the next scan
         (idempotent by construction).
         """
         copies, page_token = [], None
         while True:
             resp = _gcal_execute(self.service.events().list(
                 calendarId=calendar_id,
-                q="AUTO-SYNCED",
                 showDeleted=False,
-                maxResults=250,
+                maxResults=2500,
                 pageToken=page_token,
             ))
             for ev in resp.get("items", []):
-                desc  = ev.get("description") or ""
                 props = ev.get("extendedProperties", {}).get("private", {})
-                if COMMITMENT_DIVIDER in desc and not props.get("okpm_occupancy_id"):
+                if not props.get("okpm_occupancy_id"):
                     copies.append(ev)
             page_token = resp.get("nextPageToken")
             if not page_token:
@@ -1151,6 +1157,38 @@ class GoogleCalendarManager:
             }},
         }
 
+    def _build_moved_out_event(self, identity: dict, anchor_iso: str,
+                               moved_line: str, cleaned_date: date) -> dict:
+        """One neutral marker per calendar for a departed occupancy.  NO
+        balance figure anywhere: once the tenant leaves the roll AppFolio
+        shows us nothing, so any number would be a stale claim — the
+        description points at AppFolio instead."""
+        unit_part = (f"{identity['unit_label']} · "
+                     if identity.get("unit_label") else "")
+        prop = identity.get("property_name") or identity.get("address") or ""
+        title = (f"📦 · {identity.get('tenant') or 'Unknown tenant'} · "
+                 f"{unit_part}{prop} · moved out")
+        desc = [
+            moved_line,
+            f"Events cleaned: {cleaned_date.strftime('%b %d, %Y')}",
+            "Final ledger lives in AppFolio.",
+        ]
+        if identity.get("note"):
+            desc.append(identity["note"])
+        return {
+            "summary":     title,
+            "location":    identity.get("address", ""),
+            "description": "\n".join(desc),
+            "start":       {"date": anchor_iso},
+            "end":         {"date": _next_day(anchor_iso)},
+            "colorId":     COLOR_SETTLED,   # graphite — neutral, non-status
+            "extendedProperties": {"private": {
+                "okpm_occupancy_id": str(identity.get("occupancy_id", "")),
+                "okpm_month":        anchor_iso[:7],
+                "okpm_event_type":   "moved_out",
+            }},
+        }
+
     # ── Event find / upsert / delete ─────────────────────────────────────────
     # All Google API calls below use _gcal_execute() for retry on rate limits.
 
@@ -1207,13 +1245,14 @@ class GoogleCalendarManager:
         items = result.get("items", [])
         return items[0]["id"] if items else None
 
-    def find_month_payment_events(
+    def find_month_events(
         self, calendar_id: str, occupancy_id: str, month: str,
+        event_type: str,
     ) -> list[dict]:
-        """All of a unit's payment-typed events for one month, FULL bodies —
-        numeric-idx markers, nsf-retagged flips, and "nsfg" ghosts alike.
-        Feeds the surplus cleanup so strays are discoverable even when state
-        lost their ids (deep-clean runs only; not part of the hourly path)."""
+        """All of a unit's events of one type for one month, FULL bodies
+        (paginated extended-property query).  Bodies, not just ids, so the
+        covered-month cleanup can compare live starts before deleting — an
+        event mid-drag must be left for drag detection, never deleted."""
         search_oid = (occupancy_id.split("@")[0]
                       if "@" in occupancy_id else occupancy_id)
         items, page_token = [], None
@@ -1223,7 +1262,7 @@ class GoogleCalendarManager:
                 privateExtendedProperty=[
                     f"okpm_occupancy_id={search_oid}",
                     f"okpm_month={month}",
-                    "okpm_event_type=payment",
+                    f"okpm_event_type={event_type}",
                 ],
                 maxResults=250, pageToken=page_token,
             ))
@@ -1232,6 +1271,16 @@ class GoogleCalendarManager:
             if not page_token:
                 break
         return items
+
+    def find_month_payment_events(
+        self, calendar_id: str, occupancy_id: str, month: str,
+    ) -> list[dict]:
+        """All of a unit's payment-typed events for one month, FULL bodies —
+        numeric-idx markers, nsf-retagged flips, and "nsfg" ghosts alike.
+        Feeds the surplus cleanup so strays are discoverable even when state
+        lost their ids (deep-clean runs only; not part of the hourly path)."""
+        return self.find_month_events(
+            calendar_id, occupancy_id, month, "payment")
 
     def _update_or_create(
         self, calendar_id: str, event_id: Optional[str], body: dict,

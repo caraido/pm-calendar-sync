@@ -9,7 +9,7 @@ from googleapiclient.errors import HttpError
 from .config import (
     FORCE_REFRESH, RENT_DUE_DAY, DEFAULT_LEASE_MONTHS,
     COMMITMENT_LOOKAHEAD_MONTHS, TIMEZONE, LATE_GRACE_DAYS,
-    COMMITMENT_DIVIDER, log,
+    COMMITMENT_DIVIDER, DEPARTED_MAX_PER_RUN, log,
 )
 from .status import (
     classify_status, payment_status,
@@ -21,6 +21,8 @@ from .transforms import (
     diff_rent_roll, format_address, parse_commitment_auto_section,
     unit_label, group_scope_key, group_display_name, _next_day,
     group_payments_by_day, resolve_collapse_transition,
+    active_rows, classify_sync_copy, parse_sync_event_identity,
+    resolve_lease_horizon, resolve_status_suppression,
 )
 from .appfolio import AppFolioClient
 from .calendar_manager import GoogleCalendarManager, _gcal_execute
@@ -78,6 +80,15 @@ class SyncOrchestrator:
         due_date   = date(today.year, today.month, RENT_DUE_DAY)
         log.info(f"  Timezone: {TIMEZONE}, local date: {today}")
 
+        # The PREVIOUS run's rent_roll snapshot — read before anything can
+        # overwrite it (_save_rent_roll_snapshot at the end of the sweep).
+        # It is the only surviving record of a just-departed tenant's last
+        # row (vacant rows carry no occupancy_id).
+        prev_snap = cache.load_json(cache.RENT_ROLL_FILE)
+        prev_rows = prev_snap.get("rows") if prev_snap else None
+        if not isinstance(prev_rows, list):
+            prev_rows = None
+
         log.info("Fetching rent_roll...")
         rent_roll = self.af.get_rent_roll()
         tenants, groups = self._load_directories(mode)
@@ -89,20 +100,21 @@ class SyncOrchestrator:
         tenant_info   = build_tenant_info_map(tenants)
         payment_map   = build_payment_map(ledger)
         reversal_map  = build_reversal_map(ledger)
-        active        = [r for r in rent_roll if r.get("status") == "Current"]
+        active        = active_rows(rent_roll)
         log.info(f"  {len(active)} active leases, {len(payment_map)} with payments this month")
         if reversal_map:
             log.info(f"  {sum(len(v) for v in reversal_map.values())} NSF/negative "
                      f"reversal row(s) in the ledger")
 
-        # ── Diagnostic: detect non-Current leases that might be missing ───
-        non_current = [r for r in rent_roll if r.get("status") != "Current"]
-        if non_current:
+        # ── Diagnostic: rows with no live occupancy (vacant units) ────────
+        skipped = [r for r in rent_roll if not r.get("occupancy_id")]
+        if skipped:
             status_counts = {}
-            for r in non_current:
+            for r in skipped:
                 s = r.get("status", "?")
                 status_counts[s] = status_counts.get(s, 0) + 1
-            log.info(f"  Skipped {len(non_current)} non-Current leases: {status_counts}")
+            log.info(f"  Skipped {len(skipped)} rows without an active "
+                     f"occupancy: {status_counts}")
 
         group_rows = self._group_rows_by_property_group(active, prop_to_group)
         if not self.state.migration_done("group_cutover_v1"):
@@ -120,10 +132,11 @@ class SyncOrchestrator:
             # other modes skip it except for a calendar created this very run.
             if mode == "full_nightly" or calendar_id in self.gcal.created_calendar_ids:
                 self.gcal.ensure_pm_access(calendar_id)
-            # Adopt PM copy-paste commitment copies BEFORE the unit loop so
+            # Adopt PM copy-paste copies (commitment splits AND untagged
+            # status/payment/placeholder copies) BEFORE the unit loop so
             # this run's commitment pass treats them as tracked promises.
             try:
-                self._adopt_untagged_commitments(
+                self._adopt_untagged_copies(
                     rows_and_groups, scope_key, calendar_id,
                     tenant_info, payment_map, today)
             except Exception as exc:
@@ -140,6 +153,18 @@ class SyncOrchestrator:
                 except Exception as exc:
                     oid = row.get("occupancy_id", "?")
                     log.error(f"  FAILED unit {oid}: {exc}", exc_info=True)
+
+        # ── Departed occupancies ──────────────────────────────────────────
+        # Flag state-known occupancies missing from the live roll (two-phase:
+        # the nightly confirms against BOTH live reports before cleaning).
+        # Runs BEFORE the snapshot write below so prev_rows still holds a
+        # just-departed tenant's last row.  Never aborts the run.
+        try:
+            self._flag_departures(rent_roll, prev_rows, today)
+            if mode == "full_nightly":
+                self._clean_departed(rent_roll, tenants, today)
+        except Exception as exc:
+            log.error(f"Departure pass failed: {exc}", exc_info=True)
 
         # Snapshot is written AFTER the sweep so a crashed run never advances
         # the update-mode diff baseline past what was actually applied.  (A
@@ -187,6 +212,332 @@ class SyncOrchestrator:
             "refreshed_at": datetime.utcnow().isoformat(),
             "rows":         rent_roll,
         })
+
+    # ── Departed occupancies (move-out lifecycle) ─────────────────────────────
+    # Two-phase: any live-roll run FLAGS state-known occupancies missing from
+    # the roll (capturing their last row while the previous snapshot still
+    # has it); only the nightly CLEANS, and only after the oid is absent from
+    # BOTH freshly pulled reports (rent_roll AND tenant_directory) — one
+    # silently truncated pull must never delete a live tenant's events.
+    # Cleanup keeps settled history (collapsed/frozen months), deletes
+    # everything else, leaves one neutral 📦 marker per calendar (no balance
+    # figure — the final ledger lives in AppFolio), purges the state months
+    # (git history is the archive) and records a counts-only audit.
+
+    def _safe_delete(self, calendar_id: str, event_id: str) -> bool:
+        """delete_event tolerant of 404 as well as 410 — departed cleanup
+        deletes long-stale ids, and "already gone" must never wedge an oid's
+        cleanup.  Returns True when the event existed and was deleted."""
+        if not event_id:
+            return False
+        try:
+            self.gcal.delete_event(calendar_id, event_id)
+            return True
+        except HttpError as e:
+            if e.resp.status == 404:
+                return False
+            raise
+
+    def _flag_departures(self, rent_roll: list, prev_rows: Optional[list],
+                         today: date):
+        """Phase 1 — runs on every mode with a live rent_roll."""
+        roll_oids = {str(r["occupancy_id"]) for r in rent_roll
+                     if r.get("occupancy_id")}
+        pending = self.state.data["_departed_pending"]
+
+        for oid in [o for o in pending if o in roll_oids]:
+            log.info(f"  Departed-pending occupancy {oid} reappeared in the "
+                     f"roll — flag cleared")
+            del pending[oid]
+
+        known   = self.state.known_occupancy_scopes()
+        cleaned = self.state.data["_departed"]
+        prev_by_oid = {str(r["occupancy_id"]): r for r in (prev_rows or [])
+                       if r.get("occupancy_id")}
+        backlog = not self.state.migration_done("departed_backlog_v1")
+        for oid, scopes in sorted(known.items()):
+            if oid in roll_oids or oid in cleaned:
+                continue
+            if oid in pending:
+                # Keep first_missing_at stable; refresh scopes from live state.
+                pending[oid]["scopes"] = sorted(
+                    set(pending[oid].get("scopes") or []) | scopes)
+                continue
+            last_row = prev_by_oid.get(oid)
+            pending[oid] = {
+                "first_missing_at": today.isoformat(),
+                "last_row":         last_row,
+                "unit_id":          (last_row or {}).get("unit_id"),
+                "scopes":           sorted(scopes),
+                "backlog":          backlog,
+            }
+            log.warning(
+                f"  Occupancy {oid} vanished from the rent roll — flagged "
+                f"for departure (scopes {sorted(scopes)}; cleanup after the "
+                f"nightly dual-report confirmation)")
+
+    def _clean_departed(self, rent_roll: list, tenants: list, today: date):
+        """Phase 2 — nightly only (the one mode that pulls the directories
+        live, giving the second independent report)."""
+        roll_oids = {str(r["occupancy_id"]) for r in rent_roll
+                     if r.get("occupancy_id")}
+        dir_oids  = {str(t["occupancy_id"]) for t in tenants
+                     if t.get("occupancy_id")}
+
+        # Post-clean reappearance self-heal: a cleaned oid back in the roll
+        # (eviction reversed / clerical fix) loses its markers; the normal
+        # sweep has already rebuilt the unit as a fresh lease.
+        for oid in [o for o in list(self.state.data["_departed"])
+                    if o in roll_oids]:
+            self._remove_moved_out_markers(
+                oid, self.state.data["_departed"][oid])
+            del self.state.data["_departed"][oid]
+            log.warning(
+                f"  Occupancy {oid} reappeared after departure cleanup — "
+                f"markers removed, audit dropped")
+
+        pending = self.state.data["_departed_pending"]
+        if not pending:
+            return
+        confirmable, awaiting = [], []
+        for oid in sorted(pending):
+            if oid in roll_oids:
+                continue        # cleared by _flag_departures — defensive
+            (awaiting if oid in dir_oids else confirmable).append(oid)
+        for oid in awaiting:
+            log.info(f"  Departed-pending {oid}: still in tenant_directory — "
+                     f"awaiting dual-report confirmation")
+        if not confirmable:
+            return
+
+        backlog = [o for o in confirmable if pending[o].get("backlog")]
+        regular = [o for o in confirmable if not pending[o].get("backlog")]
+        if len(regular) > DEPARTED_MAX_PER_RUN:
+            log.error(
+                f"  DEPARTED circuit breaker: {len(regular)} confirmable "
+                f"departures exceed DEPARTED_MAX_PER_RUN="
+                f"{DEPARTED_MAX_PER_RUN} — deferring cleanup (possible "
+                f"truncated rent_roll; raise the repo variable for one "
+                f"nightly if this is a real bulk change)")
+            regular = []
+
+        known = self.state.known_occupancy_scopes()
+        for oid in backlog + regular:
+            try:
+                self._clean_departed_oid(
+                    oid, pending[oid], known.get(oid, set()), rent_roll,
+                    today)
+            except Exception as exc:
+                log.error(f"  FAILED departed cleanup for occupancy {oid}: "
+                          f"{exc}", exc_info=True)
+
+        if (not self.state.migration_done("departed_backlog_v1")
+                and not any(p.get("backlog") for p in pending.values())):
+            audits = self.state.data["_departed"]
+            self.state.mark_migration_done("departed_backlog_v1", {
+                "cleaned":        len(audits),
+                "months_purged":  sum(a.get("months_purged", 0)
+                                      for a in audits.values()),
+                "events_deleted": sum(a.get("events_deleted", 0)
+                                      for a in audits.values()),
+            })
+            log.info("  departed_backlog_v1 migration complete")
+
+    def _clean_departed_oid(self, oid: str, pending: dict, live_scopes: set,
+                            rent_roll: list, today: date):
+        """Clean one confirmed departure across all its group scopes.
+        Idempotent and resumable: a raise keeps the pending flag and the
+        remaining state, so the next nightly retries exactly what is left;
+        the marker is adopted by tag before any insert."""
+        scopes = sorted(set(pending.get("scopes") or []) | set(live_scopes))
+        if not scopes:
+            log.info(f"  {oid}: departed but no state remains — flag cleared")
+            self.state.data["_departed_pending"].pop(oid, None)
+            return
+        last_row = pending.get("last_row") or {}
+
+        # Move-out date ladder: the captured last row's move_out → the now-
+        # vacant unit row's last_move_out (joined by unit_id) → detection
+        # date with honest wording.
+        move_out = last_row.get("move_out") or None
+        if not move_out and pending.get("unit_id") is not None:
+            for r in rent_roll:
+                if (not r.get("occupancy_id")
+                        and r.get("unit_id") == pending["unit_id"]
+                        and r.get("last_move_out")):
+                    move_out = r["last_move_out"]
+                    break
+        moved_line = anchor_iso = None
+        if move_out:
+            try:
+                moved_line = ("Moved out:    "
+                              + date.fromisoformat(move_out)
+                              .strftime("%b %d, %Y"))
+                anchor_iso = move_out
+            except (TypeError, ValueError):
+                move_out = None
+        if not anchor_iso:
+            detected = pending.get("first_missing_at") or today.isoformat()
+            try:
+                shown = date.fromisoformat(detected).strftime("%b %d, %Y")
+            except (TypeError, ValueError):
+                detected, shown = (today.isoformat(),
+                                   today.strftime("%b %d, %Y"))
+            moved_line = f"Removed from AppFolio (detected {shown})"
+            anchor_iso = detected
+
+        # Identity ladder: last row → a live event body → state-only note.
+        identity = None
+        if last_row:
+            identity = {
+                "tenant":        normalize_tenant_name(
+                    last_row.get("tenant", "")),
+                "unit_label":    unit_label(last_row),
+                "property_name": last_row.get("property_name", ""),
+                "address":       format_address(last_row),
+            }
+
+        months_purged = events_deleted = events_kept = 0
+        marker_ids: dict = {}
+        for scope in scopes:
+            soid        = f"{oid}@{scope}"
+            calendar_id = self.state.get_calendar_id(scope)
+            if not calendar_id:
+                raise RuntimeError(
+                    f"no calendar id for scope {scope} — departure stays "
+                    f"pending")
+            months = self.state.scoped_months(soid)
+            if identity is None:
+                identity = self._identity_from_events(
+                    calendar_id, oid, months)
+
+            # Promises are moot once the tenant is gone — delete outright.
+            for c in self.state.get_commitments(soid):
+                if self._safe_delete(c.get("calendar_id") or calendar_id,
+                                     c.get("event_id")):
+                    events_deleted += 1
+            self.state.data["_commitments"].pop(soid, None)
+
+            for month, key in months:
+                entry   = self.state.data.get(key) or {}
+                settled = entry.get("collapse_state") in ("collapsed",
+                                                          "frozen")
+                sid = entry.get("status_event_id")
+                if sid:
+                    if settled:
+                        events_kept += 1      # settled history stays
+                    elif self._safe_delete(calendar_id, sid):
+                        events_deleted += 1
+                for eid in (entry.get("payment_event_ids") or []):
+                    if self._safe_delete(calendar_id, eid):
+                        events_deleted += 1
+                for eid in (entry.get("nsf_event_ids") or []):
+                    if self._safe_delete(calendar_id, eid):
+                        events_deleted += 1
+                if entry.get("rent_event_id"):
+                    if self._safe_delete(calendar_id, entry["rent_event_id"]):
+                        events_deleted += 1
+                if entry.get("late_event_id"):
+                    if self._safe_delete(calendar_id, entry["late_event_id"]):
+                        events_deleted += 1
+
+            # One neutral marker per calendar (adopt an existing one first —
+            # idempotence across retries).
+            existing = self.gcal.find_all_events_by_type(
+                calendar_id, oid, "moved_out")
+            if existing:
+                marker_ids[scope] = existing[0]["id"]
+            else:
+                body = self.gcal._build_moved_out_event(
+                    {**(identity or {}), "occupancy_id": oid},
+                    anchor_iso, moved_line, today)
+                created = _gcal_execute(self.gcal.service.events().insert(
+                    calendarId=calendar_id, body=body))
+                marker_ids[scope] = created["id"]
+
+            months_purged += self.state.purge_soid_months(soid)
+
+        self.state.data["_departed"][oid] = {
+            "cleaned_at":       today.isoformat(),
+            "move_out_date":    move_out,
+            "scopes":           scopes,
+            "months_purged":    months_purged,
+            "events_deleted":   events_deleted,
+            "events_kept":      events_kept,
+            "marker_event_ids": marker_ids,
+        }
+        self.state.data["_departed_pending"].pop(oid, None)
+        log.info(
+            f"  {oid}: departure cleanup complete — {events_deleted} "
+            f"event(s) deleted, {events_kept} settled event(s) kept, "
+            f"{months_purged} state month(s) purged")
+
+    def _identity_from_events(self, calendar_id: str, oid: str,
+                              months: list) -> dict:
+        """Best-effort identity from a live event body (summary + location)
+        when no rent-roll row survived; bounded at a few GETs; state-only
+        fallback carries an honest note."""
+        tried = 0
+        for month, key in reversed(months):
+            entry = self.state.data.get(key) or {}
+            for eid in ([entry.get("status_event_id"),
+                         entry.get("rent_event_id")]
+                        + list(entry.get("payment_event_ids") or [])):
+                if not eid:
+                    continue
+                tried += 1
+                if tried > 4:
+                    break
+                ev = self.gcal.get_event(calendar_id, eid)
+                if ev:
+                    ident = parse_sync_event_identity(
+                        ev.get("summary") or "", ev.get("location") or "")
+                    if ident.get("tenant"):
+                        return ident
+            if tried > 4:
+                break
+        return {"tenant": f"occupancy {oid}", "unit_label": "",
+                "property_name": "", "address": "",
+                "note": ("Identity unavailable — see git history of "
+                         "state.json.")}
+
+    def _remove_moved_out_markers(self, oid: str, audit: dict):
+        """Reappearance self-heal: delete the stored marker ids plus any
+        tag-discoverable markers on the audited calendars."""
+        for scope, eid in (audit.get("marker_event_ids") or {}).items():
+            cal = self.state.get_calendar_id(scope)
+            if cal:
+                self._safe_delete(cal, eid)
+        for scope in (audit.get("scopes") or []):
+            cal = self.state.get_calendar_id(scope)
+            if not cal:
+                continue
+            for ev in self.gcal.find_all_events_by_type(cal, oid,
+                                                        "moved_out"):
+                self._safe_delete(cal, ev["id"])
+
+    def _prune_beyond_horizon(self, soid: str, calendar_id: str,
+                              horizon_month: str, this_month: str):
+        """Delete tracked future placeholders past the lease/move-out
+        horizon — the future loop only creates, so a horizon that moved
+        BACK (a move-out date appearing, a lease shortened) strands the
+        months it no longer visits.  Event first, then the entry (a failed
+        delete leaves the entry for the next run).  Kickstart-converted
+        months belong to the commitment machinery and are skipped."""
+        floor = max(horizon_month, this_month)
+        for month, key in self.state.scoped_months(soid):
+            if month <= floor:
+                continue
+            entry = self.state.data.get(key) or {}
+            if entry.get("calendar_id") != calendar_id:
+                continue
+            if entry.get("is_commitment") or entry.get("status_event_id"):
+                continue
+            if entry.get("rent_event_id"):
+                self._safe_delete(calendar_id, entry["rent_event_id"])
+            del self.state.data[key]
+            log.info(f"  {soid}: pruned {month} placeholder beyond the "
+                     f"lease/move-out horizon")
 
     def _group_rows_by_property_group(self, active: list,
                                       prop_to_group: dict) -> dict:
@@ -519,7 +870,7 @@ class SyncOrchestrator:
         tenant_info   = build_tenant_info_map(tenants)
         payment_map   = build_payment_map(ledger)
         reversal_map  = build_reversal_map(ledger)
-        active        = [r for r in rent_roll if r.get("status") == "Current"]
+        active        = active_rows(rent_roll)
 
         # Group + resolve for ALL active rows, not just changed ones: the
         # sibling map must be complete for _mirror_commitment_to_siblings.
@@ -549,6 +900,14 @@ class SyncOrchestrator:
                 except Exception as exc:
                     oid = row.get("occupancy_id", "?")
                     log.error(f"  FAILED unit {oid}: {exc}", exc_info=True)
+
+        # Flag departures here too — update mode has a live roll, and
+        # snap_rows still holds a just-departed tenant's last row.  Cleanup
+        # stays nightly-only.
+        try:
+            self._flag_departures(rent_roll, snap_rows, today)
+        except Exception as exc:
+            log.error(f"Departure flagging failed: {exc}", exc_info=True)
 
         # Even a zero-change run advances the snapshot: the baseline must
         # always reflect the last examined rent_roll.
@@ -598,7 +957,7 @@ class SyncOrchestrator:
 
         prop_to_group = build_group_property_map(groups)
         tenant_info   = build_tenant_info_map(tenants)
-        active        = [r for r in rows if r.get("status") == "Current"]
+        active        = active_rows(rows)
         log.info(f"  {len(active)} active leases (from snapshot)")
 
         group_rows = self._group_rows_by_property_group(active, prop_to_group)
@@ -611,15 +970,16 @@ class SyncOrchestrator:
             # ACL only for a calendar created this very run (brand-new group).
             if calendar_id in self.gcal.created_calendar_ids:
                 self.gcal.ensure_pm_access(calendar_id)
-            events_by_oid = self.gcal.list_all_events(calendar_id)
-            # Adopt PM copy-paste commitment copies.  Uses the same q= scan
-            # as the full sweep (list_all_events deliberately skips untagged
-            # events); adopted ids land in _fresh_commitments so this run's
+            events_by_oid, untagged = self.gcal.list_all_events(calendar_id)
+            # Adopt PM copy-paste copies (commitment splits AND untagged
+            # status/payment/placeholder copies).  The candidates come from
+            # the listing this mode already paid for — no second scan;
+            # adopted ids land in _fresh_commitments so this run's
             # commitment pass sees them despite the pre-adoption listing.
             try:
-                self._adopt_untagged_commitments(
+                self._adopt_untagged_copies(
                     rows_and_groups, scope_key, calendar_id,
-                    tenant_info, {}, today)
+                    tenant_info, {}, today, candidates=untagged)
             except Exception as exc:
                 log.error(f"  FAILED adoption scan for {group_name}: {exc}",
                           exc_info=True)
@@ -710,20 +1070,23 @@ class SyncOrchestrator:
         # ── 1+2: status event ────────────────────────────────────────────
         if prior and prior.get("status_event_id"):
             canonical = prior.get("status_event_date", due_date.isoformat())
-            converted = False
-            if this_month not in commitment_months:
-                converted = self._convert_status_drag(
-                    soid, calendar_id, unit, prior["status_event_id"],
-                    canonical, today, this_month, commitment_months,
-                    source_status=status, events_by_id=events_by_id)
-                if converted:
-                    self.state.set(soid, this_month,
-                                   {**prior, "status_event_id": None})
-            if not converted:
-                # Unmoved → no-op; moved backward → revert.  The forward-
-                # with-no-covering-commitment case was consumed above, so
-                # this can only create a commitment when one already exists
-                # for another reason — i.e. never (same net as the sweep).
+            # Conversion is attempted UNCONDITIONALLY — even when a promise
+            # already covers this month.  Split plans are first-class: the
+            # PM drags for date #1 and copy-pastes for date #2 in either
+            # order, possibly across runs, so an adopted copy must never
+            # block the drag's conversion (the old commitment_months gate
+            # sent the drag to the snapback path, destroying it).  A drag
+            # onto an EXISTING promise's date is merged by the same-anchor
+            # dedup in _process_commitments (oldest registration wins).
+            converted = self._convert_status_drag(
+                soid, calendar_id, unit, prior["status_event_id"],
+                canonical, today, this_month, commitment_months,
+                source_status=status, events_by_id=events_by_id)
+            if converted:
+                self.state.set(soid, this_month,
+                               {**prior, "status_event_id": None})
+            else:
+                # Unmoved → no-op; moved backward → revert.
                 self._detect_status_snapback(
                     soid, calendar_id, prior["status_event_id"], canonical,
                     unit, today, this_month, past_due, status,
@@ -1008,48 +1371,83 @@ class SyncOrchestrator:
                 f"  {oid}: mirrored {source} promise on {anchor} to sibling "
                 f"group calendar {cal_id}")
 
-    def _adopt_untagged_commitments(
+    def _adopt_untagged_copies(
         self, rows_and_groups: list, scope_key, calendar_id: str,
         tenant_info: dict, payment_map: dict, today: date,
+        candidates: Optional[list] = None,
     ) -> int:
         """
-        Adopt PM copy-paste commitment copies (split plans).  The Calendar UI
-        drops extendedProperties.private on copy, so copies are invisible to
-        every okpm_* locator — never updated, never resolved, frozen at the
-        copied description.  This scan finds them (divider text, no okpm
-        tag), attributes each to a unit via the auto section's Tenant line
-        (skipping — never guessing — on ambiguity), rebuilds the body in
-        place (which restores the okpm tags), and registers + mirrors the
-        promise exactly like a discovered split copy.  Runs BEFORE the
-        per-unit loop so the same run's commitment pass treats the adoptee
-        as a tracked promise.  Returns the number adopted.
+        Adopt PM copy-paste copies of sync events.  The Calendar UI drops
+        extendedProperties.private on copy, so copies are invisible to every
+        okpm_* locator — never updated, never resolved, frozen at the copied
+        description.  COPY = DRAG: a copy means what the same drag would
+        mean —
+          · status / settled / payment / NSF-ghost copies → a promise
+            anchored at the pasted date ("tenant promises two dates": the
+            PM drags the status event for date #1, copy-pastes it for #2);
+          · future rent-placeholder copies → a kickstart promise for the
+            placeholder's own month (parsed from its Late After line), which
+            consumes the tracked original placeholder exactly like a drag;
+          · commitment copies → split-plan promises (the original path).
+        Attribution is via the summary/auto-section tenant, narrowed by
+        address + unit label (skipping — never guessing — on ambiguity);
+        events that aren't sync-styled at all (PM personal entries) are
+        ignored without a sound.  Each adoptee is rebuilt in place (which
+        restores the okpm tags — timed pastes become all-day) and registered
+        + mirrored exactly like a discovered split copy.  Runs BEFORE the
+        per-unit loop so the same run's commitment pass treats adoptees as
+        tracked promises; candidates=None lists the calendar itself (submit
+        mode passes the untagged remainder of its own listing instead).
+        Returns the number adopted.
         """
-        copies = self.gcal.find_untagged_commitment_copies(calendar_id)
-        if not copies:
+        if candidates is None:
+            candidates = self.gcal.find_untagged_sync_candidates(calendar_id)
+        if not candidates:
             return 0
         adopted     = 0
         today_month = today.strftime("%Y-%m")
-        for ev in copies:
-            parsed = parse_commitment_auto_section(ev.get("description") or "")
-            if not parsed or not parsed["tenant"]:
-                log.warning(
-                    f"  Untagged commitment copy {ev.get('id')} on "
-                    f"{calendar_id}: auto section unparseable — skipping")
-                continue
+        for ev in candidates:
+            info = classify_sync_copy(ev.get("summary") or "",
+                                      ev.get("description") or "")
+            if info is None:
+                continue        # not sync-styled — never touch PM events
+            kind     = info["kind"]
+            pm_notes = ""
+            if kind == "commitment":
+                parsed = parse_commitment_auto_section(
+                    ev.get("description") or "")
+                if not parsed or not parsed["tenant"]:
+                    log.warning(
+                        f"  Untagged commitment copy {ev.get('id')} on "
+                        f"{calendar_id}: auto section unparseable — skipping")
+                    continue
+                tenant      = parsed["tenant"]
+                source_type = parsed["source_type"]
+                pm_notes    = parsed["pm_notes"]
+                narrow_text = parsed["auto_section"]
+            else:
+                tenant      = info["tenant"]
+                source_type = info["source_type"]
+                narrow_text = ev.get("description") or ""
+                if not tenant:
+                    log.warning(
+                        f"  Untagged {kind} copy {ev.get('id')}: no tenant "
+                        f"recoverable — skipping (never guess)")
+                    continue
             matches = [row for row, _ in rows_and_groups
                        if normalize_tenant_name(row.get("tenant", ""))
-                       == parsed["tenant"]]
+                       == tenant]
             if len(matches) > 1:
                 # Same tenant name on multiple units — require the address
                 # (and unit label, when present) to appear in the copy.
                 matches = [row for row in matches
-                           if format_address(row) in parsed["auto_section"]
+                           if format_address(row) in narrow_text
                            and (not unit_label(row)
-                                or unit_label(row) in parsed["auto_section"])]
+                                or unit_label(row) in narrow_text)]
             if len(matches) != 1:
                 log.warning(
-                    f"  Untagged commitment copy {ev.get('id')}: tenant "
-                    f"{parsed['tenant']!r} matched {len(matches)} unit(s) on "
+                    f"  Untagged {kind} copy {ev.get('id')}: tenant "
+                    f"{tenant!r} matched {len(matches)} unit(s) on "
                     f"this calendar — skipping (never guess)")
                 continue
             row  = matches[0]
@@ -1061,31 +1459,59 @@ class SyncOrchestrator:
             anchor = start.get("date") or start.get("dateTime", "")[:10]
             if not anchor:
                 log.warning(
-                    f"  Untagged commitment copy {ev.get('id')}: "
+                    f"  Untagged {kind} copy {ev.get('id')}: "
                     f"no start date — skipping")
                 continue
-            source_type = parsed["source_type"]
-            # covers_rent_month: byte-identical rules to the split-copy
-            # discovery loop in _process_commitments.
-            covers = (
-                anchor[:7] if (source_type == "late" and anchor[:7] > today_month)
-                else anchor[:7] if source_type == "kickstart"
-                else today_month if source_type in ("status", "payment")
-                else None
-            )
-            # Same display computation as _mirror_commitment_to_siblings.
+
             breakdown = None
-            if source_type in ("status", "payment", "late"):
+            if kind == "placeholder":
+                # Kickstart: origin_month MUST be the covered month (the
+                # drag-back revert computes f"{origin_month}-01"), parsed
+                # from the copied body's Late After line.
+                covers = info["late_after_month"]
+                if not covers:
+                    log.warning(
+                        f"  Untagged placeholder copy {ev.get('id')}: "
+                        f"Late After month unparseable — skipping "
+                        f"(never guess)")
+                    continue
+                origin_month = covers
+                outstanding  = unit["past_due"] + (
+                    unit["rent"] if covers > today_month else 0.0)
+                disp         = STATUS_UNPAID
+            elif kind == "commitment":
+                # covers_rent_month: byte-identical rules to the split-copy
+                # discovery loop in _process_commitments.
+                covers = (
+                    anchor[:7] if (source_type == "late"
+                                   and anchor[:7] > today_month)
+                    else anchor[:7] if source_type == "kickstart"
+                    else today_month if source_type in ("status", "payment")
+                    else None
+                )
+                origin_month = anchor[:7]
+                # Same display computation as _mirror_commitment_to_siblings.
+                if source_type in ("status", "payment", "late"):
+                    outstanding, breakdown = self._promise_outstanding(
+                        anchor[:7], unit, today)
+                    disp = classify_status(unit["rent"], unit["past_due"])
+                else:
+                    outstanding = unit["past_due"] + (
+                        unit["rent"] if (covers and covers > today_month)
+                        else 0.0)
+                    disp = ""
+            else:
+                # status / settled_status / payment / nsf_ghost → promise on
+                # the current month's balance, anchored at the pasted date.
+                covers       = today_month
+                origin_month = anchor[:7]
                 outstanding, breakdown = self._promise_outstanding(
                     anchor[:7], unit, today)
                 disp = classify_status(unit["rent"], unit["past_due"])
-            else:
-                outstanding = unit["past_due"] + (
-                    unit["rent"] if (covers and covers > today_month) else 0.0)
-                disp = ""
+
             new_body = self.gcal._build_commitment_event(
                 unit, anchor, source_type, max(0.0, outstanding),
-                pm_notes=parsed["pm_notes"], source_status=disp,
+                pm_notes=pm_notes, source_status=disp,
                 breakdown=breakdown)
             # Tag FIRST: registering an id the okpm listing cannot see would
             # make _process_commitments read it as PM-deleted and the
@@ -1095,22 +1521,41 @@ class SyncOrchestrator:
                     calendarId=calendar_id, eventId=ev["id"], body=new_body))
             except HttpError as e:
                 log.error(
-                    f"  {oid}: failed to adopt commitment copy {ev['id']}: {e}")
+                    f"  {oid}: failed to adopt {kind} copy {ev['id']}: {e}")
                 continue
             _commit = {
                 "event_id":          ev["id"],
                 "anchor_date":       anchor,
                 "source_type":       source_type,
-                "origin_month":      anchor[:7],
+                "origin_month":      origin_month,
                 "calendar_id":       calendar_id,
                 "covers_rent_month": covers,
             }
             self._fresh_commitments[ev["id"]] = {**new_body, "id": ev["id"]}
             self.state.add_commitment(soid, _commit)
             self._mirror_commitment_to_siblings(oid, _commit, unit, today)
+            if kind == "placeholder":
+                # Copy = drag: a kickstart consumes its month's placeholder
+                # (the invariant: while a promise covers month M, no
+                # placeholder exists for M — a drag consumes it by in-place
+                # conversion; the copy path deletes it).
+                prior_f = self.state.get(soid, covers)
+                if (prior_f
+                        and prior_f.get("calendar_id") == calendar_id
+                        and prior_f.get("rent_event_id")
+                        and prior_f.get("rent_event_id") != ev["id"]
+                        and not prior_f.get("is_commitment")):
+                    self.gcal.delete_event(
+                        calendar_id, prior_f["rent_event_id"])
+                    self.state.set(soid, covers, {
+                        **prior_f, "rent_event_id": None,
+                        "is_commitment": True})
+                    log.info(
+                        f"  {oid}: kickstart copy consumes the {covers} "
+                        f"placeholder")
             adopted += 1
             log.info(
-                f"  {oid}: adopted untagged commitment copy {ev['id']} "
+                f"  {oid}: adopted untagged {kind} copy {ev['id']} "
                 f"(anchor {anchor}, source {source_type})")
         return adopted
 
@@ -1152,6 +1597,9 @@ class SyncOrchestrator:
             "grace_days":         info.get("grace_days", LATE_GRACE_DAYS),
             "lease_from":         row.get("lease_from", ""),
             "lease_to":           row.get("lease_to", "") or "",
+            # Set on Notice-* rows (AppFolio's future move-out date); caps
+            # the future-placeholder horizon.
+            "move_out":           row.get("move_out", "") or "",
         }
 
     # ── Drag detection (shared by the full sweep and submit mode) ────────────
@@ -1271,16 +1719,19 @@ class SyncOrchestrator:
         events_by_id: Optional[dict] = None,
     ):
         """Locked PAYMENT events (idx 1+): a forward drag spawns a NEW
-        commitment at the target (unless one already covers this month), then
-        the marker is snapped back — a received payment's date can never move.
+        commitment at the target (even when a promise already covers this
+        month — split plans are first-class), then the marker is snapped
+        back — a received payment's date can never move.
         payment_dates is index-aligned with payment_event_ids."""
         for i, event_id in enumerate(payment_event_ids):
             if i < len(payment_dates):
                 pay_canon = payment_dates[i]
                 live = self._live_event_start(calendar_id, event_id, events_by_id)
                 if live and live != pay_canon:
-                    if (live > today.isoformat()
-                            and this_month not in commitment_months):
+                    # Spawn even when a promise already covers this month —
+                    # split plans are first-class (a same-anchor spawn is
+                    # merged by the dedup in _process_commitments).
+                    if live > today.isoformat():
                         new_body = self.gcal._build_commitment_event(
                             unit, live, "payment", max(0.0, past_due),
                             source_status=status)
@@ -1358,6 +1809,41 @@ class SyncOrchestrator:
             return "missing"
         return "unmoved"
 
+    def _cleanup_covered_month_leftovers(
+        self, oid: str, calendar_id: str, this_month: str,
+        prior: Optional[dict], commit_ids: set, kickstart_covers: bool,
+        due_date: date,
+    ):
+        """Delete leftover events on a commitment-covered no-payment month.
+        "rent" debris always (a placeholder under any cover is stale);
+        "status" leftovers ONLY under a kickstart cover — a status event
+        surviving next to a copy-created promise is the Q9 survivor, not
+        debris.  An event whose live start differs from its canonical date
+        is mid-drag: leave it for drag detection, never delete it."""
+        canon_first = due_date.isoformat()
+        types = ("status", "rent") if kickstart_covers else ("rent",)
+        for _etype in types:
+            for ev in self.gcal.find_month_events(
+                    calendar_id, oid, this_month, _etype):
+                if ev["id"] in commit_ids:
+                    continue
+                start = ev.get("start", {})
+                live = start.get("date") or start.get("dateTime", "")[:10]
+                canon = canon_first
+                if (_etype == "status" and prior
+                        and prior.get("status_event_date")):
+                    canon = prior["status_event_date"]
+                if live and live != canon:
+                    log.info(
+                        f"  {oid}: {_etype} event {ev['id']} moved "
+                        f"({canon} → {live}) — pending drag, leaving for "
+                        f"drag detection")
+                    continue
+                self.gcal.delete_event(calendar_id, ev["id"])
+                log.info(
+                    f"  {oid}: removed stale {_etype} event "
+                    f"(commitment covers {this_month})")
+
     # ── Per-unit sync  (core v2 logic) ───────────────────────────────────────
 
     def _sync_unit(
@@ -1374,13 +1860,12 @@ class SyncOrchestrator:
         past_due = unit["past_due"]
         status   = classify_status(rent, past_due)
 
-        try:
-            lease_end = date.fromisoformat(unit["lease_to"])
-        except ValueError:
-            m = due_date.month + DEFAULT_LEASE_MONTHS
-            y = due_date.year + (m - 1) // 12
-            m = ((m - 1) % 12) + 1
-            lease_end = date(y, m, 1)
+        # lease_to (with the DEFAULT_LEASE_MONTHS fallback) capped at the
+        # move-out date when AppFolio has one — a tenant on notice stops
+        # accruing expected-rent placeholders after their move-out month.
+        lease_end = resolve_lease_horizon(
+            unit["lease_to"], unit.get("move_out", ""),
+            due_date, DEFAULT_LEASE_MONTHS)
 
         sorted_payments = sorted(unit["payments"], key=lambda p: (p["date"], -p["amount"]))
 
@@ -1510,6 +1995,24 @@ class SyncOrchestrator:
                 commitments, calendar_id, promise_payment_dates, past_due,
                 live_anchor_by_id=live_anchor_by_id))
 
+        # ── Detect dragged status event → commitment (convert in place) ───────
+        # Runs BEFORE the covered-month suppression/cleanup below, and
+        # UNCONDITIONALLY of existing coverage: split plans are first-class —
+        # the PM drags for promise date #1 and copy-pastes for date #2 in
+        # either order, possibly across runs, so an adopted copy must never
+        # block (or worse, let the cleanup delete) the dragged original.  A
+        # drag onto an EXISTING promise's date is merged by the same-anchor
+        # dedup in _process_commitments (oldest registration wins).
+        if prior and prior.get("status_event_id") and not FORCE_REFRESH:
+            if self._convert_status_drag(
+                    soid, calendar_id, unit,
+                    prior["status_event_id"],
+                    prior.get("status_event_date", due_date.isoformat()),
+                    today, this_month, commitment_months,
+                    source_status=status):
+                prior = {**prior, "status_event_id": None}
+                commitments = self.state.get_commitments(soid)
+
         # ── Status event date ─────────────────────────────────────────────────
         if collapsed:
             # Settled: the single event sits on the LAST payment date (the
@@ -1549,14 +2052,19 @@ class SyncOrchestrator:
             first_pay         = None
             event_status      = status
 
-        # ── Kickstart suppression ─────────────────────────────────────────────
-        # When a commitment covers this month and no payments exist yet,
-        # we skip creating/keeping a status event on the 1st.
-        suppress_kickstart = (
-            this_month in commitment_months and not sorted_payments
-        )
+        # ── Covered-month suppression (creation-only) ─────────────────────────
+        # When a commitment covers this month and no payments exist yet, no
+        # NEW status event is created on the 1st.  An UNMOVED original that
+        # is still tracked survives (Q9): the PM copy-pasted a promise and
+        # deliberately left the due-event in place, so it keeps updating
+        # alongside the promise — only a kickstart cover (the legacy
+        # transition semantics) still consumes the month's status event.
+        sup = resolve_status_suppression(
+            commitments, this_month, bool(sorted_payments),
+            prior.get("status_event_id") if prior else None)
+        suppress_kickstart = sup["suppress"]
 
-        if suppress_kickstart:
+        if sup["covered"] and not sorted_payments:
             # If transitioning from a placeholder that is NOT itself the
             # commitment event, delete it so only the commitment shows.
             if (prior
@@ -1567,19 +2075,14 @@ class SyncOrchestrator:
                     f"  {oid}: commitment covers {this_month} — removing stale placeholder")
                 self.gcal.delete_event(calendar_id, prior["rent_event_id"])
                 prior = {**prior, "rent_event_id": None}
-            # Clean up any status/rent events left over for a commitment-covered
-            # month.  Never delete the commitment event itself.
+            # Clean up leftover events for the covered month — but never the
+            # commitment itself, never a Q9 survivor, never a mid-drag event.
             commit_ids = {c.get("event_id") for c in commitments}
-            for _etype in ("status", "rent"):
-                for _ in range(4):  # safety bound
-                    sid = self.gcal._find_event(calendar_id, oid, this_month, _etype)
-                    if not sid or sid in commit_ids:
-                        break
-                    self.gcal.delete_event(calendar_id, sid)
-                    log.info(
-                        f"  {oid}: removed stale {_etype} event "
-                        f"(commitment covers {this_month})")
-            if prior and prior.get("status_event_id") not in commit_ids:
+            self._cleanup_covered_month_leftovers(
+                oid, calendar_id, this_month, prior, commit_ids,
+                kickstart_covers=sup["kickstart_covers"], due_date=due_date)
+            if (sup["kickstart_covers"] and prior
+                    and prior.get("status_event_id") not in commit_ids):
                 prior = {**prior, "status_event_id": None}
 
         # ── prior_status_id resolution ────────────────────────────────────────
@@ -1603,20 +2106,6 @@ class SyncOrchestrator:
             )
             if prior else bool(render_groups)
         )
-
-        # ── Detect dragged status event → commitment (retire & replace) ───────
-        if (prior and prior.get("status_event_id")
-                and not FORCE_REFRESH
-                and not suppress_kickstart
-                and this_month not in commitment_months):
-            if self._convert_status_drag(
-                    soid, calendar_id, unit,
-                    prior["status_event_id"],
-                    prior.get("status_event_date", due_date.isoformat()),
-                    today, this_month, commitment_months,
-                    source_status=status):
-                suppress_kickstart = True
-                prior = {**prior, "status_event_id": None}
 
         def _status_body() -> dict:
             """The month's status-event body for the current collapse state.
@@ -1975,6 +2464,14 @@ class SyncOrchestrator:
                 "rent_event_id": eid,
                 "late_event_id": None,
             })
+
+        # ── Prune placeholders beyond the (possibly shrunken) horizon ────────
+        # A move-out date or a shortened lease pulls lease_end back, but the
+        # loop above only creates — nothing deleted the months it no longer
+        # visits.  Self-healing in reverse too: if the horizon grows back
+        # (notice rescinded), the pruned entries are simply recreated.
+        self._prune_beyond_horizon(
+            soid, calendar_id, lease_end.strftime("%Y-%m"), this_month)
 
     # ── Additional payments  (unchanged) ─────────────────────────────────────
 

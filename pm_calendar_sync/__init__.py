@@ -74,7 +74,42 @@ AppFolio PROPERTY GROUP.
 
 ─── Future-month model ──────────────────────────────────────────────────────
   PLACEHOLDER   : frozen event on the 1st. Unfrozen only for next month when
-                  the current tenant has a credit balance.
+                  the current tenant has a credit balance.  Horizon =
+                  lease_to (DEFAULT_LEASE_MONTHS fallback) capped at the
+                  row's move_out when AppFolio has one; placeholders beyond
+                  the horizon are pruned each sweep (a notice appearing
+                  shrinks the horizon; if it grows back they reappear).
+
+─── Departure model (move-out lifecycle, Aug 2026) ──────────────────────────
+  The active-row gate is "has an occupancy_id" (Current AND Notice-*):
+  tenants on notice keep syncing live through their move-out; Vacant rows
+  carry no occupancy_id and are the departure signal.  When a state-known
+  occupancy vanishes from the roll:
+    FLAG    (any live-roll run)  _departed_pending[oid] records the first
+            missing date + the tenant's last row (from the previous
+            snapshot, while it still exists).  Reappearing clears the flag.
+    CONFIRM (nightly only)  the oid must be absent from BOTH freshly
+            pulled reports — rent_roll AND tenant_directory — before any
+            cleanup (one silently truncated pull must never delete a live
+            tenant).  A mass-vanish circuit breaker (DEPARTED_MAX_PER_RUN,
+            default 10) defers cleanup entirely when too many non-backlog
+            departures confirm at once.
+    CLEAN   settled history stays (collapsed/frozen months keep their
+            events); everything else is deleted — unsettled status events,
+            payment/NSF events, placeholders, and ALL promises (moot,
+            deleted outright).  One neutral 📦 marker per group calendar
+            (okpm_event_type="moved_out") on the move-out date (last row →
+            vacant-row last_move_out join → "detected" wording), with NO
+            balance figure — the final ledger lives in AppFolio.  The
+            soid's month entries are purged (git history of state.json is
+            the archive) and a counts-only audit lands in _departed[oid].
+            Idempotent + resumable: per-oid failures keep the flag and
+            surviving state for the next nightly; markers are adopted by
+            tag before insert.  A cleaned oid reappearing in the roll gets
+            its markers removed and syncs as a fresh lease.
+    The pre-deploy backlog is a one-time migration
+    ("departed_backlog_v1" marker): flagged with backlog=True, exempt from
+    the breaker, marker written only when every backlog oid is cleaned.
 
 ─── Commitments (promise-to-pay) ────────────────────────────────────────────
 COMMITMENT / PROMISE EVENTS
@@ -120,15 +155,43 @@ COMMITMENT / PROMISE EVENTS
        the last promised date may legitimately leave a still-owing unit with
        zero promises (the PM drags a new one when renegotiated).
 
-  SPLIT PAYMENT PLANS:
-    PM copy-pastes a commitment event for multiple promise dates. Each copy
-    is discovered via extended-property listing and tracked independently.
+  SPLIT PAYMENT PLANS — COPY = DRAG:
+    PM copy-pastes events for multiple promise dates ("tenant promises two
+    dates": drag the status event for date #1, copy-paste it for date #2 —
+    either order, across runs).  API-made copies keep their okpm tags and
+    are discovered via extended-property listing.  Calendar-UI copies LOSE
+    extendedProperties.private, so full/submit runs also scan each calendar
+    for untagged events and ADOPT sync-styled ones, classified by body
+    shape (transforms.classify_sync_copy) — a copy means what the same
+    drag would mean:
+      • status (incl. settled bodies) / payment / NSF-ghost copies →
+        promise anchored at the pasted date (source "status"/"payment";
+        a copy of a settled month insta-resolves on the next pass);
+      • future-placeholder copies → kickstart promise for the
+        placeholder's own month (parsed from its "Late After:" line),
+        consuming the tracked original placeholder exactly like a drag;
+      • commitment copies → split promises (attribution via the auto
+        section, PM notes preserved).
+    Attribution is via the summary/Tenant line narrowed by address + unit;
+    ambiguous or unparseable copies are logged and skipped — never
+    guessed.  Non-sync-styled events (PM personal entries) are ignored.
+    Timed (dateTime) pastes adopt on their date part and become all-day.
     PM edits the "PROMISED:" line above the divider per event.
+    Because split plans are first-class, a forward DRAG converts/spawns
+    even when a promise already covers the month; a drag onto an existing
+    promise's exact date is merged by the same-anchor dedup (oldest
+    registration wins).
 
   KICKSTART COMMITMENT SUPPRESSION:
     While a kickstart commitment covers month M, the placeholder on the 1st is
     not recreated. When M becomes current with no payments yet, no status event
     is created until the first payment arrives; the commitment anchors the month.
+    Suppression is CREATION-ONLY for status/payment-sourced promises: a
+    copy-created promise never consumes a live, unmoved original status
+    event — the PM deliberately left it in place, so it keeps updating
+    alongside the promise (a dragged-away original is still not recreated
+    while the promise stands, and a kickstart cover keeps the legacy
+    consume-the-month semantics).
 
   COMMITMENT CROSSING MONTHS:
     A commitment dragged into a future month pre-loads that month's rent in the
@@ -166,10 +229,15 @@ STATE ADDITIONS:
   state.json["_retired_calendars"][owner_id] = legacy owner calendar id
   state.json["_migrations"]["group_cutover_v1"] = one-time cutover marker
   (gates the cutover in run(); update/submit no-op until it exists)
+  state.json["_migrations"]["departed_backlog_v1"] = one-time backlog marker
+  state.json["_departed_pending"][oid] = departure flag (see Departure model)
+  state.json["_departed"][oid]         = counts-only cleanup audit
 
-New GitHub variable:
+New GitHub variables:
   COMMITMENT_LOOKAHEAD_MONTHS  (default 3) — how many future months to scan
   each run for moved placeholders.  Add to sync.yml vars section.
+  DEPARTED_MAX_PER_RUN  (default 10) — mass-vanish circuit breaker for the
+  departed-occupancy cleanup (see Departure model).
 """
 
 from .orchestrator import SyncOrchestrator

@@ -159,23 +159,25 @@ cached = [
     {"occupancy_id": 1, "status": "Current", "past_due": 100.0, "rent": 950},
     {"occupancy_id": 2, "status": "Current", "past_due": "0",   "rent": 1200},
     {"occupancy_id": 3, "status": "Current", "past_due": None,  "rent": 800},
-    {"occupancy_id": 9, "status": "Notice",  "past_due": 50.0,  "rent": 700},
+    {"occupancy_id": 9, "status": "Notice-Unrented", "past_due": 50.0, "rent": 700},
 ]
 fresh = [
     {"occupancy_id": 1, "status": "Current", "past_due": 100.004, "rent": 950},   # within eps
     {"occupancy_id": 2, "status": "Current", "past_due": 600.0,   "rent": 1200},  # money moved
     {"occupancy_id": 3, "status": "Current", "past_due": 0,       "rent": 850},   # rent changed
     {"occupancy_id": 4, "status": "Current", "past_due": 0.0,     "rent": 1000},  # new lease
-    {"occupancy_id": 9, "status": "Notice",  "past_due": 999.0,   "rent": 700},   # non-Current
+    {"occupancy_id": 9, "status": "Notice-Unrented", "past_due": 999.0, "rent": 700},  # Notice: money moved
+    {"occupancy_id": None, "status": "Vacant-Unrented", "past_due": None, "rent": None},  # no occupancy
 ]
 d = transforms.diff_rent_roll(cached, fresh)
 check("delta within eps ignored", "1" not in d)
 check("past_due change flagged", "2" in d)
 check("rent change flagged", "3" in d)
 check("new lease flagged", "4" in d)
-check("non-Current rows ignored", "9" not in d)
-check("no snapshot -> all Current oids",
-      transforms.diff_rent_roll(None, fresh) == {"1", "2", "3", "4"})
+check("Notice row with occupancy_id diffed (money moved)", "9" in d)
+check("row without occupancy_id ignored", "None" not in d)
+check("no snapshot -> all oids with an occupancy",
+      transforms.diff_rent_roll(None, fresh) == {"1", "2", "3", "4", "9"})
 check("None/str value coercion (None == 0 == '0')",
       transforms.diff_rent_roll(
           [{"occupancy_id": 3, "status": "Current", "past_due": None, "rent": "800"}],
@@ -245,14 +247,15 @@ with mock.patch.object(orch2.gcal, "convert_to_commitment") as conv, \
 print("\n=== 10. E-b: list_all_events grouping + submit-mode unit flow ===")
 check("run_submit method exists", hasattr(orch, "run_submit"))
 
-# list_all_events: pagination + grouping by okpm_occupancy_id, untagged skipped
+# list_all_events: pagination + grouping by okpm_occupancy_id; untagged
+# events come back in their own list (adoption-scan input), never grouped
 pages = [
     {"items": [
         {"id": "a1", "extendedProperties": {"private": {
             "okpm_occupancy_id": "69", "okpm_event_type": "status"}}},
         {"id": "b1", "extendedProperties": {"private": {
             "okpm_occupancy_id": "70", "okpm_event_type": "commitment"}}},
-        {"id": "x1"},  # untagged — skipped
+        {"id": "x1"},  # untagged — returned separately
     ], "nextPageToken": "t"},
     {"items": [
         {"id": "a2", "extendedProperties": {"private": {
@@ -260,12 +263,13 @@ pages = [
     ]},
 ]
 orch2.gcal.service.events.return_value.list.return_value.execute.side_effect = pages
-grouped = orch2.gcal.list_all_events("cal")
+grouped, untagged_evs = orch2.gcal.list_all_events("cal")
 check("list_all_events groups by oid across pages",
       [e["id"] for e in grouped.get("69", [])] == ["a1", "a2"]
       and [e["id"] for e in grouped.get("70", [])] == ["b1"])
-check("list_all_events skips untagged events",
-      all("x1" not in [e["id"] for e in evs] for evs in grouped.values()))
+check("list_all_events returns untagged events separately",
+      [e["id"] for e in untagged_evs] == ["x1"]
+      and all("x1" not in [e["id"] for e in evs] for evs in grouped.values()))
 
 # Submit-mode unit flow: dragged status event -> in-place conversion; the
 # fresh commitment is patched into the pre-listed snapshot (NOT treated as
@@ -375,7 +379,8 @@ with mock.patch("google.oauth2.service_account.Credentials.from_service_account_
     orch4 = SyncOrchestrator()
 os.unlink(tmp)
 
-# The q-scan's client-side filter: tagged / untagged-with-divider / plain.
+# The scan's client-side filter: tagged events excluded, everything
+# untagged returned (classification is the adopter's job now).
 divider_desc = orch4.gcal._build_commitment_event(
     unit_fx, "2026-07-03", "status", 1400.0,
     pm_notes="PROMISED: full balance")["description"]
@@ -386,9 +391,14 @@ pages = [{"items": [
     {"id": "u2", "description": "AUTO-SYNCED mention but no divider"},
 ]}]
 orch4.gcal.service.events.return_value.list.return_value.execute.side_effect = pages
-found = orch4.gcal.find_untagged_commitment_copies("calA")
-check("q-scan keeps only untagged divider events",
-      [e["id"] for e in found] == ["u1"])
+found = orch4.gcal.find_untagged_sync_candidates("calA")
+check("scan keeps only untagged events",
+      [e["id"] for e in found] == ["u1", "u2"])
+check("classifier: divider copy -> commitment kind",
+      transforms.classify_sync_copy("", divider_desc)["kind"] == "commitment")
+check("classifier: non-sync text -> ignored",
+      transforms.classify_sync_copy("", "AUTO-SYNCED mention but no divider")
+      is None)
 
 row_fx = {"occupancy_id": 99, "tenant": "Burdine, Tyquita",
           "additional_tenants": "", "rent": "1400.00", "past_due": "700.00",
@@ -400,10 +410,10 @@ row_fx = {"occupancy_id": 99, "tenant": "Burdine, Tyquita",
 copy_ev = {"id": "copy1", "start": {"date": "2026-07-03"},
            "description": divider_desc}   # no extendedProperties (UI copy)
 upd = orch4.gcal.service.events.return_value.update
-with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
+with mock.patch.object(orch4.gcal, "find_untagged_sync_candidates",
                        return_value=[copy_ev]), \
      mock.patch.object(orch4, "_mirror_commitment_to_siblings") as mir:
-    n = orch4._adopt_untagged_commitments(
+    n = orch4._adopt_untagged_copies(
         [(row_fx, {"group_id": 9, "group_name": "Bowei Yan"})], "g9",
         "calA", {}, {}, _date(2026, 7, 4))
 body_sent = upd.call_args.kwargs["body"]
@@ -423,16 +433,16 @@ check("PM notes preserved through adoption",
 
 upd.reset_mock()
 other_row = {**row_fx, "occupancy_id": 98, "tenant": "Else, Someone"}
-with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
+with mock.patch.object(orch4.gcal, "find_untagged_sync_candidates",
                        return_value=[copy_ev]):
-    n2 = orch4._adopt_untagged_commitments(
+    n2 = orch4._adopt_untagged_copies(
         [(other_row, {})], "g9", "calA", {}, {}, _date(2026, 7, 4))
 check("unmatched tenant -> skipped, no writes", n2 == 0 and not upd.called)
 
 twin = {**row_fx, "occupancy_id": 98}   # same tenant, same address/unit
-with mock.patch.object(orch4.gcal, "find_untagged_commitment_copies",
+with mock.patch.object(orch4.gcal, "find_untagged_sync_candidates",
                        return_value=[copy_ev]):
-    n3 = orch4._adopt_untagged_commitments(
+    n3 = orch4._adopt_untagged_copies(
         [(row_fx, {}), (twin, {})], "g9", "calA", {}, {}, _date(2026, 7, 4))
 check("ambiguous tenant match -> skipped, no writes",
       n3 == 0 and not upd.called)
@@ -1466,6 +1476,582 @@ check("surviving NSF-flagged row: marker written but NO duplicate ghost",
       orch12.gcal.service.events.return_value.insert.call_count == 0
       and "NN-99" in [r["key"] for r in july29b["nsf_reversals_applied"]]
       and not july29b.get("nsf_event_ids"))
+
+print("\n=== 30. Copy classifier (untagged UI copies) ===")
+from pm_calendar_sync import config as _cfg
+from pm_calendar_sync import orchestrator as _orch_mod
+
+b30_status = orch.gcal._build_status_event(
+    unit_fx, status.STATUS_UNPAID, _date(2026, 8, 1), None, None,
+    total_payments=0)
+c30 = transforms.classify_sync_copy(
+    b30_status["summary"], b30_status["description"])
+check("status (no payments) copy -> status/status + tenant",
+      c30 and c30["kind"] == "status" and c30["source_type"] == "status"
+      and c30["tenant"] == "Tyquita Burdine")
+
+pay30 = {"date": "2026-08-02", "amount": 700.0, "is_nsf": False,
+         "description": "ACH (#A1)", "intended_month": None}
+unit30p = {**unit_fx, "amount_paid": 700.0, "payments": [pay30]}
+b30_statp = orch.gcal._build_status_event(
+    unit30p, status.STATUS_PARTIAL, _date(2026, 8, 2), pay30, 700.0,
+    total_payments=1)
+check("status (with payment) copy -> status",
+      (transforms.classify_sync_copy(
+          b30_statp["summary"], b30_statp["description"]) or {}).get("kind")
+      == "status")
+
+grp30 = transforms.group_payments_by_day([pay30])
+b30_set = orch.gcal._build_settled_month_event(
+    {**unit_fx, "past_due": 0.0, "amount_paid": 700.0},
+    _date(2026, 8, 2), grp30, settled_on="2026-08-02")
+c30s = transforms.classify_sync_copy(b30_set["summary"], b30_set["description"])
+check("settled copy -> settled_status (source status)",
+      c30s and c30s["kind"] == "settled_status"
+      and c30s["source_type"] == "status")
+
+b30_ph = orch.gcal._build_future_placeholder(
+    {**unit_fx, "past_due": 0.0}, status.STATUS_UNPAID, _date(2026, 10, 1))
+c30p = transforms.classify_sync_copy(b30_ph["summary"], b30_ph["description"])
+check("placeholder copy -> kickstart with Late-After month",
+      c30p and c30p["kind"] == "placeholder"
+      and c30p["source_type"] == "kickstart"
+      and c30p["late_after_month"] == "2026-10")
+
+b30_pay = orch.gcal._build_additional_payment_event(
+    unit30p, pay30, 2, 2, 700.0, 700.0)
+c30pay = transforms.classify_sync_copy(
+    b30_pay["summary"], b30_pay["description"])
+check("payment copy -> payment/payment",
+      c30pay and c30pay["kind"] == "payment"
+      and c30pay["source_type"] == "payment")
+
+b30_ghost = orch.gcal._build_nsf_ghost_event(
+    unit_fx, {"date": "2026-08-03", "amount": 650.0, "is_nsf": True,
+              "description": "ACH (#R2)"}, "reversal recorded", "2026-08")
+c30g = transforms.classify_sync_copy(
+    b30_ghost["summary"], b30_ghost["description"])
+check("NSF ghost copy -> payment source",
+      c30g and c30g["kind"] == "nsf_ghost"
+      and c30g["source_type"] == "payment")
+
+check("plain personal event -> None",
+      transforms.classify_sync_copy(
+          "Dentist", "Monthly Rent: ask about invoice") is None)
+check("emoji summary + free-text body -> None",
+      transforms.classify_sync_copy(
+          "🔴 · Someone · Somewhere", "call the plumber") is None)
+check("moved-out marker copy -> None (📦 not adoptable)",
+      transforms.classify_sync_copy(
+          "📦 · Eric · Unit 1 · 3858 W Jackson · moved out",
+          "Moved out:    Jul 31, 2026") is None)
+auto_only = divider_desc.split(transforms.COMMITMENT_DIVIDER, 1)[1]
+check("divider-stripped commitment body -> None (Tenant: != Tenant(s):)",
+      transforms.classify_sync_copy(b30_status["summary"], auto_only) is None)
+check("mangled Late After -> placeholder month None",
+      transforms.classify_sync_copy(
+          b30_ph["summary"],
+          b30_ph["description"].replace("Late After:", "Late Never:")
+      )["late_after_month"] is None)
+
+ident30 = transforms.parse_sync_event_identity(
+    "🔴 · Eric Johnson · Unit 1 · 3858 W Jackson · $12,120 due",
+    "3858 W Jackson, Chicago, IL, 60624")
+check("identity parser: unit form",
+      ident30 == {"tenant": "Eric Johnson", "unit_label": "Unit 1",
+                  "property_name": "3858 W Jackson",
+                  "address": "3858 W Jackson, Chicago, IL, 60624"})
+ident30b = transforms.parse_sync_event_identity(
+    "✅ · Jane Roe · 8142 S Yates · $900 paid")
+check("identity parser: no-unit form",
+      ident30b["tenant"] == "Jane Roe" and ident30b["unit_label"] == ""
+      and ident30b["property_name"] == "8142 S Yates")
+
+print("\n=== 31. Copy = drag: adoption matrix (status/payment/placeholder) ===")
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {},
+               "99@g9_2026-10": {"status": "🔴 Unpaid", "past_due": 0.0,
+                                 "calendar_id": "calA",
+                                 "rent_event_id": "ph10",
+                                 "late_event_id": None}}, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch31 = SyncOrchestrator()
+os.unlink(tmp)
+_t31 = _date(2026, 8, 15)
+upd31 = orch31.gcal.service.events.return_value.update
+rows31 = [(row_fx, {"group_id": 9, "group_name": "Bowei Yan"})]
+
+# status copy pasted on a future date → promise (source status, covers now)
+copy_status = {"id": "cpS", "start": {"date": "2026-08-20"},
+               "summary": b30_status["summary"],
+               "description": b30_status["description"]}
+with mock.patch.object(orch31, "_mirror_commitment_to_siblings") as mir31:
+    n31 = orch31._adopt_untagged_copies(
+        rows31, "g9", "calA", {}, {}, _t31, candidates=[copy_status])
+body31 = upd31.call_args.kwargs["body"]
+c31 = [c for c in orch31.state.get_commitments("99@g9")
+       if c["event_id"] == "cpS"]
+check("status copy adopted as promise (tags + registry + mirror)",
+      n31 == 1 and mir31.called
+      and body31["extendedProperties"]["private"]["okpm_event_type"]
+      == "commitment"
+      and body31["extendedProperties"]["private"]["okpm_source_type"]
+      == "status"
+      and len(c31) == 1 and c31[0]["anchor_date"] == "2026-08-20"
+      and c31[0]["covers_rent_month"] == "2026-08"
+      and c31[0]["origin_month"] == "2026-08"
+      and "cpS" in orch31._fresh_commitments)
+
+# timed paste (dateTime) → date part anchors; rebuild is all-day
+upd31.reset_mock()
+copy_timed = {"id": "cpT", "start": {"dateTime": "2026-08-22T14:00:00-05:00"},
+              "summary": b30_pay["summary"],
+              "description": b30_pay["description"]}
+with mock.patch.object(orch31, "_mirror_commitment_to_siblings"):
+    orch31._adopt_untagged_copies(
+        rows31, "g9", "calA", {}, {}, _t31, candidates=[copy_timed])
+bodyT = upd31.call_args.kwargs["body"]
+cT = [c for c in orch31.state.get_commitments("99@g9")
+      if c["event_id"] == "cpT"]
+check("timed payment copy -> all-day promise on the date part",
+      cT and cT[0]["anchor_date"] == "2026-08-22"
+      and cT[0]["source_type"] == "payment"
+      and bodyT["start"] == {"date": "2026-08-22"})
+
+# placeholder copy → kickstart for the Late-After month; original consumed
+upd31.reset_mock()
+copy_ph = {"id": "cpP", "start": {"date": "2026-09-20"},
+           "summary": b30_ph["summary"],
+           "description": b30_ph["description"]}
+with mock.patch.object(orch31, "_mirror_commitment_to_siblings"), \
+     mock.patch.object(orch31.gcal, "delete_event") as del31:
+    orch31._adopt_untagged_copies(
+        rows31, "g9", "calA", {}, {}, _t31, candidates=[copy_ph])
+cP = [c for c in orch31.state.get_commitments("99@g9")
+      if c["event_id"] == "cpP"]
+oct_entry = orch31.state.get("99@g9", "2026-10")
+check("placeholder copy -> kickstart (origin = covers = Late-After month)",
+      cP and cP[0]["source_type"] == "kickstart"
+      and cP[0]["origin_month"] == "2026-10"
+      and cP[0]["covers_rent_month"] == "2026-10")
+check("kickstart copy consumes the original placeholder",
+      del31.call_args == mock.call("calA", "ph10")
+      and oct_entry.get("rent_event_id") is None
+      and oct_entry.get("is_commitment") is True)
+
+# mangled Late After → skipped, no writes
+upd31.reset_mock()
+bad_ph = {"id": "cpBad", "start": {"date": "2026-09-21"},
+          "summary": b30_ph["summary"],
+          "description": b30_ph["description"].replace("Late After:",
+                                                       "Late Never:")}
+with mock.patch.object(orch31, "_mirror_commitment_to_siblings"):
+    nbad = orch31._adopt_untagged_copies(
+        rows31, "g9", "calA", {}, {}, _t31, candidates=[bad_ph])
+check("mangled placeholder copy skipped, no writes",
+      nbad == 0 and not upd31.called)
+
+# ambiguous tenant (status kind) → skipped
+twin31 = {**row_fx, "occupancy_id": 98}
+with mock.patch.object(orch31, "_mirror_commitment_to_siblings"):
+    namb = orch31._adopt_untagged_copies(
+        [(row_fx, {}), (twin31, {})], "g9", "calA", {}, {}, _t31,
+        candidates=[{**copy_status, "id": "cpAmb"}])
+check("ambiguous status copy skipped, no writes",
+      namb == 0 and not upd31.called)
+
+# settled copy on a paid-up unit insta-resolves in the same run's pass
+row_paid = {**row_fx, "past_due": "0.00"}
+copy_set = {"id": "cpDone", "start": {"date": "2026-08-18"},
+            "summary": b30_set["summary"],
+            "description": b30_set["description"]}
+with mock.patch.object(orch31, "_mirror_commitment_to_siblings"):
+    orch31._adopt_untagged_copies(
+        [(row_paid, {})], "g9", "calA", {}, {}, _t31,
+        candidates=[copy_set])
+adopted_body = orch31._fresh_commitments["cpDone"]
+with mock.patch.object(orch31.gcal, "delete_event") as delset, \
+     mock.patch.object(orch31.gcal, "update_commitment_event",
+                       return_value="2026-08-18"):
+    orch31._process_commitments(
+        "99@g9", "calA", {"occupancy_id": "99", "rent": 1400.0,
+                          "past_due": 0.0},
+        _t31, has_known_or_new=True, events=[adopted_body])
+check("settled copy adopts then insta-resolves (balance <= 0)",
+      mock.call("calA", "cpDone") in delset.call_args_list
+      and not any(c["event_id"] == "cpDone"
+                  for c in orch31.state.get_commitments("99@g9")))
+
+print("\n=== 32. Relaxed drag gates (split plans are first-class) ===")
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {"88@g9": [
+        {"event_id": "prior-promise", "anchor_date": "2026-08-25",
+         "source_type": "status", "origin_month": "2026-08",
+         "calendar_id": "calZ", "covers_rent_month": "2026-08"}]},
+        "88@g9_2026-08": {"status": "🔴 Unpaid", "past_due": 900.0,
+                          "calendar_id": "calZ", "status_event_id": "st88",
+                          "status_event_date": "2026-08-01",
+                          "late_event_id": None,
+                          "payment_event_ids": ["pm88"],
+                          "payment_event_dates": ["2026-08-05"]}}, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch32 = SyncOrchestrator()
+os.unlink(tmp)
+unit88 = {**unit_fx, "occupancy_id": "88", "rent": 900.0, "past_due": 900.0}
+_t32 = _date(2026, 8, 15)
+conv_body32 = {"id": "st88", "start": {"date": "2026-08-20"},
+               "extendedProperties": {"private": {
+                   "okpm_occupancy_id": "88",
+                   "okpm_event_type": "commitment",
+                   "okpm_source_type": "status"}}}
+listed32 = [
+    {"id": "st88", "start": {"date": "2026-08-20"},
+     "extendedProperties": {"private": {
+         "okpm_occupancy_id": "88", "okpm_event_type": "status"}}},
+    {"id": "pm88", "start": {"date": "2026-08-28"},
+     "extendedProperties": {"private": {
+         "okpm_occupancy_id": "88", "okpm_event_type": "payment"}}},
+]
+ins32 = orch32.gcal.service.events.return_value.insert
+ins32.return_value.execute.return_value = {"id": "spawned-pm"}
+with mock.patch.object(orch32.gcal, "convert_to_commitment",
+                       return_value=conv_body32) as conv32, \
+     mock.patch.object(orch32.gcal, "revert_event_to_date") as rev32, \
+     mock.patch.object(orch32, "_mirror_commitment_to_siblings"):
+    orch32._detect_and_convert_drags(
+        "88@g9", "calZ", unit88, _t32, "2026-08", listed32)
+anchors32 = {(c["source_type"], c["anchor_date"])
+             for c in orch32.state.get_commitments("88@g9")}
+check("status drag converts even though a promise already covers the month",
+      conv32.called
+      and ("status", "2026-08-20") in anchors32
+      and ("status", "2026-08-25") in anchors32)
+check("payment drag spawns a promise while covered, then snaps back",
+      ("payment", "2026-08-28") in anchors32
+      and mock.call("calZ", "pm88", "2026-08-05") in rev32.call_args_list)
+
+print("\n=== 33. Q9: suppression is creation-only; cleanup narrowed ===")
+rss = transforms.resolve_status_suppression
+prom = [{"source_type": "status", "origin_month": "2026-08",
+         "covers_rent_month": "2026-08", "event_id": "p1"}]
+kick = [{"source_type": "kickstart", "origin_month": "2026-08",
+         "covers_rent_month": "2026-08", "event_id": "k1"}]
+check("promise-covered + tracked original -> NOT suppressed (Q9)",
+      rss(prom, "2026-08", False, "stX")["suppress"] is False
+      and rss(prom, "2026-08", False, "stX")["covered"] is True)
+check("promise-covered + no tracked original -> suppressed",
+      rss(prom, "2026-08", False, None)["suppress"] is True)
+check("kickstart-covered -> suppressed (legacy semantics)",
+      rss(kick, "2026-08", False, "stX")["suppress"] is True
+      and rss(kick, "2026-08", False, "stX")["kickstart_covers"] is True)
+check("payments present -> never suppressed",
+      rss(prom, "2026-08", True, None)["suppress"] is False)
+check("uncovered month -> nothing",
+      rss([], "2026-08", False, None) ==
+      {"covered": False, "kickstart_covers": False, "suppress": False})
+
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"):
+    orch33 = SyncOrchestrator()
+month_events = {
+    "rent":   [{"id": "rDebris", "start": {"date": "2026-08-01"}}],
+    "status": [{"id": "stCanon", "start": {"date": "2026-08-01"}},
+               {"id": "stMoved", "start": {"date": "2026-08-21"}}],
+}
+prior33 = {"status_event_date": "2026-08-01"}
+with mock.patch.object(orch33.gcal, "find_month_events",
+                       side_effect=lambda cal, oid, m, t: month_events[t]), \
+     mock.patch.object(orch33.gcal, "delete_event") as del33:
+    orch33._cleanup_covered_month_leftovers(
+        "88", "calZ", "2026-08", prior33, set(),
+        kickstart_covers=False, due_date=_date(2026, 8, 1))
+check("promise cover: only rent debris deleted (Q9 original untouched)",
+      del33.call_args_list == [mock.call("calZ", "rDebris")])
+with mock.patch.object(orch33.gcal, "find_month_events",
+                       side_effect=lambda cal, oid, m, t: month_events[t]), \
+     mock.patch.object(orch33.gcal, "delete_event") as del33b:
+    orch33._cleanup_covered_month_leftovers(
+        "88", "calZ", "2026-08", prior33, set(),
+        kickstart_covers=True, due_date=_date(2026, 8, 1))
+check("kickstart cover: canonical status deleted, MOVED status left "
+      "for drag detection",
+      mock.call("calZ", "stCanon") in del33b.call_args_list
+      and mock.call("calZ", "stMoved") not in del33b.call_args_list
+      and mock.call("calZ", "rDebris") in del33b.call_args_list)
+
+print("\n=== 34. Drag + copy interleaves (any order, dedup on same date) ===")
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {},
+               "99@g9_2026-08": {"status": "🔴 Unpaid", "past_due": 700.0,
+                                 "calendar_id": "calA",
+                                 "status_event_id": "st99",
+                                 "status_event_date": "2026-08-01",
+                                 "late_event_id": None,
+                                 "payment_event_ids": [],
+                                 "payment_event_dates": []}}, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch34 = SyncOrchestrator()
+os.unlink(tmp)
+unit99 = {"occupancy_id": "99", "rent": 1400.0, "past_due": 700.0}
+_t34 = _date(2026, 8, 15)
+conv_body34 = {"id": "st99", "start": {"date": "2026-08-20"},
+               "extendedProperties": {"private": {
+                   "okpm_occupancy_id": "99",
+                   "okpm_event_type": "commitment",
+                   "okpm_source_type": "status"}}}
+
+# (a) copy adopted, then the drag converts in the SAME submit run
+with mock.patch.object(orch34, "_mirror_commitment_to_siblings"):
+    orch34._adopt_untagged_copies(
+        rows31, "g9", "calA", {}, {}, _t34,
+        candidates=[{"id": "cpB", "start": {"date": "2026-08-25"},
+                     "summary": b30_status["summary"],
+                     "description": b30_status["description"]}])
+listed34 = [{"id": "st99", "start": {"date": "2026-08-20"},
+             "extendedProperties": {"private": {
+                 "okpm_occupancy_id": "99", "okpm_event_type": "status"}}}]
+with mock.patch.object(orch34.gcal, "convert_to_commitment",
+                       return_value=conv_body34) as conv34, \
+     mock.patch.object(orch34, "_mirror_commitment_to_siblings"):
+    orch34._detect_and_convert_drags(
+        "99@g9", "calA", unit99, _t34, "2026-08", listed34)
+a34 = {c["anchor_date"] for c in orch34.state.get_commitments("99@g9")}
+check("copy then drag, same run: BOTH promises survive",
+      conv34.called and a34 == {"2026-08-25", "2026-08-20"})
+
+# (b) drag onto the SAME date as the copy → dedup keeps the older (copy)
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {"99@g9": [
+        {"event_id": "cpB", "anchor_date": "2026-08-25",
+         "source_type": "status", "origin_month": "2026-08",
+         "calendar_id": "calA", "covers_rent_month": "2026-08"},
+        {"event_id": "st99", "anchor_date": "2026-08-25",
+         "source_type": "status", "origin_month": "2026-08",
+         "calendar_id": "calA", "covers_rent_month": "2026-08"}]}}, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch34b = SyncOrchestrator()
+os.unlink(tmp)
+live34b = [{"id": "cpB", "start": {"date": "2026-08-25"},
+            "extendedProperties": {"private": {
+                "okpm_occupancy_id": "99", "okpm_event_type": "commitment",
+                "okpm_source_type": "status"}}},
+           {"id": "st99", "start": {"date": "2026-08-25"},
+            "extendedProperties": {"private": {
+                "okpm_occupancy_id": "99", "okpm_event_type": "commitment",
+                "okpm_source_type": "status"}}}]
+with mock.patch.object(orch34b.gcal, "delete_event") as del34, \
+     mock.patch.object(orch34b.gcal, "update_commitment_event",
+                       return_value="2026-08-25"):
+    orch34b._process_commitments(
+        "99@g9", "calA", unit99, _t34, has_known_or_new=True,
+        events=live34b)
+c34b = orch34b.state.get_commitments("99@g9")
+check("drag onto the copy's date: same-anchor dedup keeps the older copy",
+      [c["event_id"] for c in c34b] == ["cpB"]
+      and mock.call("calA", "st99") in del34.call_args_list)
+
+print("\n=== 35. Notice rows sync; horizon cap; beyond-horizon prune ===")
+roll35 = [
+    {"occupancy_id": 65, "status": "Notice-Unrented", "tenant": "A, B",
+     "move_out": "2026-08-31"},
+    {"occupancy_id": 1, "status": "Current", "tenant": "C, D"},
+    {"occupancy_id": None, "status": "Vacant-Unrented",
+     "last_move_out": "2026-07-31"},
+]
+check("active_rows keeps every row with an occupancy_id",
+      [r.get("occupancy_id") for r in transforms.active_rows(roll35)]
+      == [65, 1])
+rlh = transforms.resolve_lease_horizon
+check("horizon: move_out caps a missing lease_to (fallback first)",
+      rlh("", "2026-08-31", _date(2026, 8, 1), 12) == _date(2026, 8, 31))
+check("horizon: lease_to alone unchanged",
+      rlh("2026-11-30", "", _date(2026, 8, 1), 12) == _date(2026, 11, 30))
+check("horizon: past move_out pulls the horizon before next month",
+      rlh("2027-08-01", "2026-07-31", _date(2026, 8, 1), 12)
+      == _date(2026, 7, 31))
+check("horizon: mangled move_out ignored",
+      rlh("2026-11-30", "soon", _date(2026, 8, 1), 12) == _date(2026, 11, 30))
+
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({"_commitments": {},
+               "65@g9_2026-09": {"past_due": 0.0, "calendar_id": "calA",
+                                 "rent_event_id": "r9",
+                                 "late_event_id": None},
+               "65@g9_2026-10": {"past_due": 0.0, "calendar_id": "calA",
+                                 "rent_event_id": "r10",
+                                 "is_commitment": True,
+                                 "late_event_id": None},
+               "65@g9_2026-11": {"past_due": 0.0, "calendar_id": "calOTHER",
+                                 "rent_event_id": "r11",
+                                 "late_event_id": None},
+               "65@g9_2026-12": {"past_due": 0.0, "calendar_id": "calA",
+                                 "rent_event_id": "r12",
+                                 "late_event_id": None}}, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch35 = SyncOrchestrator()
+os.unlink(tmp)
+with mock.patch.object(orch35.gcal, "delete_event") as del35:
+    orch35._prune_beyond_horizon("65@g9", "calA", "2026-09", "2026-08")
+check("beyond-horizon placeholder pruned (event + entry)",
+      del35.call_args_list == [mock.call("calA", "r12")]
+      and orch35.state.get("65@g9", "2026-12") is None)
+check("kickstart / other-calendar / in-horizon entries untouched",
+      orch35.state.get("65@g9", "2026-09") is not None
+      and orch35.state.get("65@g9", "2026-10") is not None
+      and orch35.state.get("65@g9", "2026-11") is not None)
+
+print("\n=== 36. Departed occupancies: flag → dual-confirm → clean ===")
+check("DEPARTED_MAX_PER_RUN default is 10", _cfg.DEPARTED_MAX_PER_RUN == 10)
+with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                 encoding="utf-8") as f:
+    json.dump({
+        "_commitments": {"41@g2": [
+            {"event_id": "prom41", "anchor_date": "2026-08-20",
+             "source_type": "status", "origin_month": "2026-08",
+             "calendar_id": "calB", "covers_rent_month": "2026-08"}]},
+        "_calendars": {"g2": "calB"},
+        "41@g2_2026-06": {"status": "✅ Paid", "past_due": 0.0,
+                          "calendar_id": "calB", "status_event_id": "sJun",
+                          "collapse_state": "collapsed",
+                          "payment_event_ids": [], "late_event_id": None},
+        "41@g2_2026-07": {"status": "🔴 Unpaid", "past_due": 9090.0,
+                          "calendar_id": "calB", "status_event_id": "sJul",
+                          "collapse_state": None,
+                          "payment_event_ids": ["pJul"],
+                          "late_event_id": None},
+        "41@g2_2026-09": {"status": "🔴 Unpaid", "past_due": 0.0,
+                          "calendar_id": "calB", "rent_event_id": "rSep",
+                          "late_event_id": None},
+    }, f)
+    tmp = f.name
+with mock.patch("google.oauth2.service_account.Credentials.from_service_account_info"), \
+     mock.patch("googleapiclient.discovery.build"), \
+     mock.patch.object(state, "STATE_FILE", Path(tmp)):
+    orch36 = SyncOrchestrator()
+os.unlink(tmp)
+_t36 = _date(2026, 8, 16)
+prev36 = [{"occupancy_id": 41, "tenant": "Johnson, Eric", "unit": "1",
+           "unit_id": 7, "property_name": "3858 W Jackson",
+           "property_street": "3858 W Jackson", "property_city": "Chicago",
+           "property_state": "IL", "property_zip": "60624",
+           "move_out": None}]
+roll36 = [{"occupancy_id": None, "status": "Vacant-Unrented", "unit_id": 7,
+           "last_move_out": "2026-07-31"}]
+
+orch36._flag_departures(roll36, prev36, _t36)
+p36 = orch36.state.data["_departed_pending"].get("41")
+check("vanished oid flagged with last row + unit_id + backlog",
+      p36 is not None and p36["unit_id"] == 7
+      and p36["last_row"]["tenant"] == "Johnson, Eric"
+      and p36["backlog"] is True and p36["scopes"] == ["g2"])
+
+# still in tenant_directory → dual-report blocks the cleanup
+with mock.patch.object(orch36.gcal, "delete_event") as del36a:
+    orch36._clean_departed(roll36, [{"occupancy_id": 41}], _t36)
+check("dual-report: oid still in tenant_directory -> untouched",
+      not del36a.called
+      and "41" in orch36.state.data["_departed_pending"])
+
+# absent from both reports → full cleanup
+ins36 = orch36.gcal.service.events.return_value.insert
+ins36.return_value.execute.return_value = {"id": "mk41"}
+ins36.reset_mock()
+with mock.patch.object(orch36.gcal, "delete_event") as del36, \
+     mock.patch.object(orch36.gcal, "find_all_events_by_type",
+                       return_value=[]) as fae36:
+    orch36._clean_departed(roll36, [], _t36)
+deleted36 = {c.args[1] for c in del36.call_args_list}
+marker36 = ins36.call_args.kwargs["body"]
+audit36 = orch36.state.data["_departed"].get("41")
+check("cleanup deletes promises, unsettled status, payments, placeholders",
+      deleted36 == {"prom41", "sJul", "pJul", "rSep"})
+check("settled month's event kept", "sJun" not in deleted36
+      and audit36 and audit36["events_kept"] == 1)
+check("marker: 📦, no dollar figure, AppFolio pointer, move-out from "
+      "vacant-row join",
+      marker36["summary"].startswith("📦 · Eric Johnson · Unit 1 · "
+                                     "3858 W Jackson")
+      and "$" not in marker36["summary"] + marker36["description"]
+      and "Final ledger lives in AppFolio." in marker36["description"]
+      and "Moved out:    Jul 31, 2026" in marker36["description"]
+      and marker36["start"] == {"date": "2026-07-31"}
+      and marker36["end"] == {"date": "2026-08-01"}
+      and marker36["extendedProperties"]["private"]["okpm_event_type"]
+      == "moved_out")
+check("state purged + audit recorded + pending cleared + backlog marker",
+      orch36.state.scoped_months("41@g2") == []
+      and "41" not in orch36.state.data["_departed_pending"]
+      and audit36["move_out_date"] == "2026-07-31"
+      and audit36["months_purged"] == 3
+      and orch36.state.migration_done("departed_backlog_v1"))
+
+# reappearance BEFORE cleanup clears the flag
+orch36.state.data["_departed_pending"]["55"] = {
+    "first_missing_at": "2026-08-15", "scopes": ["g2"], "backlog": False}
+orch36._flag_departures(
+    [{"occupancy_id": 55, "status": "Current"}], None, _t36)
+check("reappeared pending oid -> flag cleared",
+      "55" not in orch36.state.data["_departed_pending"])
+
+# reappearance AFTER cleanup removes the markers + audit
+with mock.patch.object(orch36.gcal, "delete_event") as del36c, \
+     mock.patch.object(orch36.gcal, "find_all_events_by_type",
+                       return_value=[{"id": "mk41b"}]):
+    orch36._clean_departed(
+        [{"occupancy_id": 41, "status": "Current"}], [], _t36)
+check("post-clean reappearance: markers removed, audit dropped",
+      {c.args[1] for c in del36c.call_args_list} >= {"mk41", "mk41b"}
+      and "41" not in orch36.state.data["_departed"])
+
+# circuit breaker: too many NON-backlog confirmables defer entirely
+with mock.patch.object(_orch_mod, "DEPARTED_MAX_PER_RUN", 2):
+    for i in (201, 202, 203):
+        orch36.state.data[f"{i}@g2_2026-07"] = {
+            "past_due": 1.0, "calendar_id": "calB",
+            "status_event_id": f"s{i}", "late_event_id": None}
+        orch36.state.data["_departed_pending"][str(i)] = {
+            "first_missing_at": "2026-08-15", "scopes": ["g2"],
+            "backlog": False, "last_row": None, "unit_id": None}
+    with mock.patch.object(orch36.gcal, "delete_event") as del36d:
+        orch36._clean_departed([], [], _t36)
+    check("mass-vanish breaker defers cleanup (3 > 2)",
+          not del36d.called
+          and all(str(i) in orch36.state.data["_departed_pending"]
+                  for i in (201, 202, 203)))
+
+# resumability: a missing calendar id keeps the oid pending, state intact
+orch36.state.data["_departed_pending"] = {
+    "301": {"first_missing_at": "2026-08-15", "scopes": ["g7"],
+            "backlog": False, "last_row": None, "unit_id": None}}
+orch36.state.data["301@g7_2026-07"] = {
+    "past_due": 5.0, "calendar_id": "calMissing",
+    "status_event_id": "s301", "late_event_id": None}
+with mock.patch.object(orch36.gcal, "delete_event") as del36e:
+    orch36._clean_departed([], [], _t36)
+check("missing calendar id -> cleanup fails safe (pending + state kept)",
+      "301" in orch36.state.data["_departed_pending"]
+      and orch36.state.get("301@g7", "2026-07") is not None
+      and not del36e.called)
 
 print()
 if failures:

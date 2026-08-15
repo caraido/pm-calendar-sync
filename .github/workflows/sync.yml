@@ -66,6 +66,7 @@ jobs:
           COMMITMENT_LOOKAHEAD_MONTHS:   ${{ vars.COMMITMENT_LOOKAHEAD_MONTHS   || '3' }}
           TIMEZONE:                      ${{ vars.TIMEZONE                      || 'America/Chicago' }}
           FORCE_REFRESH:                 ${{ vars.FORCE_REFRESH                 || 'false' }}
+          DEPARTED_MAX_PER_RUN:          ${{ vars.DEPARTED_MAX_PER_RUN          || '10' }}
           # Dispatch uses its input; the nightly cron (string must match the
           # schedule entry above verbatim) is full_nightly; other crons: full.
           RUN_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '15 8 * * *' && 'full_nightly' || 'full') }}
