@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-09-14T14:59:41.161017",
+  "refreshed_at": "2026-09-15T13:30:47.266206",
   "tenants": [
     {
       "tenant_address": "3345 W Walnut, Basement Chicago, IL 60624",
@@ -614,7 +614,7 @@
       "emails": "oscarbracho60@gmail.com",
       "move_in": "2026-09-01",
       "lease_to": "2027-08-31",
-      "rent": "0.00",
+      "rent": "1200.00",
       "deposit": "0.00",
       "tenant_tags": null,
       "tenant_agent": null,
@@ -7732,23 +7732,23 @@
   ],
   "property_groups": [
     {
-      "property": "1520 S Spaulding - Margot & Peter - 1520 S Spaulding Ave Chicago, IL 60623",
-      "property_name": "1520 S Spaulding - Margot & Peter",
-      "property_id": 48,
-      "property_address": "1520 S Spaulding Ave Chicago, IL 60623",
-      "property_street": "1520 S Spaulding Ave",
+      "property": "3356 W Douglas - 3356 W Douglas Chicago, IL 60623",
+      "property_name": "3356 W Douglas",
+      "property_id": 49,
+      "property_address": "3356 W Douglas Chicago, IL 60623",
+      "property_street": "3356 W Douglas",
       "property_street2": null,
       "property_city": "Chicago",
       "property_state": "IL",
       "property_zip": "60623",
       "property_county": "Cook County",
-      "property_legacy_street1": "1520 S Spaulding Ave",
+      "property_legacy_street1": "3356 W Douglas",
       "property_group_name": "Properties not assigned to a property group",
       "portfolio": "Open Key Property Management",
       "property_group_id": null,
       "portfolio_id": 3,
       "affordable_housing_property": "No",
-      "property_uuid": "32f538c6-9cb8-11f1-a1f8-025658a0670f"
+      "property_uuid": "57f9ff01-b05f-11f1-a1f8-025658a0670f"
     },
     {
       "property": "Open Key Clearing - 1355 North Milwaukee Avenue UNIT 201 Chicago, IL 60622",
@@ -7920,6 +7920,25 @@
       "portfolio_id": 3,
       "affordable_housing_property": "No",
       "property_uuid": "e31e404b-2702-11f1-8ab6-12de4bf481cd"
+    },
+    {
+      "property": "1520 S Spaulding - Margot & Peter - 1520 S Spaulding Ave Chicago, IL 60623",
+      "property_name": "1520 S Spaulding - Margot & Peter",
+      "property_id": 48,
+      "property_address": "1520 S Spaulding Ave Chicago, IL 60623",
+      "property_street": "1520 S Spaulding Ave",
+      "property_street2": null,
+      "property_city": "Chicago",
+      "property_state": "IL",
+      "property_zip": "60623",
+      "property_county": "Cook County",
+      "property_legacy_street1": "1520 S Spaulding Ave",
+      "property_group_name": "Margot & Peter",
+      "portfolio": "Open Key Property Management",
+      "property_group_id": 10,
+      "portfolio_id": 3,
+      "affordable_housing_property": "No",
+      "property_uuid": "32f538c6-9cb8-11f1-a1f8-025658a0670f"
     },
     {
       "property": "1540 S Keeler - 1540 S Keeler Chicago, IL 60623",
