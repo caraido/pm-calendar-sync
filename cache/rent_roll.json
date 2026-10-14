@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-10-14T01:32:06.914655",
+  "refreshed_at": "2026-10-14T06:54:50.023619",
   "rows": [
     {
       "property": "10910 S Eberhart - 10910 S Eberhart Chicago, IL",
@@ -709,8 +709,8 @@
       "unit_type": null,
       "bd_ba": "2/1.00",
       "tenant": null,
-      "status": "Vacant-Unrented",
-      "status_by_square_feet": "Vacant-Unrented",
+      "status": "Vacant-Rented",
+      "status_by_square_feet": "Vacant-Rented",
       "sqft": null,
       "market_rent": null,
       "advertised_rent": "0.00",
@@ -6520,7 +6520,7 @@
       "lease_to": null,
       "move_in": "2026-05-01",
       "move_out": null,
-      "past_due": "1630.00",
+      "past_due": "30.00",
       "nsf": 0,
       "late": 1,
       "amenities": null,
@@ -8314,9 +8314,9 @@
       "lease_to": "2026-12-31",
       "move_in": "1970-01-01",
       "move_out": null,
-      "past_due": "3060.00",
+      "past_due": "1500.00",
       "nsf": 4,
-      "late": 1,
+      "late": 0,
       "amenities": null,
       "additional_tenants": null,
       "monthly_charges": null,
