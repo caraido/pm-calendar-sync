@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-10-20T13:32:23.804762",
+  "refreshed_at": "2026-10-21T13:44:16.853206",
   "tenants": [
     {
       "tenant_address": "3345 W Walnut, Basement Chicago, IL 60624",
@@ -227,7 +227,7 @@
       "late_fee_grace_balance": "0.00",
       "max_daily_late_fees_amount": null,
       "ignore_partial_payments": null,
-      "ais_enabled": "Yes",
+      "ais_enabled": "No",
       "insurance_company_name": null,
       "insurance_expiration": null,
       "insurance_policy_number": null,
@@ -3925,7 +3925,7 @@
       "late_fee_grace_balance": "0.00",
       "max_daily_late_fees_amount": null,
       "ignore_partial_payments": null,
-      "ais_enabled": "Yes",
+      "ais_enabled": "No",
       "insurance_company_name": null,
       "insurance_expiration": null,
       "insurance_policy_number": null,
@@ -5191,7 +5191,7 @@
       "tenant_tags": null,
       "tenant_agent": null,
       "tenant_visibility": "Active",
-      "certified_funds_only": "No",
+      "certified_funds_only": "Yes",
       "lease_from": "2026-08-15",
       "last_lease_renewal": null,
       "move_out": null,
@@ -5989,7 +5989,7 @@
       "late_fee_grace_balance": "0.00",
       "max_daily_late_fees_amount": null,
       "ignore_partial_payments": null,
-      "ais_enabled": "Yes",
+      "ais_enabled": "No",
       "insurance_company_name": null,
       "insurance_expiration": null,
       "insurance_policy_number": null,
