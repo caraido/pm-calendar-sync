@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-10-23T13:21:56.235215",
+  "refreshed_at": "2026-10-24T12:39:01.959278",
   "tenants": [
     {
       "tenant_address": "3345 W Walnut, Basement Chicago, IL 60624",
@@ -977,7 +977,7 @@
       "tenant_tags": null,
       "tenant_agent": null,
       "tenant_visibility": "Active",
-      "certified_funds_only": "No",
+      "certified_funds_only": "Yes",
       "lease_from": "2025-11-15",
       "last_lease_renewal": null,
       "move_out": null,
@@ -1235,7 +1235,7 @@
       "tenant_tags": null,
       "tenant_agent": null,
       "tenant_visibility": "Active",
-      "certified_funds_only": "No",
+      "certified_funds_only": "Yes",
       "lease_from": "2025-11-15",
       "last_lease_renewal": null,
       "move_out": null,
@@ -2869,7 +2869,7 @@
       "tenant_tags": null,
       "tenant_agent": null,
       "tenant_visibility": "Active",
-      "certified_funds_only": "No",
+      "certified_funds_only": "Yes",
       "lease_from": "2025-12-01",
       "last_lease_renewal": null,
       "move_out": null,
@@ -8431,6 +8431,25 @@
     }
   ],
   "property_groups": [
+    {
+      "property": "1842 S Drake - 1842 S Drake Chicago, IL 60623",
+      "property_name": "1842 S Drake",
+      "property_id": 50,
+      "property_address": "1842 S Drake Chicago, IL 60623",
+      "property_street": "1842 S Drake",
+      "property_street2": null,
+      "property_city": "Chicago",
+      "property_state": "IL",
+      "property_zip": "60623",
+      "property_county": "Cook County",
+      "property_legacy_street1": "1842 S Drake",
+      "property_group_name": "Properties not assigned to a property group",
+      "portfolio": "Open Key Property Management",
+      "property_group_id": null,
+      "portfolio_id": 3,
+      "affordable_housing_property": "No",
+      "property_uuid": "627b0826-cf0c-11f1-a1f8-025658a0670f"
+    },
     {
       "property": "3356 W Douglas - 3356 W Douglas Chicago, IL 60623",
       "property_name": "3356 W Douglas",
