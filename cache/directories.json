@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-10-30T15:01:14.880861",
+  "refreshed_at": "2026-10-31T14:30:14.557708",
   "tenants": [
     {
       "tenant_address": "3345 W Walnut, Basement Chicago, IL 60624",
@@ -2996,7 +2996,7 @@
       "commercial_lease_type": null,
       "room_name": null,
       "bed_name": null,
-      "utility_signup_status": "Incomplete",
+      "utility_signup_status": "Complete",
       "upcoming_hud_recertification_due_date": null,
       "upcoming_lihtc_recertification_due_date": null,
       "occupancy_id": 137,
@@ -8641,6 +8641,25 @@
       "property_uuid": "e31e404b-2702-11f1-8ab6-12de4bf481cd"
     },
     {
+      "property": "King Drive - 6317-6319 S Martin Luther King Drive Chicago, IL 60637",
+      "property_name": "King Drive",
+      "property_id": 51,
+      "property_address": "6317-6319 S Martin Luther King Drive Chicago, IL 60637",
+      "property_street": "6317-6319 S Martin Luther King Drive",
+      "property_street2": null,
+      "property_city": "Chicago",
+      "property_state": "IL",
+      "property_zip": "60637",
+      "property_county": "Cook County",
+      "property_legacy_street1": "6317-6319 S Martin Luther King Drive",
+      "property_group_name": "L&P Midwest Capital",
+      "portfolio": "Open Key Property Management",
+      "property_group_id": 8,
+      "portfolio_id": 3,
+      "affordable_housing_property": "No",
+      "property_uuid": "39c8451b-d47b-11f1-a1f8-025658a0670f"
+    },
+    {
       "property": "1520 S Spaulding - Margot & Peter - 1520 S Spaulding Ave Chicago, IL 60623",
       "property_name": "1520 S Spaulding - Margot & Peter",
       "property_id": 48,
@@ -8791,6 +8810,25 @@
       "portfolio_id": 3,
       "affordable_housing_property": "No",
       "property_uuid": "e83d13fd-2a3a-11f1-b80b-06ae7c87102a"
+    },
+    {
+      "property": "King Drive - 6317-6319 S Martin Luther King Drive Chicago, IL 60637",
+      "property_name": "King Drive",
+      "property_id": 51,
+      "property_address": "6317-6319 S Martin Luther King Drive Chicago, IL 60637",
+      "property_street": "6317-6319 S Martin Luther King Drive",
+      "property_street2": null,
+      "property_city": "Chicago",
+      "property_state": "IL",
+      "property_zip": "60637",
+      "property_county": "Cook County",
+      "property_legacy_street1": "6317-6319 S Martin Luther King Drive",
+      "property_group_name": "Open Key Investment Property Group",
+      "portfolio": "Open Key Property Management",
+      "property_group_id": 7,
+      "portfolio_id": 3,
+      "affordable_housing_property": "No",
+      "property_uuid": "39c8451b-d47b-11f1-a1f8-025658a0670f"
     },
     {
       "property": "8124 S Maryland - 8124 S Maryland Chicago, IL 60619",
@@ -9361,6 +9399,25 @@
       "portfolio_id": 3,
       "affordable_housing_property": "No",
       "property_uuid": "28a500ff-2a5e-11f1-b80b-06ae7c87102a"
+    },
+    {
+      "property": "King Drive - 6317-6319 S Martin Luther King Drive Chicago, IL 60637",
+      "property_name": "King Drive",
+      "property_id": 51,
+      "property_address": "6317-6319 S Martin Luther King Drive Chicago, IL 60637",
+      "property_street": "6317-6319 S Martin Luther King Drive",
+      "property_street2": null,
+      "property_city": "Chicago",
+      "property_state": "IL",
+      "property_zip": "60637",
+      "property_county": "Cook County",
+      "property_legacy_street1": "6317-6319 S Martin Luther King Drive",
+      "property_group_name": "Tian Xin Property Group",
+      "portfolio": "Open Key Property Management",
+      "property_group_id": 2,
+      "portfolio_id": 3,
+      "affordable_housing_property": "No",
+      "property_uuid": "39c8451b-d47b-11f1-a1f8-025658a0670f"
     },
     {
       "property": "11947 South State Street - 11947 South State Street Chicago, IL 60628",
