@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-11-13T16:16:21.565337",
+  "refreshed_at": "2026-11-14T15:01:07.400955",
   "tenants": [
     {
       "tenant_address": "3345 W Walnut, Basement Chicago, IL 60624",
@@ -8776,25 +8776,6 @@
   ],
   "property_groups": [
     {
-      "property": "1842 S Drake - 1842 S Drake Chicago, IL 60623",
-      "property_name": "1842 S Drake",
-      "property_id": 50,
-      "property_address": "1842 S Drake Chicago, IL 60623",
-      "property_street": "1842 S Drake",
-      "property_street2": null,
-      "property_city": "Chicago",
-      "property_state": "IL",
-      "property_zip": "60623",
-      "property_county": "Cook County",
-      "property_legacy_street1": "1842 S Drake",
-      "property_group_name": "Properties not assigned to a property group",
-      "portfolio": "Open Key Property Management",
-      "property_group_id": null,
-      "portfolio_id": 3,
-      "affordable_housing_property": "No",
-      "property_uuid": "627b0826-cf0c-11f1-a1f8-025658a0670f"
-    },
-    {
       "property": "Open Key Clearing - 1355 North Milwaukee Avenue UNIT 201 Chicago, IL 60622",
       "property_name": "Open Key Clearing",
       "property_id": 47,
@@ -8907,6 +8888,25 @@
       "portfolio_id": 3,
       "affordable_housing_property": "No",
       "property_uuid": "e285da13-2702-11f1-8ab6-12de4bf481cd"
+    },
+    {
+      "property": "1842 S Drake - 1842 S Drake Chicago, IL 60623",
+      "property_name": "1842 S Drake",
+      "property_id": 50,
+      "property_address": "1842 S Drake Chicago, IL 60623",
+      "property_street": "1842 S Drake",
+      "property_street2": null,
+      "property_city": "Chicago",
+      "property_state": "IL",
+      "property_zip": "60623",
+      "property_county": "Cook County",
+      "property_legacy_street1": "1842 S Drake",
+      "property_group_name": "L&P Midwest Capital",
+      "portfolio": "Open Key Property Management",
+      "property_group_id": 8,
+      "portfolio_id": 3,
+      "affordable_housing_property": "No",
+      "property_uuid": "627b0826-cf0c-11f1-a1f8-025658a0670f"
     },
     {
       "property": "348 S Hamlin Blvd - 348 S Hamlin Blvd Chicago, IL 60624",
